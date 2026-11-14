@@ -80,11 +80,11 @@ export function createSupportController(deps: AppDeps) {
 
 export function createPublicEvidenceController(deps: AppDeps) {
   const service = createPublicEvidenceService(deps);
-  const downloadEvidence: RequestHandler = async (req, res) => {
+  const downloadSignedEvidence: RequestHandler = async (req, res) => {
     const file = await service.readSignedEvidence(requestInput(req));
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
     res.type(file.mimeType).send(file.buffer);
   };
-  return { downloadEvidence };
+  return { downloadSignedEvidence };
 }

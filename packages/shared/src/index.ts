@@ -121,3 +121,9 @@ export interface Settings {
 export const money = (kobo: number) =>
   `₦${(kobo / 100).toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 export const statusLabel = (status: string) => status.toLowerCase().replaceAll('_', ' ');
+
+/**
+ * API contract types generated from apps/api/openapi.json (`npm run api:contract`).
+ * Example: `paths['/v1/bookings/{id}']['get']` or `operations['wallet.startFunding']`.
+ */
+export type { components, operations, paths } from './api-types';

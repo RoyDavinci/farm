@@ -1,13 +1,13 @@
 import 'dotenv/config';
-import { createHash,createHmac,randomUUID } from 'node:crypto';
-import { mkdtempSync,readdirSync,readFileSync } from 'node:fs';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import request from 'supertest';
-import { afterAll,afterEach,beforeAll,beforeEach,describe,expect,it,vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import { config } from '../src/config/index.js';
-import { connect,type Database } from '../src/database/client.js';
+import { connect, type Database } from '../src/database/client.js';
 import { expireReservations } from '../src/services/booking.service.js';
 import { recoverFunding } from '../src/services/funding-recovery.service.js';
 import { deliverPush } from '../src/services/push.service.js';
@@ -1166,5 +1166,25 @@ describe('funding recovery', () => {
     );
     expect((await recoverFunding(db, c)).expired).toBe(1);
     expect(await ledgerBalances()).toBe(0);
+  });
+});
+describe('API contract', () => {
+  it('keeps openapi.json in step with the mounted routes', async () => {
+    const { buildOpenApi, render, specPath } = await import('../scripts/openapi.js');
+    const { readFileSync } = await import('node:fs');
+    expect(readFileSync(specPath, 'utf8')).toBe(render());
+    const spec = buildOpenApi();
+    const ops = Object.values(spec.paths).flatMap((p) => Object.values(p)) as any[];
+    // Every money/order write requires an Idempotency-Key; public routes need no token.
+    const op = (path: string, method: string) => (spec.paths as any)[path][method];
+    expect(op('/v1/bookings/{id}/{action}', 'post').parameters).toContainEqual({
+      $ref: '#/components/parameters/IdempotencyKey',
+    });
+    expect(op('/v1/wallet/fund', 'post').parameters).toContainEqual({
+      $ref: '#/components/parameters/IdempotencyKey',
+    });
+    expect(op('/v1/auth/login', 'post').security).toEqual([]);
+    expect(op('/v1/admin/payouts', 'get').security).toBeUndefined();
+    expect(new Set(ops.map((o) => o.operationId)).size).toBe(ops.length);
   });
 });

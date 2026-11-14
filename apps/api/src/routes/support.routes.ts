@@ -25,6 +25,6 @@ export function supportRoutes(deps: AppDeps) {
 export function publicEvidenceRoutes(deps: AppDeps) {
   const r = Router();
   const c = createPublicEvidenceController(deps);
-  r.get('/evidence/:id', c.downloadEvidence);
+  r.get('/evidence/:id', c.downloadSignedEvidence);
   return r;
 }

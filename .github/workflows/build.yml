@@ -26,6 +26,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      # The OpenAPI contract and generated client types must match the code.
+      - run: npm run api:contract && git diff --exit-code apps/api/openapi.json packages/shared/src/api-types.ts
       - run: npm run build
       - run: npm run export:web -w @farmers-market/mobile
       - run: docker build -f apps/api/Dockerfile -t farmers-market-api:ci .
