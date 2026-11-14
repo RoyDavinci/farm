@@ -1,5 +1,4 @@
-import multer from 'multer';
-import { createHmac } from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import sharp from 'sharp';
 import { z } from 'zod';
 import type { Config } from '../config/index.js';
@@ -53,10 +52,6 @@ export function signedLink(c: Config, id: string) {
 export function createVerificationService(deps: AppDeps) {
   const { db, config: c } = deps;
   const store = storage(c);
-  const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 8 * 1024 * 1024, files: 1 },
-  });
   const fields = (doc: any) => {
     const { storage_key, storage_provider, ...rest } = doc;
     return rest;
@@ -113,12 +108,95 @@ export function createVerificationService(deps: AppDeps) {
       );
     return fields(doc);
   }
-  return { listMyDocuments, listDocuments, getDocumentLink, reviewDocument };
+  /** Validates and privately stores a seller or driver verification document. */
+  async function uploadDocument(user: any, input: RequestInput) {
+    const kind = z.enum(kinds).parse(input.body?.kind);
+    const subject = z
+      .enum(subjects)
+      .default('seller')
+      .parse(input.body?.subject || undefined);
+    const [profile] = await db.query(
+      `SELECT status FROM ${subject === 'driver' ? 'drivers' : 'sellers'} WHERE user_id=$1`,
+      [user.id],
+    );
+    ensure(
+      profile,
+      403,
+      subject === 'driver' ? 'DRIVER_REQUIRED' : 'SELLER_REQUIRED',
+      `Submit your ${subject} application first.`,
+    );
+    ensure(input.file, 400, 'FILE_REQUIRED', 'Attach a photo or PDF under 8 MB.');
+    const u = user;
+    const [count] = await db.query(
+      "SELECT COUNT(*)::int AS n FROM seller_documents WHERE seller_id=$1 AND subject=$2 AND status<>'REJECTED'",
+      [u.id, subject],
+    );
+    ensure(count.n < 10, 400, 'DOCUMENT_LIMIT', 'Remove a rejected document before adding more.');
+    const { bytes, mime, ext } = await normalizeDocument(input.file);
+    const id = randomUUID(),
+      key = `seller-documents/${u.id}/${id}.${ext}`;
+    await store.put(key, bytes, mime, true);
+    try {
+      await db.transaction(async (q) => {
+        await q.query(
+          'INSERT INTO seller_documents(id,seller_id,kind,filename,mime_type,storage_provider,storage_key,subject) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+          [
+            id,
+            u.id,
+            kind,
+            `${kind}-${id.slice(0, 8)}.${ext}`,
+            mime,
+            store.provider(true),
+            key,
+            subject,
+          ],
+        );
+        await audit(q, u.id, 'seller_document.upload', id, { kind, subject });
+      });
+    } catch (e) {
+      await store.remove(key, true).catch(() => {});
+      throw e;
+    }
+    return { id, kind, subject, status: 'PENDING' as const };
+  }
+  return { listMyDocuments, listDocuments, getDocumentLink, reviewDocument, uploadDocument };
 }
 
 /** Business logic for publicdocument requests. HTTP-free: callers pass plain input. */
 export function createPublicDocumentService(deps: AppDeps) {
-  const { config: c } = deps;
+  const { db, config: c } = deps;
   const store = storage(c);
-  return {};
+  /** Verifies a short-lived signed link and returns the locally stored document. */
+  async function readSignedDocument(input: RequestInput) {
+    const d = z
+      .object({ expires: z.coerce.number().int(), sig: z.string().regex(/^[a-f0-9]{64}$/) })
+      .parse(input.query);
+    ensure(
+      d.expires > Date.now() && d.expires <= Date.now() + 60000,
+      403,
+      'LINK_EXPIRED',
+      'This link has expired. Open the document again from the console.',
+    );
+    const expected = Buffer.from(
+        createHmac('sha256', c.otpSecret)
+          .update(`doc:${input.params.id}:${d.expires}`)
+          .digest('hex'),
+      ),
+      actual = Buffer.from(d.sig);
+    ensure(
+      expected.length === actual.length && timingSafeEqual(expected, actual),
+      403,
+      'INVALID_LINK',
+      'Invalid document link.',
+    );
+    const [doc] = await db.query('SELECT * FROM seller_documents WHERE id=$1', [input.params.id]);
+    ensure(doc && doc.storage_provider === 'local', 404, 'NOT_FOUND', 'Document not found.');
+    const data = await store.read(doc.storage_key, 'local', true);
+    return {
+      filename: doc.filename as string,
+      mimeType: doc.mime_type as string,
+      buffer: data.buffer!,
+    };
+  }
+  return { readSignedDocument };
 }

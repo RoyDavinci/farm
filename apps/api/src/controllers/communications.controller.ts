@@ -4,7 +4,7 @@ import { createCommunicationsService } from '../services/communications.service.
 import type { AppDeps } from '../types/deps.js';
 
 export function createCommunicationsController(deps: AppDeps) {
-  const { config: c, mutate } = deps;
+  const { mutate } = deps;
   const service = createCommunicationsService(deps);
   const listNotifications: RequestHandler = async (req, res) => {
     res.json(await service.listNotifications(res.locals.user, requestInput(req)));

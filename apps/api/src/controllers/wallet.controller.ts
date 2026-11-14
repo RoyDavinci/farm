@@ -1,8 +1,5 @@
 import type { RequestHandler } from 'express';
-import { randomUUID } from 'node:crypto';
 import { requestInput } from '../lib/http.js';
-import { verifyFunding as verifyFundingWith } from '../services/funding.service.js';
-import { paymentService, type Provider } from '../services/payment-provider.service.js';
 import { createWalletService } from '../services/wallet.service.js';
 import type { AppDeps } from '../types/deps.js';
 

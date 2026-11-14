@@ -5,6 +5,7 @@ import { ensure } from '../lib/errors.js';
 import type { RequestInput } from '../lib/http.js';
 import type { AppDeps } from '../types/deps.js';
 import { audit } from './audit.service.js';
+import { event } from './booking.service.js';
 import { notify } from './communications.service.js';
 import { ledger, lockedBalance } from './ledger.service.js';
 
@@ -344,6 +345,212 @@ export function createDeliveriesService(deps: AppDeps) {
       history: history.map((d) => view(d, u)),
     };
   }
+  async function performDeliveryAction(q: Query, u: any, input: RequestInput) {
+    const action = z
+      .enum(['cancel', 'pay', 'claim', 'release', 'handover', 'deliver'])
+      .parse(input.params.action);
+
+    // Lock order matches booking cancel/expiry (booking → delivery) so the two can't deadlock.
+    const [ref] = await q.query('SELECT booking_id FROM deliveries WHERE id=$1', [input.params.id]);
+    ensure(ref, 404, 'NOT_FOUND', 'Delivery not found.');
+    const [b] = await q.query('SELECT * FROM bookings WHERE id=$1 FOR UPDATE', [ref.booking_id]);
+    const [d] = await q.query('SELECT * FROM deliveries WHERE id=$1 FOR UPDATE', [input.params.id]);
+    if (action === 'claim') {
+      const [driver] = await q.query('SELECT * FROM drivers WHERE user_id=$1', [u.id]);
+      ensure(driver?.status === 'APPROVED', 403, 'DRIVER_NOT_APPROVED', 'Approved drivers only.');
+      ensure(
+        u.id !== d.buyer_id && u.id !== d.seller_id,
+        403,
+        'CONFLICT',
+        'You cannot deliver your own order.',
+      );
+      ensure(
+        driver.vehicle_type === d.vehicle_type,
+        409,
+        'WRONG_VEHICLE',
+        'This job needs a different vehicle.',
+      );
+      ensure(
+        d.status === 'OPEN',
+        409,
+        'ALREADY_TAKEN',
+        'Another driver already took this delivery.',
+      );
+      const [busy] = await q.query(
+        "SELECT id FROM deliveries WHERE driver_id=$1 AND status IN ('ASSIGNED','PICKED_UP')",
+        [u.id],
+      );
+      ensure(!busy, 409, 'DRIVER_BUSY', 'Finish your current delivery first.');
+      await q.query(
+        "UPDATE deliveries SET status='ASSIGNED',driver_id=$1,assigned_at=now() WHERE id=$2",
+        [u.id, d.id],
+      );
+      for (const party of [d.buyer_id, d.seller_id])
+        await notify(
+          q,
+          party,
+          'delivery',
+          'Driver assigned',
+          `${u.name} is on the way to collect ${b.title}.`,
+          b.id,
+        );
+    } else if (action === 'release') {
+      ensure(
+        d.driver_id === u.id && d.status === 'ASSIGNED',
+        409,
+        'INVALID_TRANSITION',
+        'Only an assigned job that is not yet collected can be released.',
+      );
+      await q.query(
+        "UPDATE deliveries SET status='OPEN',driver_id=NULL,assigned_at=NULL WHERE id=$1",
+        [d.id],
+      );
+      await notify(
+        q,
+        d.buyer_id,
+        'delivery',
+        'Finding another driver',
+        'Your driver released the job. We are finding another driver.',
+        b.id,
+      );
+    } else if (action === 'cancel') {
+      ensure(d.buyer_id === u.id, 403, 'FORBIDDEN', 'Only the buyer can cancel a delivery.');
+      ensure(
+        ['OPEN', 'ASSIGNED'].includes(d.status),
+        409,
+        'INVALID_TRANSITION',
+        'The driver already has your order. Contact support if something is wrong.',
+      );
+      await cancelDelivery(q, d, 'Buyer cancelled the delivery.', u.id);
+    } else if (action === 'pay') {
+      // Digital Pay on Delivery: the buyer pays in-app at the door; cash is never accepted.
+      ensure(d.buyer_id === u.id, 403, 'FORBIDDEN', 'Only the buyer can pay.');
+      ensure(
+        ['ASSIGNED', 'PICKED_UP'].includes(d.status),
+        409,
+        'INVALID_TRANSITION',
+        'Nothing to pay right now.',
+      );
+      const due = (b.paid ? 0 : Number(b.total_kobo)) + (d.fare_paid ? 0 : Number(d.fare_kobo));
+      ensure(due > 0, 409, 'ALREADY_PAID', 'Everything is already paid.');
+      ensure(
+        (await lockedBalance(q, u.id)) >= due,
+        409,
+        'INSUFFICIENT_BALANCE',
+        'Add money to your wallet to pay.',
+      );
+      if (!b.paid) {
+        await ledger(q, b.id, [
+          { account: 'wallet', owner: u.id, amount: -Number(b.total_kobo) },
+          { account: 'escrow', owner: b.id, amount: Number(b.total_kobo) },
+        ]);
+        await q.query('UPDATE bookings SET paid=TRUE WHERE id=$1', [b.id]);
+      }
+      if (!d.fare_paid) {
+        await ledger(q, d.id, [
+          { account: 'wallet', owner: u.id, amount: -Number(d.fare_kobo) },
+          { account: 'delivery_escrow', owner: d.id, amount: Number(d.fare_kobo) },
+        ]);
+        await q.query('UPDATE deliveries SET fare_paid=TRUE WHERE id=$1', [d.id]);
+      }
+      await audit(q, u.id, 'delivery.pay', d.id, { due });
+      if (d.driver_id)
+        await notify(
+          q,
+          d.driver_id,
+          'delivery',
+          'Buyer has paid',
+          'Ask the buyer for their delivery PIN.',
+          b.id,
+        );
+    } else if (action === 'handover' || action === 'deliver') {
+      const handover = action === 'handover';
+      ensure(
+        handover ? d.seller_id === u.id : d.driver_id === u.id,
+        403,
+        'FORBIDDEN',
+        handover
+          ? 'Only the seller confirms handover.'
+          : 'Only the assigned driver confirms delivery.',
+      );
+      ensure(
+        d.status === (handover ? 'ASSIGNED' : 'PICKED_UP'),
+        409,
+        'INVALID_TRANSITION',
+        handover
+          ? 'No driver is waiting to collect this order.'
+          : 'Collect the order before delivering it.',
+      );
+      if (!handover)
+        ensure(
+          b.paid && d.fare_paid,
+          409,
+          'PAYMENT_REQUIRED',
+          'The buyer must pay in the app before handover.',
+        );
+      ensure(
+        !d.pin_locked_until || new Date(d.pin_locked_until).getTime() <= Date.now(),
+        429,
+        'PIN_LOCKED',
+        'Too many incorrect PINs. Try again in 15 minutes.',
+      );
+      const body = z.object({ pin: z.string().regex(/^\d{6}$/) }).parse(input.body);
+      if (body.pin !== (handover ? d.pickup_pin : d.delivery_pin)) {
+        const failures = d.pin_failures + 1;
+        await q.query('UPDATE deliveries SET pin_failures=$1,pin_locked_until=$2 WHERE id=$3', [
+          failures,
+          failures % 5 === 0 ? new Date(Date.now() + 15 * 60000) : null,
+          d.id,
+        ]);
+        await audit(q, u.id, 'delivery.invalid_pin', d.id, { action });
+        return { error: { status: 400, code: 'INVALID_PIN', message: 'That PIN is incorrect.' } };
+      }
+      if (handover) {
+        await q.query(
+          "UPDATE deliveries SET status='PICKED_UP',picked_up_at=now(),pin_failures=0 WHERE id=$1",
+          [d.id],
+        );
+        await notify(
+          q,
+          d.buyer_id,
+          'delivery',
+          'On the way',
+          `${b.title} has been collected and is on its way to you.`,
+          b.id,
+        );
+      } else {
+        await q.query("UPDATE deliveries SET status='DELIVERED',delivered_at=now() WHERE id=$1", [
+          d.id,
+        ]);
+        const driverShare = Math.round((Number(d.fare_kobo) * (10000 - d.commission_bps)) / 10000);
+        await ledger(q, b.id, [
+          { account: 'escrow', owner: b.id, amount: -Number(b.total_kobo) },
+          {
+            account: 'seller_payable',
+            owner: b.seller_id,
+            amount: Number(b.total_kobo) - Number(b.commission_kobo),
+          },
+          { account: 'platform_revenue', amount: Number(b.commission_kobo) },
+        ]);
+        // Driver earnings share the payable account, so drivers withdraw through payouts.
+        await ledger(q, d.id, [
+          { account: 'delivery_escrow', owner: d.id, amount: -Number(d.fare_kobo) },
+          { account: 'seller_payable', owner: d.driver_id, amount: driverShare },
+          { account: 'platform_revenue', amount: Number(d.fare_kobo) - driverShare },
+        ]);
+        await event(
+          q,
+          b,
+          'COMPLETED',
+          u.id,
+          'Driver verified the buyer’s delivery PIN; delivery confirmed.',
+        );
+      }
+    }
+    await audit(q, u.id, `delivery.${action}`, d.id);
+    const [fresh] = await q.query(`${withParty} WHERE d.id=$1`, [d.id]);
+    return view(fresh, u);
+  }
   return {
     getDeliveryOptions,
     quoteDelivery,
@@ -353,6 +560,7 @@ export function createDeliveriesService(deps: AppDeps) {
     applyAsDriver,
     updateDriverStatus,
     listDriverJobs,
+    performDeliveryAction,
   };
 }
 

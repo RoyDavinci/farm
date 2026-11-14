@@ -80,7 +80,7 @@ export async function deliverNotifications(db: Database, c: Config) {
 
 /** Business logic for communications requests. HTTP-free: callers pass plain input. */
 export function createCommunicationsService(deps: AppDeps) {
-  const { db, config: c } = deps;
+  const { db } = deps;
   async function conversation(q: Query, cid: string, uid: string) {
     const [c] = await q.query(
       'SELECT c.*,l.title,buyer.name AS buyer_name,s.business_name FROM conversations c JOIN listings l ON l.id=c.listing_id JOIN users buyer ON buyer.id=c.buyer_id JOIN sellers s ON s.user_id=c.seller_id WHERE c.id=$1 AND (c.buyer_id=$2 OR c.seller_id=$2)',

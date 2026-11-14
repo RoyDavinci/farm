@@ -3,8 +3,6 @@ import { requestInput } from '../lib/http.js';
 import { createAccountService } from '../services/account.service.js';
 import type { AppDeps } from '../types/deps.js';
 
-const bearer = (header?: string) => (header || '').replace(/^Bearer /, '');
-
 /** The signed-in user: profile, device sessions, sign-out and public marketplace settings. */
 export function createAccountController(deps: AppDeps) {
   const { mutate } = deps;

@@ -69,7 +69,7 @@ export async function announceNewListing(q: Query, listing: Record<string, any>)
 
 /** Business logic for retention requests. HTTP-free: callers pass plain input. */
 export function createRetentionService(deps: AppDeps) {
-  const { db, config: c } = deps;
+  const { db } = deps;
   async function getListing(user: any, input: RequestInput) {
     const u = user;
     const rows = await db.query(
