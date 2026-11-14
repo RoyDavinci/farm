@@ -1,0 +1,48 @@
+{
+  "name": "farmers-market",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,admin -c green,blue \"npm run dev -w @farmers-market/api\" \"npm run dev -w @farmers-market/admin\"",
+    "dev:mobile": "npm run start -w @farmers-market/mobile",
+    "db:migrate": "npm run db:migrate -w @farmers-market/api",
+    "db:seed": "npm run db:seed -w @farmers-market/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test -w @farmers-market/api",
+    "build": "npm run build -w @farmers-market/api && npm run build -w @farmers-market/admin",
+    "check": "npm run typecheck && npm test && npm run build",
+    "setup": "node scripts/setup.mjs",
+    "dev:mobile:web": "npm run web -w @farmers-market/mobile",
+    "preview:mobile": "node scripts/preview-mobile.mjs",
+    "format": "prettier --write apps packages scripts *.json *.yaml .github/workflows/*.yml",
+    "backup": "node scripts/backup.mjs",
+    "worker": "npm run worker -w @farmers-market/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "@expo/fingerprint": {
+      "minimatch": "^11.0.1"
+    },
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "dependencies": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "allowScripts": {
+    "@prisma/engines@7.10.1": true,
+    "prisma@7.10.1": true
+  }
+}

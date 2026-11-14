@@ -1,0 +1,199 @@
+import React, { useEffect, useState } from 'react';
+import {
+  money,
+  statusLabel,
+  type Seller,
+  type Booking,
+  type Listing,
+  type Settings as MarketSettings,
+  type OrderEvent,
+} from '@farmers-market/shared';
+import { api } from '../api';
+import { Badge, Modal } from '../ui';
+import { useAdmin } from '../AdminContext';
+export function SellerReviewModal({
+  seller: review,
+  error,
+  onClose,
+}: {
+  seller: Seller;
+  error: string;
+  onClose: () => void;
+}) {
+  const { busy, action } = useAdmin();
+  const [reason, setReason] = useState('');
+  return (
+    <Modal title="Seller verification" close={onClose}>
+      <span className="eyebrow">APPLICATION DETAILS</span>
+      <h2>{review.business_name}</h2>
+      <Badge status={review.status} />
+      <dl>
+        <dt>Business type</dt>
+        <dd>{statusLabel(review.business_type)}</dd>
+        <dt>City / area</dt>
+        <dd>
+          {review.city} / {review.area}
+        </dd>
+        <dt>Private collection address</dt>
+        <dd>{review.address}</dd>
+        {review.reason && (
+          <>
+            <dt>Previous decision</dt>
+            <dd>{review.reason}</dd>
+          </>
+        )}
+      </dl>
+      <SellerDocuments sellerId={review.user_id} />
+      <label>
+        Decision reason
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Record the checks completed or the issue to resolve"
+          minLength={3}
+        />
+      </label>
+      <div className="modal-actions">
+        {(['REJECTED', 'SUSPENDED', 'APPROVED'] as const).map((status) => (
+          <button
+            disabled={busy || reason.trim().length < 3}
+            key={status}
+            className={status === 'APPROVED' ? 'primary' : 'secondary'}
+            onClick={() =>
+              void action(
+                async () => {
+                  await api(`/admin/sellers/${review.user_id}/review`, 'POST', {
+                    status,
+                    reason,
+                  });
+                  onClose();
+                },
+                `Seller ${statusLabel(status)}.`,
+              )
+            }
+          >
+            {status === 'APPROVED'
+              ? 'Approve seller'
+              : status === 'REJECTED'
+                ? 'Reject'
+                : 'Suspend'}
+          </button>
+        ))}
+      </div>
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+    </Modal>
+  );
+}
+export function TimelineModal({
+  timeline,
+  onClose,
+}: {
+  timeline: { booking: Booking; events: OrderEvent[] };
+  onClose: () => void;
+}) {
+  return (
+    <Modal title="Booking timeline" close={onClose}>
+      <h2>{timeline.booking.title}</h2>
+      <p>
+        {timeline.booking.quantity} {timeline.booking.unit} · {money(timeline.booking.total_kobo)}
+      </p>
+      <Badge status={timeline.booking.status} />
+      <dl>
+        <dt>Buyer</dt>
+        <dd>{timeline.booking.buyer_name}</dd>
+        <dt>Seller</dt>
+        <dd>{timeline.booking.business_name}</dd>
+        <dt>Payment</dt>
+        <dd>{timeline.booking.paid ? 'Paid from wallet' : 'Unpaid'}</dd>
+        <dt>Commission</dt>
+        <dd>
+          {money(timeline.booking.commission_kobo)} ({timeline.booking.commission_bps / 100}%)
+        </dd>
+      </dl>
+      <ol className="timeline">
+        {timeline.events.map((e) => (
+          <li key={e.id}>
+            <b>{statusLabel(e.to_status)}</b>
+            <p>{e.reason}</p>
+            <small>{new Date(e.created_at).toLocaleString()}</small>
+          </li>
+        ))}
+      </ol>
+    </Modal>
+  );
+}
+
+/** Verification documents for a seller; links are short-lived and every view is audited. */
+export function SellerDocuments({
+  sellerId,
+  subject = 'seller',
+}: {
+  sellerId: string;
+  subject?: 'seller' | 'driver';
+}) {
+  const { busy, action, user } = useAdmin();
+  const [docs, setDocs] = useState<any[]>([]);
+  const [failed, setFailed] = useState('');
+  const load = () =>
+    api<any[]>(
+      `/admin/seller-documents?seller_id=${encodeURIComponent(sellerId)}&subject=${subject}`,
+    )
+      .then(setDocs)
+      .catch((e) => setFailed(e.message));
+  useEffect(() => void load(), [sellerId]);
+  if (failed) return <p className="fine">Documents: {failed}</p>;
+  return (
+    <div className="documents">
+      <span className="eyebrow">VERIFICATION DOCUMENTS</span>
+      {!docs.length && <p className="fine">No documents uploaded yet.</p>}
+      {docs.map((d) => (
+        <div key={d.id} className="document-row">
+          <span>
+            <b>{statusLabel(d.kind)}</b>
+            <small>
+              {new Date(d.created_at).toLocaleDateString()}
+              {d.review_note ? ` · ${d.review_note}` : ''}
+            </small>
+          </span>
+          <Badge status={d.status} />
+          <button
+            className="secondary compact"
+            onClick={() =>
+              void api<{ url: string }>(`/admin/seller-documents/${d.id}/link`)
+                .then(({ url }) => window.open(url, '_blank', 'noopener'))
+                .catch((e) => setFailed(e.message))
+            }
+          >
+            Open
+          </button>
+          {d.status === 'PENDING' &&
+            (['ACCEPTED', 'REJECTED'] as const).map((status) => (
+              <button
+                key={status}
+                className={status === 'ACCEPTED' ? 'primary compact' : 'secondary compact'}
+                disabled={busy}
+                onClick={() => {
+                  const note = window.prompt(
+                    status === 'ACCEPTED'
+                      ? 'Note what you checked'
+                      : 'What should the seller fix? (sent to them)',
+                  );
+                  if (note)
+                    void action(async () => {
+                      await api(`/admin/seller-documents/${d.id}/review`, 'POST', { status, note });
+                      await load();
+                    }, `Document ${status.toLowerCase()}.`);
+                }}
+              >
+                {status === 'ACCEPTED' ? 'Accept' : 'Reject'}
+              </button>
+            ))}
+        </div>
+      ))}
+    </div>
+  );
+}

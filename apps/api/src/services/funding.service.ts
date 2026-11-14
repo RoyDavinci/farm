@@ -1,0 +1,303 @@
+import type { Database } from '../database/client.js';
+import { ensure } from '../lib/errors.js';
+import { ledger } from './ledger.service.js';
+import { paymentService, type Provider } from './payment-provider.service.js';
+
+/**
+ * Credits a wallet top-up only after the provider confirms the exact reference, amount and NGN
+ * currency. Safe to call repeatedly (webhook, redirect, manual verify): it credits at most once.
+ */
+export async function verifyFunding(
+  db: Database,
+  payments: ReturnType<typeof paymentService>,
+  ref: string,
+  provider?: Provider,
+) {
+  const [f] = await db.query('SELECT * FROM funding WHERE id=$1', [ref]);
+  ensure(
+    f && (!provider || f.provider === provider),
+    404,
+    'NOT_FOUND',
+    'Funding reference not found.',
+  );
+  if (f.status === 'SUCCESSFUL') return { ok: true };
+  ensure(payments.enabled(f.provider), 503, 'PROVIDER_DISABLED', 'Provider is not configured.');
+  const result = await payments.verify(f.provider, ref);
+  ensure(
+    result.success &&
+      result.reference === ref &&
+      result.amount === f.amount_kobo &&
+      result.currency === 'NGN',
+    409,
+    'PAYMENT_NOT_VERIFIED',
+    'Payment is pending or does not match the funding request.',
+  );
+  return db.transaction(async (q) => {
+    const [locked] = await q.query('SELECT * FROM funding WHERE id=$1 FOR UPDATE', [ref]);
+    if (locked.status === 'SUCCESSFUL') return { ok: true };
+    await ledger(q, ref, [
+      { account: 'provider_clearing', amount: -f.amount_kobo },
+      { account: 'wallet', owner: f.user_id, amount: f.amount_kobo },
+    ]);
+    await q.query("UPDATE funding SET status='SUCCESSFUL',provider_id=$1 WHERE id=$2", [
+      result.id,
+      ref,
+    ]);
+    return { ok: true };
+  });
+}
+
+/** Hosted checkout uses short claim/finalize transactions around external I/O. */
+export interface FundingCheckout {
+  reference: string;
+  checkout_url: string;
+  provider: Provider;
+  fallback_used: boolean;
+}
+interface FundingActor {
+  id: string;
+  email: string;
+  name: string;
+}
+interface FundingFailure {
+  status: number;
+  code: string;
+  message: string;
+}
+interface FundingIntentRow {
+  actor_id: string;
+  key: string;
+  request_hash: string;
+  requested_provider: Provider;
+  current_reference: string;
+  status: 'INITIALIZING' | 'READY' | 'FAILED' | 'UNCERTAIN';
+  lease_until: Date;
+  response: FundingCheckout | null;
+  error: FundingFailure | null;
+}
+type FundingClaim =
+  | { kind: 'claimed'; reference: string }
+  | { kind: 'ready'; response: FundingCheckout }
+  | { kind: 'error'; error: FundingFailure };
+const inProgress: FundingFailure = {
+  status: 409,
+  code: 'FUNDING_IN_PROGRESS',
+  message: 'Checkout is being prepared. Retry this request with the same Idempotency-Key shortly.',
+};
+const uncertain: FundingFailure = {
+  status: 409,
+  code: 'FUNDING_UNCERTAIN',
+  message:
+    'Checkout preparation was interrupted. Check Wallet for a pending payment before starting a new funding request.',
+};
+
+export async function startFunding(
+  db: Database,
+  c: import('../config/index.js').Config,
+  actor: FundingActor,
+  identity: { key: string; fingerprint: string },
+  input: import('../validators/funding.validators.js').FundingInput,
+): Promise<FundingCheckout> {
+  const payments = paymentService(c);
+  const { randomUUID } = await import('node:crypto');
+  const { AppError } = await import('../lib/errors.js');
+  const fail = (error: FundingFailure): never => {
+    throw new AppError(error.status, error.code, error.message);
+  };
+  // A replay is checked before current provider configuration: old successful responses stay valid.
+  const claim = await db.transaction<FundingClaim>(async (q) => {
+    await q.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [actor.id]);
+    const old = await q.prisma.idempotencyKey.findUnique({
+      where: { actor_id_key: { actor_id: actor.id, key: identity.key } },
+    });
+    if (old) {
+      ensure(
+        old.request_hash === identity.fingerprint,
+        409,
+        'IDEMPOTENCY_CONFLICT',
+        'This key was already used for a different request.',
+      );
+      const value = old.response as unknown as Partial<FundingCheckout> & { kind?: string };
+      if (
+        typeof value?.checkout_url === 'string' &&
+        typeof value.reference === 'string' &&
+        value.provider
+      )
+        return { kind: 'ready', response: value as FundingCheckout };
+      ensure(
+        value?.kind === 'funding-intent',
+        500,
+        'INVALID_IDEMPOTENCY_RESPONSE',
+        'Stored checkout response is invalid.',
+      );
+    }
+    const [intent] = await q.query<FundingIntentRow>(
+      'SELECT * FROM funding_intents WHERE actor_id=$1 AND key=$2 FOR UPDATE',
+      [actor.id, identity.key],
+    );
+    if (intent) {
+      ensure(
+        intent.request_hash === identity.fingerprint,
+        409,
+        'IDEMPOTENCY_CONFLICT',
+        'This key was already used for a different request.',
+      );
+      if (intent.status === 'READY' && intent.response)
+        return { kind: 'ready', response: intent.response };
+      if (intent.status === 'FAILED' || intent.status === 'UNCERTAIN')
+        return { kind: 'error', error: intent.error || uncertain };
+      if (new Date(intent.lease_until).getTime() <= Date.now()) {
+        await q.query(
+          "UPDATE funding_intents SET status='UNCERTAIN',error=$1,updated_at=now() WHERE actor_id=$2 AND key=$3",
+          [JSON.stringify(uncertain), actor.id, identity.key],
+        );
+        return { kind: 'error', error: uncertain };
+      }
+      return { kind: 'error', error: inProgress };
+    }
+    ensure(
+      payments.enabled(input.provider),
+      503,
+      'PROVIDER_DISABLED',
+      'This provider is not configured for wallet funding.',
+    );
+    const reference = `fm-${randomUUID()}`;
+    await q.query(
+      "INSERT INTO funding(id,user_id,provider,amount_kobo,status) VALUES($1,$2,$3,$4,'INITIALIZING')",
+      [reference, actor.id, input.provider, input.amount_kobo],
+    );
+    await q.query(
+      'INSERT INTO funding_intents(actor_id,key,request_hash,requested_provider,current_reference,lease_until) VALUES($1,$2,$3,$4,$5,$6)',
+      [
+        actor.id,
+        identity.key,
+        identity.fingerprint,
+        input.provider,
+        reference,
+        new Date(Date.now() + 90000),
+      ],
+    );
+    await q.query(
+      "INSERT INTO payment_attempts(id,funding_reference,provider,status) VALUES($1,$2,$3,'INITIALIZING')",
+      [randomUUID(), reference, input.provider],
+    );
+    await q.prisma.idempotencyKey.create({
+      data: {
+        actor_id: actor.id,
+        key: identity.key,
+        request_hash: identity.fingerprint,
+        response: { kind: 'funding-intent', reference },
+      },
+    });
+    return { kind: 'claimed', reference };
+  });
+  if (claim.kind === 'ready') return claim.response;
+  if (claim.kind === 'error') return fail(claim.error);
+  let reference = claim.reference,
+    provider = input.provider;
+  try {
+    let url: string;
+    try {
+      url = await payments.initialize(
+        provider,
+        reference,
+        input.amount_kobo,
+        actor.email,
+        actor.name,
+      );
+    } catch (error) {
+      if (
+        !(error instanceof AppError) ||
+        error.code !== 'PROVIDER_UNAVAILABLE' ||
+        provider !== 'paystack' ||
+        c.fallbackProvider !== 'flutterwave' ||
+        !payments.enabled('flutterwave')
+      )
+        throw error;
+      // Keep the primary reference: even a late signed webhook must find its funding record.
+      const fallbackReference = `fm-${randomUUID()}`;
+      await db.transaction(async (q) => {
+        await q.query(
+          "UPDATE payment_attempts SET status='UNAVAILABLE',error_code='PROVIDER_UNAVAILABLE' WHERE funding_reference=$1",
+          [reference],
+        );
+        await q.query(
+          "UPDATE funding SET status=CASE WHEN status='INITIALIZING' THEN 'UNCERTAIN' ELSE status END WHERE id=$1",
+          [reference],
+        );
+        await q.query(
+          "INSERT INTO funding(id,user_id,provider,amount_kobo,status) VALUES($1,$2,'flutterwave',$3,'INITIALIZING')",
+          [fallbackReference, actor.id, input.amount_kobo],
+        );
+        await q.query(
+          'UPDATE funding_intents SET current_reference=$1,updated_at=now() WHERE actor_id=$2 AND key=$3 AND current_reference=$4',
+          [fallbackReference, actor.id, identity.key, reference],
+        );
+        await q.query(
+          "INSERT INTO payment_attempts(id,funding_reference,provider,status) VALUES($1,$2,'flutterwave','INITIALIZING')",
+          [randomUUID(), fallbackReference],
+        );
+      });
+      reference = fallbackReference;
+      provider = 'flutterwave';
+      url = await payments.initialize(
+        provider,
+        reference,
+        input.amount_kobo,
+        actor.email,
+        actor.name,
+      );
+    }
+    const response: FundingCheckout = {
+      reference,
+      checkout_url: url,
+      provider,
+      fallback_used: provider !== input.provider,
+    };
+    await db.transaction(async (q) => {
+      await q.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [actor.id]);
+      await q.query(
+        "UPDATE funding SET checkout_url=$1,status=CASE WHEN status='INITIALIZING' THEN 'PENDING' ELSE status END WHERE id=$2",
+        [url, reference],
+      );
+      await q.query(
+        "UPDATE payment_attempts SET status='INITIALIZED',error_code=NULL WHERE funding_reference=$1",
+        [reference],
+      );
+      await q.query(
+        "UPDATE funding_intents SET status='READY',response=$1,error=NULL,updated_at=now() WHERE actor_id=$2 AND key=$3",
+        [JSON.stringify(response), actor.id, identity.key],
+      );
+      await q.prisma.idempotencyKey.update({
+        where: { actor_id_key: { actor_id: actor.id, key: identity.key } },
+        data: { response: { ...response } },
+      });
+    });
+    return response;
+  } catch (error) {
+    const failure: FundingFailure =
+      error instanceof AppError
+        ? { status: error.status, code: error.code, message: error.message }
+        : { status: 503, code: 'FUNDING_UNCERTAIN', message: uncertain.message };
+    const ambiguous = !(error instanceof AppError) || error.code === 'PROVIDER_UNAVAILABLE';
+    // If the final commit failed after receiving a URL, leave a durable, reviewable reference.
+    // A committed READY intent must never be overwritten by an ambiguous commit acknowledgement.
+    await db
+      .transaction(async (q) => {
+        await q.query(
+          "UPDATE funding_intents SET status=$1,error=$2,updated_at=now() WHERE actor_id=$3 AND key=$4 AND status NOT IN ('READY')",
+          [ambiguous ? 'UNCERTAIN' : 'FAILED', JSON.stringify(failure), actor.id, identity.key],
+        );
+        await q.query("UPDATE funding SET status=$1 WHERE id=$2 AND status='INITIALIZING'", [
+          ambiguous ? 'UNCERTAIN' : 'FAILED',
+          reference,
+        ]);
+        await q.query(
+          "UPDATE payment_attempts SET status=$1,error_code=$2 WHERE funding_reference=$3 AND status='INITIALIZING'",
+          [ambiguous ? 'UNCERTAIN' : 'FAILED', failure.code, reference],
+        );
+      })
+      .catch(() => {});
+    return fail(failure);
+  }
+}

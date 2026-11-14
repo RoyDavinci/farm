@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Farmers Market",
+    "slug": "farmers-market",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "farmersmarket",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "market.farmers.app"
+    },
+    "android": {
+      "package": "market.farmers.app",
+      "permissions": []
+    },
+    "web": {
+      "bundler": "metro",
+      "name": "Farmers Market",
+      "shortName": "Farmers Market"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Farmers Market to select produce photos for your listings.",
+          "cameraPermission": "Allow Farmers Market to take photos of your produce.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Farmers Market to find nearby produce or set your collection pin."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#365b38"
+        }
+      ]
+    ]
+  }
+}

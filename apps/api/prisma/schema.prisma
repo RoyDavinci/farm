@@ -1,0 +1,763 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AuditEntry {
+  id         String   @id
+  actor_id   String?
+  action     String
+  entity_id  String
+  metadata   Json     @default("{}")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      User?    @relation(fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc), id(sort: Desc)], map: "audit_created_idx")
+  @@map("audit")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Booking {
+  id                      String          @id
+  buyer_id                String
+  seller_id               String
+  listing_id              String
+  title                   String
+  unit                    String
+  quantity                Int
+  price_kobo              Int
+  total_kobo              Int
+  commission_bps          Int
+  commission_kobo         Int
+  status                  String          @default("REQUESTED")
+  paid                    Boolean         @default(false)
+  pickup_code             String
+  pickup_failures         Int             @default(0)
+  pickup_locked_until     DateTime?       @db.Timestamptz(6)
+  reserved_until          DateTime?       @db.Timestamptz(6)
+  created_at              DateTime        @default(now()) @db.Timestamptz(6)
+  variant_id              String?
+  variant_name            String          @default("Standard")
+  offer_quantity          Int?
+  offer_price_kobo        Int?
+  offer_note              String?
+  offer_expires_at        DateTime?       @db.Timestamptz(6)
+  pickup_address_snapshot String?
+  pickup_latitude         Float?
+  pickup_longitude        Float?
+  preorder                Boolean         @default(false)
+  users                   User            @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  listings                Listing         @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sellers                 Seller          @relation(fields: [seller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  listing_variants        ListingVariant? @relation(fields: [variant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  deliveries              Delivery?
+  disputes                Dispute?
+  events                  BookingEvent[]
+  notifications           Notification[]
+  ratings                 Rating[]
+
+  @@index([buyer_id], map: "bookings_buyer_idx")
+  @@index([created_at(sort: Desc), id(sort: Desc)], map: "bookings_created_idx")
+  @@index([reserved_until], map: "bookings_expiry_idx", where: raw("(status = ANY (ARRAY['ACCEPTED'::text, 'READY_FOR_PICKUP'::text]))"))
+  @@index([seller_id], map: "bookings_seller_idx")
+  @@map("bookings")
+}
+
+model ConsumedRefreshToken {
+  token_hash String   @id
+  session_id String
+  expires_at DateTime @db.Timestamptz(6)
+
+  @@map("consumed_refresh_tokens")
+}
+
+model Conversation {
+  id             String    @id
+  buyer_id       String
+  seller_id      String
+  listing_id     String
+  buyer_read_at  DateTime  @default(now()) @db.Timestamptz(6)
+  seller_read_at DateTime  @default(now()) @db.Timestamptz(6)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  users          User      @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  listings       Listing   @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sellers        Seller    @relation(fields: [seller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  messages       Message[]
+
+  @@unique([buyer_id, seller_id, listing_id])
+  @@map("conversations")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Delivery {
+  id                                String      @id
+  booking_id                        String      @unique(map: "deliveries_active_idx", where: raw("(status = ANY (ARRAY['OPEN'::text, 'ASSIGNED'::text, 'PICKED_UP'::text, 'DELIVERED'::text]))"))
+  buyer_id                          String
+  seller_id                         String
+  driver_id                         String?
+  vehicle_type                      String
+  status                            String      @default("OPEN")
+  pickup_latitude                   Float
+  pickup_longitude                  Float
+  dropoff_address                   String
+  dropoff_latitude                  Float
+  dropoff_longitude                 Float
+  distance_km                       Float
+  fare_kobo                         BigInt
+  commission_bps                    Int
+  pay_on_delivery                   Boolean     @default(false)
+  fare_paid                         Boolean     @default(false)
+  pickup_pin                        String
+  delivery_pin                      String
+  pin_failures                      Int         @default(0)
+  pin_locked_until                  DateTime?   @db.Timestamptz(6)
+  driver_latitude                   Float?
+  driver_longitude                  Float?
+  driver_location_at                DateTime?   @db.Timestamptz(6)
+  cancel_reason                     String?
+  created_at                        DateTime    @default(now()) @db.Timestamptz(6)
+  assigned_at                       DateTime?   @db.Timestamptz(6)
+  picked_up_at                      DateTime?   @db.Timestamptz(6)
+  delivered_at                      DateTime?   @db.Timestamptz(6)
+  bookings                          Booking     @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_deliveries_buyer_idTousers  User        @relation("deliveries_buyer_idTousers", fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_deliveries_driver_idTousers User?       @relation("deliveries_driver_idTousers", fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_deliveries_seller_idTousers User        @relation("deliveries_seller_idTousers", fields: [seller_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicle_types                     VehicleType @relation(fields: [vehicle_type], references: [code], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([driver_id, created_at], map: "deliveries_driver_idx")
+  @@index([status], map: "deliveries_open_idx", where: raw("(status = 'OPEN'::text)"))
+  @@map("deliveries")
+}
+
+model DisputeEvidence {
+  id               String   @id
+  dispute_id       String
+  owner_id         String
+  filename         String
+  mime_type        String
+  storage_provider String
+  storage_key      String
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  disputes         Dispute  @relation(fields: [dispute_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users            User     @relation(fields: [owner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("dispute_evidence")
+}
+
+model Dispute {
+  id                       String            @id
+  booking_id               String            @unique
+  opened_by                String
+  reason_code              String
+  description              String
+  status                   String            @default("OPEN")
+  return_status            String            @default("NONE")
+  resolution               String?
+  refund_kobo              Int               @default(0)
+  created_at               DateTime          @default(now()) @db.Timestamptz(6)
+  resolved_at              DateTime?         @db.Timestamptz(6)
+  reservation_remaining_ms BigInt?
+  dispute_evidence         DisputeEvidence[]
+  bookings                 Booking           @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                    User              @relation(fields: [opened_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("disputes")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Driver {
+  user_id        String      @id
+  vehicle_type   String
+  plate_number   String
+  licence_number String
+  city           String
+  status         String      @default("PENDING")
+  reason         String?
+  online         Boolean     @default(false)
+  latitude       Float?
+  longitude      Float?
+  location_at    DateTime?   @db.Timestamptz(6)
+  created_at     DateTime    @default(now()) @db.Timestamptz(6)
+  users          User        @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicle_types  VehicleType @relation(fields: [vehicle_type], references: [code], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("drivers")
+}
+
+model BookingEvent {
+  id          String   @id
+  booking_id  String
+  from_status String?
+  to_status   String
+  actor_id    String?
+  reason      String
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  users       User?    @relation(fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  bookings    Booking  @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([booking_id], map: "events_booking_idx")
+  @@index([booking_id], map: "events_completed_idx", where: raw("(to_status = 'COMPLETED'::text)"))
+  @@map("events")
+}
+
+model Favourite {
+  buyer_id   String
+  seller_id  String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  buyer      User     @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  seller     Seller   @relation(fields: [seller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([buyer_id, seller_id])
+  @@index([seller_id], map: "favourites_seller_idx")
+  @@map("favourites")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Funding {
+  funding_intent FundingIntent?
+  id                        String                   @id
+  user_id                   String
+  provider                  String
+  amount_kobo               Int
+  status                    String                   @default("PENDING")
+  checkout_url              String?
+  provider_id               String?
+  created_at                DateTime                 @default(now()) @db.Timestamptz(6)
+  users                     User                     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reconciliation_exceptions ReconciliationException?
+
+  @@map("funding")
+}
+
+model IdempotencyKey {
+  actor_id     String
+  key          String
+  request_hash String
+  response     Json
+
+  @@id([actor_id, key])
+  @@map("idempotency")
+}
+
+model LedgerEntry {
+  id          String   @id
+  txn_id      String
+  account     String
+  owner_id    String?
+  amount_kobo BigInt
+  reference   String
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([owner_id, account], map: "ledger_balance_idx")
+  @@index([created_at(sort: Desc), id(sort: Desc)], map: "ledger_created_idx")
+  @@map("ledger")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ListingVariant {
+  id              String    @id
+  listing_id      String    @unique(map: "variants_primary_idx", where: raw("is_primary"))
+  name            String
+  unit            String
+  price_kobo      Int
+  min_quantity    Int       @default(1)
+  stock           Int
+  wholesale_tiers Json      @default("[]")
+  active          Boolean   @default(true)
+  is_primary      Boolean   @default(false)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  bookings        Booking[]
+  listings        Listing   @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([listing_id], map: "variants_listing_idx")
+  @@map("listing_variants")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Listing {
+  id                String          @id
+  seller_id         String
+  title             String
+  description       String
+  category          String
+  unit              String
+  price_kobo        Int
+  stock             Int
+  status            String          @default("ACTIVE")
+  image_url         String?
+  confirmed_at      DateTime        @default(now()) @db.Timestamptz(6)
+  created_at        DateTime        @default(now()) @db.Timestamptz(6)
+  image_urls        Json            @default("[]")
+  available_from    DateTime?       @db.Timestamptz(6)
+  preorder_capacity Int             @default(0)
+  bookings          Booking[]
+  conversations     Conversation[]
+  listing_variants  ListingVariant?
+  sellers           Seller          @relation(fields: [seller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  promotions        Promotion[]
+  stock_alerts      StockAlert[]
+
+  @@index([seller_id], map: "listings_seller_idx")
+  @@map("listings")
+}
+
+model LocationHistory {
+  id          String   @id
+  seller_id   String
+  actor_id    String
+  before_data Json
+  after_data  Json
+  reason      String
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  users       User     @relation(fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sellers     Seller   @relation(fields: [seller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("location_history")
+}
+
+model Market {
+  id         String   @id
+  name       String
+  city       String
+  area       String
+  latitude   Float?
+  longitude  Float?
+  status     String   @default("ACTIVE")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  sellers    Seller[]
+
+  @@map("markets")
+}
+
+model Media {
+  id               String   @id
+  owner_id         String
+  url              String   @unique
+  thumbnail_url    String
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  storage_provider String   @default("local")
+  storage_key      String?
+  thumbnail_key    String?
+  users            User     @relation(fields: [owner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("media")
+}
+
+model Message {
+  id              String       @id
+  conversation_id String
+  sender_id       String
+  body            String
+  created_at      DateTime     @default(now()) @db.Timestamptz(6)
+  conversations   Conversation @relation(fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users           User         @relation(fields: [sender_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([conversation_id, created_at], map: "messages_conversation_idx")
+  @@map("messages")
+}
+
+model NotificationOutbox {
+  id              String       @id
+  notification_id String       @unique
+  status          String       @default("PENDING")
+  attempts        Int          @default(0)
+  available_at    DateTime     @default(now()) @db.Timestamptz(6)
+  locked_until    DateTime?    @db.Timestamptz(6)
+  last_error      String?
+  created_at      DateTime     @default(now()) @db.Timestamptz(6)
+  notifications   Notification @relation(fields: [notification_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("notification_outbox")
+}
+
+model NotificationPreference {
+  user_id       String  @id
+  email_enabled Boolean @default(true)
+  push_enabled  Boolean @default(true)
+  user          User    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("notification_preferences")
+}
+
+model Notification {
+  id                  String              @id
+  user_id             String
+  kind                String
+  title               String
+  body                String
+  booking_id          String?
+  read_at             DateTime?           @db.Timestamptz(6)
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  notification_outbox NotificationOutbox?
+  bookings            Booking?            @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users               User                @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  push_outbox         PushOutbox?
+
+  @@index([user_id, created_at], map: "notifications_user_idx")
+  @@map("notifications")
+}
+
+model OtpChallenge {
+  id          String    @id
+  email       String
+  purpose     String
+  user_id     String?
+  payload     Json      @default("{}")
+  code_hash   String
+  attempts    Int       @default(0)
+  send_count  Int       @default(1)
+  expires_at  DateTime  @db.Timestamptz(6)
+  consumed_at DateTime? @db.Timestamptz(6)
+  sent_at     DateTime  @default(now()) @db.Timestamptz(6)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([email, created_at], map: "otp_email_idx")
+  @@map("otp_challenges")
+}
+
+model PaymentAttempt {
+  id                String   @id
+  funding_reference String
+  provider          String
+  status            String
+  error_code        String?
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("payment_attempts")
+}
+
+model PayoutAccount {
+  id             String   @id
+  user_id        String   @unique(map: "payout_accounts_active_idx", where: raw("active"))
+  provider       String
+  bank_code      String
+  bank_name      String
+  account_last4  String
+  account_cipher String
+  account_name   String
+  recipient_code String?
+  name_match     Boolean  @default(false)
+  active         Boolean  @default(true)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  users          User     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payouts        Payout[]
+
+  @@map("payout_accounts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Payout {
+  id                               String        @id
+  user_id                          String
+  account_id                       String
+  amount_kobo                      BigInt
+  fee_kobo                         BigInt        @default(0)
+  status                           String        @default("REQUESTED")
+  provider                         String?
+  provider_id                      String?
+  failure_reason                   String?
+  reviewed_by                      String?
+  reviewed_at                      DateTime?     @db.Timestamptz(6)
+  created_at                       DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime      @default(now()) @db.Timestamptz(6)
+  payout_accounts                  PayoutAccount @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_payouts_reviewed_byTousers User?         @relation("payouts_reviewed_byTousers", fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_payouts_user_idTousers     User          @relation("payouts_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([status])
+  @@index([user_id, created_at], map: "payouts_user_idx")
+  @@map("payouts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Promotion {
+  id            String   @id
+  listing_id    String
+  seller_id     String
+  days          Int
+  fee_kobo      BigInt
+  starts_at     DateTime @default(now()) @db.Timestamptz(6)
+  ends_at       DateTime @db.Timestamptz(6)
+  status        String   @default("ACTIVE")
+  cancel_reason String?
+  refund_kobo   BigInt   @default(0)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  listings      Listing  @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users         User     @relation(fields: [seller_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([listing_id, ends_at], map: "promotions_active_idx", where: raw("(status = 'ACTIVE'::text)"))
+  @@map("promotions")
+}
+
+model PushOutbox {
+  id              String       @id
+  notification_id String       @unique
+  status          String       @default("PENDING")
+  attempts        Int          @default(0)
+  available_at    DateTime     @default(now()) @db.Timestamptz(6)
+  locked_until    DateTime?    @db.Timestamptz(6)
+  last_error      String?
+  created_at      DateTime     @default(now()) @db.Timestamptz(6)
+  notifications   Notification @relation(fields: [notification_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([available_at], map: "push_outbox_pending_idx", where: raw("(status = 'PENDING'::text)"))
+  @@map("push_outbox")
+}
+
+model PushToken {
+  token        String    @id
+  user_id      String
+  platform     String
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  last_seen_at DateTime  @default(now()) @db.Timestamptz(6)
+  disabled_at  DateTime? @db.Timestamptz(6)
+  user         User      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([user_id], map: "push_tokens_user_idx", where: raw("(disabled_at IS NULL)"))
+  @@map("push_tokens")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Rating {
+  id         String   @id
+  booking_id String
+  buyer_id   String
+  seller_id  String
+  score      Int
+  comment    String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  bookings   Booking  @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users      User     @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sellers    Seller   @relation(fields: [seller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([booking_id, buyer_id])
+  @@map("ratings")
+}
+
+model ReconciliationException {
+  id         String   @id
+  funding_id String   @unique
+  reason     String
+  status     String   @default("OPEN")
+  resolution String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  funding    Funding  @relation(fields: [funding_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("reconciliation_exceptions")
+}
+
+model Report {
+  id           String   @id
+  reporter_id  String
+  subject_type String
+  subject_id   String
+  reason       String
+  status       String   @default("OPEN")
+  resolution   String?
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  users        User     @relation(fields: [reporter_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("reports")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model VerificationDocument {
+  id                                        String    @id
+  seller_id                                 String
+  kind                                      String
+  filename                                  String
+  mime_type                                 String
+  storage_provider                          String
+  storage_key                               String
+  status                                    String    @default("PENDING")
+  review_note                               String?
+  reviewed_by                               String?
+  reviewed_at                               DateTime? @db.Timestamptz(6)
+  created_at                                DateTime  @default(now()) @db.Timestamptz(6)
+  subject                                   String    @default("seller")
+  users_seller_documents_seller_idTousers   User      @relation("seller_documents_seller_idTousers", fields: [seller_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "seller_documents_owner_fkey")
+  users_seller_documents_reviewed_byTousers User?     @relation("seller_documents_reviewed_byTousers", fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([seller_id], map: "seller_documents_seller_idx")
+  @@map("seller_documents")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Seller {
+  user_id          String            @id
+  business_name    String
+  business_type    String
+  city             String
+  area             String
+  address          String
+  status           String            @default("PENDING")
+  reason           String?
+  created_at       DateTime          @default(now()) @db.Timestamptz(6)
+  latitude         Float?
+  longitude        Float?
+  public_latitude  Float?
+  public_longitude Float?
+  market_id        String?
+  bookings         Booking[]
+  conversations    Conversation[]
+  favourites       Favourite[]
+  listings         Listing[]
+  location_history LocationHistory[]
+  ratings          Rating[]
+  markets          Market?           @relation(fields: [market_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users            User              @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([public_latitude, public_longitude], map: "seller_public_geo_idx")
+  @@map("sellers")
+}
+
+model Session {
+  token_hash         String    @id
+  user_id            String
+  expires_at         DateTime  @db.Timestamptz(6)
+  id                 String    @unique(map: "sessions_id_idx") @default(dbgenerated("(gen_random_uuid())::text"))
+  refresh_hash       String?   @unique
+  refresh_expires_at DateTime? @db.Timestamptz(6)
+  device_label       String    @default("Unknown device")
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  last_seen_at       DateTime  @default(now()) @db.Timestamptz(6)
+  user               User      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("sessions")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Setting {
+  id                      Int     @id
+  reservation_hours       Int
+  commission_bps          Int
+  payout_min_kobo         Int     @default(100000)
+  payout_fee_kobo         Int     @default(5000)
+  promotion_daily_kobo    Int     @default(50000)
+  delivery_commission_bps Int     @default(1000)
+  delivery_radius_km      Int     @default(15)
+  pay_on_delivery_enabled Boolean @default(false)
+
+  @@map("settings")
+}
+
+model StockAlert {
+  buyer_id   String
+  listing_id String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      User     @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  listings   Listing  @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([buyer_id, listing_id])
+  @@index([listing_id], map: "stock_alerts_listing_idx")
+  @@map("stock_alerts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model UserBlock {
+  blocker_id String
+  blocked_id String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  blocked    User     @relation("user_blocks_blocked_idTousers", fields: [blocked_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  blocker    User     @relation("user_blocks_blocker_idTousers", fields: [blocker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([blocker_id, blocked_id])
+  @@map("user_blocks")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model User {
+  funding_intents FundingIntent[]
+  id                                                   String                  @id
+  name                                                 String
+  email                                                String                  @unique
+  phone                                                String                  @unique
+  password_hash                                        String
+  admin                                                Boolean                 @default(false)
+  created_at                                           DateTime                @default(now()) @db.Timestamptz(6)
+  email_verified_at                                    DateTime?               @db.Timestamptz(6)
+  status                                               String                  @default("ACTIVE")
+  staff_role                                           String?
+  audit                                                AuditEntry[]
+  bookings                                             Booking[]
+  conversations                                        Conversation[]
+  deliveries_deliveries_buyer_idTousers                Delivery[]              @relation("deliveries_buyer_idTousers")
+  deliveries_deliveries_driver_idTousers               Delivery[]              @relation("deliveries_driver_idTousers")
+  deliveries_deliveries_seller_idTousers               Delivery[]              @relation("deliveries_seller_idTousers")
+  dispute_evidence                                     DisputeEvidence[]
+  disputes                                             Dispute[]
+  drivers                                              Driver?
+  events                                               BookingEvent[]
+  favourites                                           Favourite[]
+  funding                                              Funding[]
+  location_history                                     LocationHistory[]
+  media                                                Media[]
+  messages                                             Message[]
+  notification_preferences                             NotificationPreference?
+  notifications                                        Notification[]
+  payout_accounts                                      PayoutAccount?
+  payouts_payouts_reviewed_byTousers                   Payout[]                @relation("payouts_reviewed_byTousers")
+  payouts_payouts_user_idTousers                       Payout[]                @relation("payouts_user_idTousers")
+  promotions                                           Promotion[]
+  push_tokens                                          PushToken[]
+  ratings                                              Rating[]
+  reports                                              Report[]
+  seller_documents_seller_documents_seller_idTousers   VerificationDocument[]  @relation("seller_documents_seller_idTousers")
+  seller_documents_seller_documents_reviewed_byTousers VerificationDocument[]  @relation("seller_documents_reviewed_byTousers")
+  sellers                                              Seller?
+  sessions                                             Session[]
+  stock_alerts                                         StockAlert[]
+  user_blocks_user_blocks_blocked_idTousers            UserBlock[]             @relation("user_blocks_blocked_idTousers")
+  user_blocks_user_blocks_blocker_idTousers            UserBlock[]             @relation("user_blocks_blocker_idTousers")
+
+  @@map("users")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model VehicleType {
+  code           String     @id
+  name           String
+  base_fare_kobo Int
+  per_km_kobo    Int
+  min_fare_kobo  Int
+  max_km         Int        @default(30)
+  active         Boolean    @default(true)
+  sort           Int        @default(0)
+  deliveries     Delivery[]
+  drivers        Driver[]
+
+  @@map("vehicle_types")
+}
+
+model WorkerHeartbeat {
+  name       String   @id
+  beat_at    DateTime @db.Timestamptz(6)
+  last_error String?
+
+  @@map("worker_heartbeats")
+}
+
+model FundingIntent {
+  actor_id String
+  key String
+  request_hash String
+  requested_provider String
+  current_reference String @unique
+  status String @default("INITIALIZING")
+  lease_until DateTime @db.Timestamptz(6)
+  response Json?
+  error Json?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  user User @relation(fields:[actor_id],references:[id],onDelete:NoAction,onUpdate:NoAction)
+  funding Funding @relation(fields:[current_reference],references:[id],onDelete:NoAction,onUpdate:NoAction)
+  @@id([actor_id,key])
+  @@index([status,lease_until],map:"funding_intents_recovery_idx")
+  @@map("funding_intents")
+}

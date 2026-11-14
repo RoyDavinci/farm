@@ -1,0 +1,287 @@
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+import * as Crypto from 'expo-crypto';
+import {
+  cacheable,
+  recall,
+  remember,
+  setOffline,
+  forgetAll,
+  activateCacheAccount,
+  cacheScope,
+} from './offline';
+export const API_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  (Platform.OS === 'android' ? 'http://10.0.2.2:4000/v1' : 'http://localhost:4000/v1');
+let expiredHandler: () => void = () => {};
+export function onSessionExpired(handler: () => void) {
+  expiredHandler = handler;
+  return () => {
+    expiredHandler = () => {};
+  };
+}
+let token = '',
+  refreshToken = '';
+let refreshing: Promise<void> | null = null;
+async function put(key: string, value: string) {
+  if (Platform.OS === 'web') {
+    if (value) sessionStorage.setItem(key, value);
+    else sessionStorage.removeItem(key);
+  } else if (value) await SecureStore.setItemAsync(key, value);
+  else await SecureStore.deleteItemAsync(key);
+}
+async function get(key: string) {
+  return Platform.OS === 'web'
+    ? sessionStorage.getItem(key) || ''
+    : (await SecureStore.getItemAsync(key)) || '';
+}
+let accountId = '',
+  sessionEpoch = 0;
+let credentialsTail: Promise<unknown> = Promise.resolve();
+class SessionChangedError extends Error {
+  constructor() {
+    super('Your sign-in session changed. Please retry.');
+  }
+}
+function persistCredentials(expectedEpoch: number) {
+  const values = { token, refreshToken, accountId };
+  const write = credentialsTail.then(async () => {
+    if (expectedEpoch !== sessionEpoch) return;
+    await Promise.all([
+      put('fm-token', values.token),
+      put('fm-refresh', values.refreshToken),
+      put('fm-account-id', values.accountId),
+    ]);
+  });
+  credentialsTail = write.catch(() => {});
+  return write;
+}
+export async function saveSession(data: {
+  token: string;
+  refresh_token: string;
+  user?: { id: string };
+}) {
+  sessionEpoch++;
+  token = data.token;
+  refreshToken = data.refresh_token;
+  accountId = data.user?.id || '';
+  const expected = sessionEpoch;
+  if (accountId) await activateCacheAccount(accountId);
+  else await forgetAll();
+  await persistCredentials(expected);
+}
+export async function restoreToken() {
+  const expected = sessionEpoch;
+  const restored = await Promise.all([get('fm-token'), get('fm-refresh'), get('fm-account-id')]);
+  if (expected !== sessionEpoch) return false;
+  [token, refreshToken, accountId] = restored;
+  if (accountId) await activateCacheAccount(accountId);
+  else await forgetAll();
+  return !!(token || refreshToken);
+}
+export async function saveToken(value: string) {
+  sessionEpoch++;
+  token = value;
+  refreshToken = '';
+  accountId = '';
+  refreshing = null;
+  const expected = sessionEpoch;
+  // Invalidate cached reads and in-flight writes before awaiting any storage operation.
+  const clearing = forgetAll();
+  await Promise.all([clearing, persistCredentials(expected)]);
+}
+async function renew(expectedEpoch: number) {
+  if (!refreshToken) throw new Error('Please sign in again.');
+  const res = await fetch(`${API_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+  const d = await res.json();
+  if (expectedEpoch !== sessionEpoch) throw new SessionChangedError();
+  if (!res.ok) {
+    if (res.status === 401) {
+      await saveToken('');
+      expiredHandler();
+    }
+    throw new Error(d.error?.message || 'Could not renew your session. Please retry.');
+  }
+  token = d.token;
+  refreshToken = d.refresh_token;
+  await persistCredentials(expectedEpoch);
+  if (expectedEpoch !== sessionEpoch) throw new SessionChangedError();
+}
+async function authenticatedFetch(path: string, options: RequestInit, allowRefresh = true) {
+  const expected = sessionEpoch;
+  options.headers = { ...options.headers, ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  let res = await fetch(`${API_URL}${path}`, options);
+  if (expected !== sessionEpoch) throw new SessionChangedError();
+  if (res.status === 401 && allowRefresh && !path.startsWith('/auth/') && refreshToken) {
+    if (!refreshing) {
+      const pending = renew(expected);
+      refreshing = pending;
+      void pending
+        .finally(() => {
+          if (refreshing === pending) refreshing = null;
+        })
+        .catch(() => {});
+    }
+    await refreshing;
+    if (expected !== sessionEpoch) throw new SessionChangedError();
+    options.headers = { ...options.headers, Authorization: `Bearer ${token}` };
+    res = await fetch(`${API_URL}${path}`, options);
+  }
+  if (expected !== sessionEpoch) throw new SessionChangedError();
+  if (res.status === 401 && !path.startsWith('/auth/')) {
+    await saveToken('');
+    expiredHandler();
+  }
+  return res;
+}
+export async function api<T = any>(path: string, method = 'GET', body?: unknown): Promise<T> {
+  const requestScope = cacheScope();
+  const requestEpoch = sessionEpoch;
+  const options: RequestInit = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(method !== 'GET' ? { 'Idempotency-Key': Crypto.randomUUID() } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  };
+  let response: Response;
+  try {
+    response = await authenticatedFetch(path, options);
+  } catch (e) {
+    if (
+      e instanceof SessionChangedError ||
+      requestEpoch !== sessionEpoch ||
+      (e as Error).message.includes('sign in')
+    )
+      throw e;
+    try {
+      response = await authenticatedFetch(path, options);
+    } catch (error) {
+      if (error instanceof SessionChangedError || requestEpoch !== sessionEpoch) throw error;
+      setOffline(true);
+      // Offline: show the last saved copy of read-only screens instead of an error.
+      if (method === 'GET' && cacheable(path)) {
+        const cached = await recall<T>(path, requestScope);
+        if (cached !== null) return cached;
+      }
+      throw new Error('Cannot reach Farmers Market. Please check your connection.');
+    }
+  }
+  setOffline(false);
+  const d = await response.json();
+  if (!response.ok) throw new Error(d.error?.message || 'Request failed.');
+  if (requestEpoch !== sessionEpoch) throw new SessionChangedError();
+  let scope = requestScope;
+  if (path === '/me' && typeof d?.user?.id === 'string' && d.user.id !== accountId) {
+    accountId = d.user.id;
+    await activateCacheAccount(accountId);
+    await persistCredentials(sessionEpoch);
+    scope = cacheScope();
+  }
+  if (method === 'GET' && cacheable(path)) await remember(path, d, scope);
+  return d;
+}
+export async function uploadPhoto(asset: {
+  uri: string;
+  mimeType?: string | null;
+  fileName?: string | null;
+  file?: File;
+}) {
+  const form = new FormData();
+  if (Platform.OS === 'web') {
+    const file = asset.file || (await (await fetch(asset.uri)).blob());
+    form.append('image', file, asset.fileName || 'produce.jpg');
+  } else
+    form.append('image', {
+      uri: asset.uri,
+      name: asset.fileName || 'produce.jpg',
+      type: asset.mimeType || 'image/jpeg',
+    } as any);
+  const res = await authenticatedFetch('/media', { method: 'POST', body: form });
+  const d = await res.json();
+  if (!res.ok) throw new Error(d.error?.message || 'Photo upload failed.');
+  return d as { id: string; url: string; thumbnail_url: string };
+}
+// Tokens are sent in the first encrypted WS frame, never in a URL or access log.
+export function liveUpdates(onSync: () => void) {
+  let stopped = false,
+    socket: WebSocket | undefined,
+    retry: ReturnType<typeof setTimeout> | undefined;
+  const connect = async () => {
+    try {
+      await api('/me');
+      if (stopped) return;
+      socket = new WebSocket(API_URL.replace(/^http/, 'ws').replace(/\/v1\/?$/, '/ws'));
+      socket.onopen = () => socket?.send(JSON.stringify({ type: 'authenticate', token }));
+      socket.onmessage = (e) => {
+        try {
+          if (JSON.parse(e.data).type === 'sync') onSync();
+        } catch {}
+      };
+      socket.onclose = () => {
+        if (!stopped) retry = setTimeout(() => void connect(), 5000);
+      };
+      socket.onerror = () => socket?.close();
+    } catch {
+      if (!stopped) retry = setTimeout(() => void connect(), 10000);
+    }
+  };
+  void connect();
+  return () => {
+    stopped = true;
+    if (retry) clearTimeout(retry);
+    socket?.close();
+  };
+}
+export async function uploadEvidence(
+  disputeId: string,
+  asset: { uri: string; mimeType?: string | null; fileName?: string | null; file?: File },
+) {
+  const form = new FormData();
+  if (Platform.OS === 'web') {
+    const file = asset.file || (await (await fetch(asset.uri)).blob());
+    form.append('file', file, asset.fileName || 'evidence.jpg');
+  } else
+    form.append('file', {
+      uri: asset.uri,
+      name: asset.fileName || 'evidence.jpg',
+      type: asset.mimeType || 'image/jpeg',
+    } as any);
+  const response = await authenticatedFetch(`/disputes/${disputeId}/evidence`, {
+    method: 'POST',
+    body: form,
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error?.message || 'Evidence upload failed.');
+  return data;
+}
+export async function uploadSellerDocument(
+  kind: string,
+  asset: { uri: string; mimeType?: string | null; name?: string | null; file?: File },
+  subject: 'seller' | 'driver' = 'seller',
+) {
+  const form = new FormData();
+  form.append('kind', kind);
+  form.append('subject', subject);
+  if (Platform.OS === 'web') {
+    const file = asset.file || (await (await fetch(asset.uri)).blob());
+    form.append('file', file, asset.name || 'document');
+  } else
+    form.append('file', {
+      uri: asset.uri,
+      name: asset.name || 'document',
+      type: asset.mimeType || 'application/octet-stream',
+    } as any);
+  const response = await authenticatedFetch('/sellers/me/documents', {
+    method: 'POST',
+    body: form,
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error?.message || 'Document upload failed.');
+  return data;
+}
