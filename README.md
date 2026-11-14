@@ -93,7 +93,7 @@ npm run db:seed
 npm test
 ```
 
-`npm test` runs 33 integration tests against a real PostgreSQL test database (`farmers_market_test`, rebuilt each run): OTP sign-in, bookings, payments and funding recovery, payouts, push, pre-orders, promotions, staff roles, documents, delivery (including a cancel/claim race), paging, security headers and the API contract. CI typechecks, tests, checks the OpenAPI contract and builds every push.
+`npm test` runs 33 integration tests against a real PostgreSQL test database (`farmers_market_test`, rebuilt each run): OTP sign-in, bookings, payments and funding recovery, payouts, push, pre-orders, promotions, staff roles, documents, delivery (including a cancel/claim race), paging, security headers and the API contract. CI typechecks, checks the OpenAPI contract and builds every push. Tests also run in CI but are optional: a failure is reported without failing the build.
 
 The API contract lives in `apps/api/openapi.json` and is generated from the code; `npm run api:contract` regenerates it and the TypeScript types in `packages/shared/src/api-types.ts`.
 

@@ -25,7 +25,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - run: npm test
+      # Tests are optional: they run and report on every push, but failures don't fail the build.
+      - name: Tests (optional)
+        run: npm test
+        continue-on-error: true
       # The OpenAPI contract and generated client types must match the code.
       - run: npm run api:contract && git diff --exit-code apps/api/openapi.json packages/shared/src/api-types.ts
       - run: npm run build

@@ -50,7 +50,7 @@ Status of the features from the requirements brief and roadmap. Reservations sta
 - `npm run backup`: `pg_dump` archive, optional copy to S3, and retention pruning.
 - `apps/api/Dockerfile` (one image for API and worker, verified to build and start). `apps/mobile/eas.json` build profiles.
 - Mobile offline support: the last loaded bookings, wallet, account and inbox show while offline, with a banner. New-listing drafts are saved on the device, and photo uploads retry automatically.
-- 33 integration tests (`npm test`) on a real PostgreSQL test database, run in CI along with a check that the generated OpenAPI contract (`apps/api/openapi.json`) and shared API types are up to date.
+- 33 integration tests (`npm test`) on a real PostgreSQL test database, run in CI as an optional (non-blocking) step, along with a required check that the generated OpenAPI contract (`apps/api/openapi.json`) and shared API types are up to date.
 - Row locks follow one order (user → booking → delivery → listing → variant); `mutate` retries transactions Postgres aborts as deadlocks or serialization conflicts.
 
 ## Needs people, accounts or decisions (not code)
