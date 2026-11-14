@@ -116,7 +116,8 @@ export async function searchListings(db: Database, d: SearchInput) {
   const rating = 'COALESCE((SELECT AVG(r.score) FROM ratings r WHERE r.seller_id=s.user_id),0)';
   if (d.min_rating) conditions.push(`${rating}>=${param(d.min_rating)}`);
   let distance = 'NULL::double precision';
-  if (d.lat !== undefined) {
+  // Validated above: latitude and longitude are either both present or both absent.
+  if (d.lat !== undefined && d.lng !== undefined) {
     const lat = param(d.lat),
       lng = param(d.lng);
     distance = `6371*acos(LEAST(1.0,GREATEST(-1.0,sin(radians(${lat}::double precision))*sin(radians(s.public_latitude))+cos(radians(${lat}::double precision))*cos(radians(s.public_latitude))*cos(radians(s.public_longitude-${lng}::double precision)))))`;

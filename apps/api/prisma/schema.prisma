@@ -220,7 +220,7 @@ model Favourite {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model Funding {
-  funding_intent FundingIntent?
+  funding_intent            FundingIntent?
   id                        String                   @id
   user_id                   String
   provider                  String
@@ -673,7 +673,7 @@ model UserBlock {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model User {
-  funding_intents FundingIntent[]
+  funding_intents                                      FundingIntent[]
   id                                                   String                  @id
   name                                                 String
   email                                                String                  @unique
@@ -744,20 +744,21 @@ model WorkerHeartbeat {
 }
 
 model FundingIntent {
-  actor_id String
-  key String
-  request_hash String
+  actor_id           String
+  key                String
+  request_hash       String
   requested_provider String
-  current_reference String @unique
-  status String @default("INITIALIZING")
-  lease_until DateTime @db.Timestamptz(6)
-  response Json?
-  error Json?
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  updated_at DateTime @default(now()) @db.Timestamptz(6)
-  user User @relation(fields:[actor_id],references:[id],onDelete:NoAction,onUpdate:NoAction)
-  funding Funding @relation(fields:[current_reference],references:[id],onDelete:NoAction,onUpdate:NoAction)
-  @@id([actor_id,key])
-  @@index([status,lease_until],map:"funding_intents_recovery_idx")
+  current_reference  String   @unique
+  status             String   @default("INITIALIZING")
+  lease_until        DateTime @db.Timestamptz(6)
+  response           Json?
+  error              Json?
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @default(now()) @db.Timestamptz(6)
+  user               User     @relation(fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  funding            Funding  @relation(fields: [current_reference], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([actor_id, key])
+  @@index([status, lease_until], map: "funding_intents_recovery_idx")
   @@map("funding_intents")
 }
