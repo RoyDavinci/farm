@@ -5,11 +5,12 @@ import { resolve } from 'node:path';
 import sharp from 'sharp';
 import { AppError, ensure } from '../lib/errors.js';
 import { storage } from '../lib/storage.js';
+import { createMediaService, createPublicMediaService } from '../services/media.service.js';
 import type { AppDeps } from '../types/deps.js';
 
 export function createMediaController(deps: AppDeps) {
   const { db, config: c } = deps;
-
+  const service = createMediaService(deps);
   const folder = resolve(c.uploadDir);
   const store = storage(c);
   const upload = multer({
@@ -105,7 +106,7 @@ export function createMediaController(deps: AppDeps) {
 
 export function createPublicMediaController(deps: AppDeps) {
   const { db, config: c } = deps;
-
+  const service = createPublicMediaService(deps);
   const store = storage(c);
   const servePhoto: RequestHandler = async (req, res) => {
     const file = String(req.params.file);

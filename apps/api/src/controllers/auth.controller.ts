@@ -4,15 +4,22 @@ import { createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from 
 import { z } from 'zod';
 import type { Query } from '../database/client.js';
 import { ensure } from '../lib/errors.js';
+import { requestInput } from '../lib/http.js';
 import { mailer } from '../lib/mail.js';
-import { email, password, profile, publicUser, tokenHash } from '../services/auth.service.js';
+import {
+  createAuthService,
+  email,
+  password,
+  profile,
+  publicUser,
+  tokenHash,
+} from '../services/auth.service.js';
 import type { AppDeps } from '../types/deps.js';
 
 export function createAuthController(deps: AppDeps) {
   const { db, config: c } = deps;
-
+  const service = createAuthService(deps);
   const mail = mailer(c);
-
   const digest = (id: string, code: string) =>
     createHmac('sha256', c.otpSecret).update(`${id}:${code}`).digest('hex');
   const codeMessage = (purpose: string, code: string) =>
@@ -120,45 +127,7 @@ export function createAuthController(deps: AppDeps) {
     res.status(202).json(await challenge(d.email, 'reset', u?.id || null));
   };
   const resendCode: RequestHandler = async (req, res) => {
-    const { challenge_id } = z.object({ challenge_id: z.uuid() }).parse(req.body);
-    const result = await db.transaction(async (q) => {
-      const [otp] = await q.query('SELECT * FROM otp_challenges WHERE id=$1 FOR UPDATE', [
-        challenge_id,
-      ]);
-      ensure(
-        otp &&
-          !otp.consumed_at &&
-          new Date(otp.expires_at).getTime() > Date.now() &&
-          otp.attempts < 5,
-        400,
-        'OTP_EXPIRED',
-        'This code request has expired. Please start again.',
-      );
-      ensure(
-        Date.now() - new Date(otp.sent_at).getTime() >= 60000,
-        429,
-        'OTP_COOLDOWN',
-        'Please wait one minute before requesting another code.',
-      );
-      ensure(
-        otp.send_count < 3,
-        429,
-        'OTP_RATE_LIMIT',
-        'Please start again after this code expires.',
-      );
-      const code = String(randomInt(100000, 1000000));
-      await q.query(
-        'UPDATE otp_challenges SET code_hash=$1,sent_at=now(),send_count=send_count+1 WHERE id=$2',
-        [digest(otp.id, code), otp.id],
-      );
-      await mail.send(
-        otp.email,
-        'Your Farmers Market verification code',
-        codeMessage(otp.purpose, code),
-      );
-      return { ok: true, resend_after: 60 };
-    });
-    res.json(result);
+    res.json(await service.resendCode(res.locals.user, requestInput(req)));
   };
   const verifyCode: RequestHandler = async (req, res) => {
     const d = z

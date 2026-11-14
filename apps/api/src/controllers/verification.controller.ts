@@ -3,10 +3,12 @@ import multer from 'multer';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { ensure } from '../lib/errors.js';
+import { requestInput } from '../lib/http.js';
 import { storage } from '../lib/storage.js';
 import { audit } from '../services/audit.service.js';
-import { notify } from '../services/communications.service.js';
 import {
+  createPublicDocumentService,
+  createVerificationService,
   kinds,
   normalizeDocument,
   signedLink,
@@ -16,7 +18,7 @@ import type { AppDeps } from '../types/deps.js';
 
 export function createVerificationController(deps: AppDeps) {
   const { db, config: c, mutate } = deps;
-
+  const service = createVerificationService(deps);
   const store = storage(c);
   const upload = multer({
     storage: multer.memoryStorage(),
@@ -32,12 +34,7 @@ export function createVerificationController(deps: AppDeps) {
     return signedLink(c, doc.id);
   }
   const listMyDocuments: RequestHandler = async (req, res) => {
-    const subject = z.enum(subjects).default('seller').parse(req.query.subject);
-    const docs = await db.query(
-      'SELECT * FROM seller_documents WHERE seller_id=$1 AND subject=$2 ORDER BY created_at DESC',
-      [res.locals.user.id, subject],
-    );
-    res.json(docs.map(fields));
+    res.json(await service.listMyDocuments(res.locals.user, requestInput(req)));
   };
   const uploadDocument: RequestHandler[] = [
     upload.single('file'),
@@ -93,51 +90,19 @@ export function createVerificationController(deps: AppDeps) {
     },
   ];
   const listDocuments: RequestHandler = async (req, res) => {
-    const { seller_id, subject } = z
-      .object({ seller_id: z.string().min(1).max(64), subject: z.enum(subjects).default('seller') })
-      .parse(req.query);
-    const docs = await db.query(
-      'SELECT d.*,u.name AS reviewer_name FROM seller_documents d LEFT JOIN users u ON u.id=d.reviewed_by WHERE d.seller_id=$1 AND d.subject=$2 ORDER BY d.created_at DESC',
-      [seller_id, subject],
-    );
-    res.json(docs.map(fields));
+    res.json(await service.listDocuments(res.locals.user, requestInput(req)));
   };
   const getDocumentLink: RequestHandler = async (req, res) => {
-    const [doc] = await db.query('SELECT * FROM seller_documents WHERE id=$1', [req.params.id]);
-    ensure(doc, 404, 'NOT_FOUND', 'Document not found.');
-    await audit(db, res.locals.user.id, 'seller_document.view', doc.id);
-    res.json({ url: await link(doc) });
+    res.json(await service.getDocumentLink(res.locals.user, requestInput(req)));
   };
-  const reviewDocument: RequestHandler = async (req, res) =>
-    mutate(req, res, async (q, u) => {
-      const d = z
-        .object({
-          status: z.enum(['ACCEPTED', 'REJECTED']),
-          note: z.string().trim().min(3).max(500),
-        })
-        .parse(req.body);
-      const [doc] = await q.query(
-        'UPDATE seller_documents SET status=$1,review_note=$2,reviewed_by=$3,reviewed_at=now() WHERE id=$4 RETURNING *',
-        [d.status, d.note, u.id, req.params.id],
-      );
-      ensure(doc, 404, 'NOT_FOUND', 'Document not found.');
-      await audit(q, u.id, 'seller_document.review', doc.id, d);
-      if (d.status === 'REJECTED')
-        await notify(
-          q,
-          doc.seller_id,
-          'verification',
-          'Verification document needs attention',
-          `${d.note} Please upload a clearer or updated document.`,
-        );
-      return fields(doc);
-    });
+  const reviewDocument: RequestHandler = (req, res) =>
+    mutate(req, res, (q, user) => service.reviewDocument(q, user, requestInput(req)));
   return { listMyDocuments, uploadDocument, listDocuments, getDocumentLink, reviewDocument };
 }
 
 export function createPublicDocumentController(deps: AppDeps) {
   const { db, config: c } = deps;
-
+  const service = createPublicDocumentService(deps);
   const store = storage(c);
   const downloadDocument: RequestHandler = async (req, res) => {
     const d = z

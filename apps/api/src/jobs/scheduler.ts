@@ -1,9 +1,9 @@
 import type { Config } from '../config/index.js';
 import type { Database } from '../database/client.js';
 import { logger } from '../lib/logger.js';
-import { recoverFunding } from '../services/funding-recovery.service.js';
 import { expireReservations } from '../services/booking.service.js';
 import { deliverNotifications } from '../services/communications.service.js';
+import { recoverFunding } from '../services/funding-recovery.service.js';
 import { deliverPush } from '../services/push.service.js';
 interface Job {
   name: string;

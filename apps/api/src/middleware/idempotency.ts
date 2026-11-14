@@ -6,7 +6,12 @@ import type { Mutate } from '../types/deps.js';
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 
 /** Read the common request identity without keeping a transaction open around I/O. */
-export function readIdempotency(req: import('express').Request) {
+export function readIdempotency(req: {
+  header(name: string): string | undefined;
+  method: string;
+  originalUrl: string;
+  body?: unknown;
+}) {
   const key = req.header('Idempotency-Key');
   ensure(
     key && key.length >= 8 && key.length <= 150,

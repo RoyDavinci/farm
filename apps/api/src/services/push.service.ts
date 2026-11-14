@@ -1,5 +1,8 @@
+import { z } from 'zod';
 import type { Config } from '../config/index.js';
 import type { Database } from '../database/client.js';
+import type { RequestInput } from '../lib/http.js';
+import type { AppDeps } from '../types/deps.js';
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 export const tokenPattern = /^(ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9_-]+\]$/;
 
@@ -107,4 +110,33 @@ export async function deliverPush(db: Database, c: Config, send: typeof fetch = 
         );
     }
   }
+}
+
+/** Business logic for push requests. HTTP-free: callers pass plain input. */
+export function createPushService(deps: AppDeps) {
+  const { db } = deps;
+  async function registerPushToken(user: any, input: RequestInput) {
+    const d = z
+      .object({
+        token: z.string().regex(tokenPattern, 'Invalid Expo push token.'),
+        platform: z.enum(['ios', 'android', 'web']),
+      })
+      .parse(input.body);
+    // A device token belongs to whoever signed in on that device most recently.
+    const user_id = user.id;
+    await db.prisma.pushToken.upsert({
+      where: { token: d.token },
+      create: { token: d.token, user_id, platform: d.platform },
+      update: { user_id, platform: d.platform, last_seen_at: new Date(), disabled_at: null },
+    });
+    return { ok: true };
+  }
+  async function removePushToken(user: any, input: RequestInput) {
+    const d = z.object({ token: z.string().max(200) }).parse(input.body ?? {});
+    await db.prisma.pushToken.deleteMany({
+      where: { token: d.token, user_id: user.id },
+    });
+    return { ok: true };
+  }
+  return { registerPushToken, removePushToken };
 }

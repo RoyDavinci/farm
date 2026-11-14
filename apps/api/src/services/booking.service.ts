@@ -1,9 +1,14 @@
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import type { Database, Query } from '../database/client.js';
-import { syncPrimary } from './catalog.service.js';
+import { ensure } from '../lib/errors.js';
+import type { RequestInput } from '../lib/http.js';
+import type { AppDeps } from '../types/deps.js';
+import { syncPrimary, unitPrice } from './catalog.service.js';
 import { notify } from './communications.service.js';
 import { cancelDelivery } from './deliveries.service.js';
 import { ledger } from './ledger.service.js';
+import { paymentService } from './payment-provider.service.js';
 import { listingAvailable, notifyIfRestocked } from './retention.service.js';
 
 const id = () => randomUUID();
@@ -116,4 +121,98 @@ export async function readBookings(db: Database, u: any, bookingId?: string) {
     if (active && u.id === b.buyer_id) safe.pickup_code = pickup_code;
     return safe;
   });
+}
+
+/** Business logic for bookings requests. HTTP-free: callers pass plain input. */
+export function createBookingsService(deps: AppDeps) {
+  const { db, config: c } = deps;
+  const payments = paymentService(c);
+  const visibleBookings = (u: any, bookingId?: string) => readBookings(db, u, bookingId);
+  const id = () => randomUUID();
+  async function listBookings(user: any, input: RequestInput) {
+    await expireReservations(db);
+    return await visibleBookings(user);
+  }
+  async function getBooking(user: any, input: RequestInput) {
+    await expireReservations(db);
+    const [b] = await visibleBookings(user, input.params.id as string);
+    ensure(b, 404, 'NOT_FOUND', 'Booking not found.');
+    return b;
+  }
+  async function listBookingEvents(user: any, input: RequestInput) {
+    const [b] = await visibleBookings(user, input.params.id as string);
+    ensure(b, 404, 'NOT_FOUND', 'Booking not found.');
+    return await db.query('SELECT * FROM events WHERE booking_id=$1 ORDER BY created_at,id', [
+      b.id,
+    ]);
+  }
+  async function createBooking(q: Query, u: any, input: RequestInput) {
+    const d = z
+      .object({
+        listing_id: z.uuid(),
+        variant_id: z.uuid().optional(),
+        quantity: z.number().int().min(1).max(100000),
+      })
+      .parse(input.body);
+    const [l] = await q.query(
+      "SELECT l.* FROM listings l JOIN sellers s ON s.user_id=l.seller_id WHERE l.id=$1 AND l.status='ACTIVE' AND s.status='APPROVED' AND EXISTS(SELECT 1 FROM users su WHERE su.id=s.user_id AND su.status='ACTIVE')",
+      [d.listing_id],
+    );
+    ensure(l, 404, 'NOT_FOUND', 'Listing is unavailable.');
+    ensure(l.seller_id !== u.id, 400, 'OWN_LISTING', 'You cannot book your own listing.');
+    const [variant] = await q.query(
+      `SELECT * FROM listing_variants WHERE listing_id=$1 AND active AND ${d.variant_id ? 'id=$2' : 'is_primary'}`,
+      d.variant_id ? [l.id, d.variant_id] : [l.id],
+    );
+    ensure(variant, 400, 'VARIANT_REQUIRED', 'Choose an available product variant.');
+    ensure(
+      d.quantity >= variant.min_quantity,
+      400,
+      'MIN_QUANTITY',
+      `Minimum order is ${variant.min_quantity} ${variant.unit}.`,
+    );
+    const preorder = !!l.available_from && new Date(l.available_from).getTime() > Date.now();
+    ensure(
+      preorder ? l.preorder_capacity >= d.quantity : variant.stock >= d.quantity,
+      409,
+      'OUT_OF_STOCK',
+      preorder
+        ? 'Not enough pre-order capacity left for this harvest.'
+        : 'Not enough stock for this variant.',
+    );
+    const price = unitPrice(variant as any, d.quantity);
+    const [s] = await q.query('SELECT * FROM settings WHERE id=1');
+    const total = price * d.quantity;
+    ensure(total <= 100000000, 400, 'ORDER_LIMIT', 'Order exceeds the current ₦1,000,000 limit.');
+    const [b] = await q.query(
+      'INSERT INTO bookings(id,buyer_id,seller_id,listing_id,title,unit,quantity,price_kobo,total_kobo,commission_bps,commission_kobo,pickup_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *',
+      [
+        id(),
+        u.id,
+        l.seller_id,
+        l.id,
+        l.title,
+        variant.unit,
+        d.quantity,
+        price,
+        total,
+        s.commission_bps,
+        Math.round((total * s.commission_bps) / 10000),
+        String(randomInt(100000, 1000000)),
+      ],
+    );
+    await q.query('UPDATE bookings SET variant_id=$1,variant_name=$2,preorder=$3 WHERE id=$4', [
+      variant.id,
+      variant.name,
+      preorder,
+      b.id,
+    ]);
+    b.variant_id = variant.id;
+    b.variant_name = variant.name;
+    b.preorder = preorder;
+    await event(q, { ...b, status: null }, 'REQUESTED', u.id, 'Buyer requested pickup booking.');
+    const { pickup_code, ...safe } = b;
+    return safe;
+  }
+  return { listBookings, getBooking, listBookingEvents, createBooking };
 }

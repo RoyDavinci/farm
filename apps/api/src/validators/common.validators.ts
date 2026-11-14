@@ -1,11 +1,10 @@
-import type { Request } from 'express';
 import { z } from 'zod';
 
 /**
  * Keyset paging: pass ?before=<cursor>&before_id=<id> from the last row for older rows.
  * cursor is the exact database timestamp text (JS dates drop microseconds).
  */
-export function parsePage(req: Request) {
+export function parsePage(req: { query: unknown }) {
   return z
     .object({
       before: z.string().max(64).optional(),
