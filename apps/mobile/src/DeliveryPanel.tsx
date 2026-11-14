@@ -6,6 +6,7 @@ import { useApp } from './AppContext';
 import MapPanel from './MapPanel';
 import { request } from './request';
 import { Badge, Button, Chip, Field, s } from './ui';
+import { PinQr, PinScanner } from './PinCode';
 
 export async function currentPosition() {
   const permission = await Location.requestForegroundPermissionsAsync();
@@ -264,13 +265,13 @@ export default function DeliveryPanel({
         />
       )}
       {!isSeller && delivery.delivery_pin && (
-        <View style={s.codeBox}>
-          <Text style={s.eyebrow}>YOUR DELIVERY PIN</Text>
-          <Text style={s.pickupCode}>{delivery.delivery_pin}</Text>
-          <Text style={s.small}>
-            Give this to the driver only after you have checked your order.
-          </Text>
-        </View>
+        <PinQr
+          kind="delivery"
+          deliveryId={delivery.id}
+          pin={delivery.delivery_pin}
+          title="YOUR DELIVERY CODE"
+          hint="Let the driver scan this (or read out the digits) only after you have checked your order."
+        />
       )}
       {!isSeller && ['OPEN', 'ASSIGNED'].includes(delivery.status) && (
         <Pressable
@@ -292,6 +293,7 @@ export default function DeliveryPanel({
             onChangeText={setPin}
             placeholder="Ask the driver to show their PIN"
           />
+          <PinScanner kind="pickup" deliveryId={delivery.id} onPin={setPin} />
           <Button
             title="Hand over to driver"
             disabled={busy || !/^\d{6}$/.test(pin)}

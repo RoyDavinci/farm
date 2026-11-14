@@ -47,6 +47,8 @@ const c = {
   ...config,
   dataDir: mailDir,
   mailMode: 'file' as const,
+  // Tests never call real map services.
+  mapboxToken: '',
   rateLimitPerMinute: 100000,
   authRateLimit: 100000,
   production: false,
@@ -1497,6 +1499,59 @@ describe('contract tour', () => {
   });
 });
 
+describe('road-distance fares', () => {
+  const from = { latitude: 6.55, longitude: 3.35 },
+    to = { latitude: 6.6, longitude: 3.36 };
+  it('uses Mapbox driving distance, caches it, and falls back to the estimate', async () => {
+    const { createRouting } = await import('../src/services/routing.service.js');
+    const mapbox = vi.fn(
+      async () => ({ ok: true, json: async () => ({ routes: [{ distance: 9340 }] }) }) as any,
+    );
+    const routing = createRouting({ ...c, mapboxToken: 'pk.test' }, null, mapbox);
+    expect(await routing.drivingDistance(from, to)).toEqual({ km: 9.3, method: 'road' });
+    expect(await routing.drivingDistance(from, to)).toEqual({ km: 9.3, method: 'road' });
+    expect(mapbox).toHaveBeenCalledTimes(1);
+    const down = createRouting({ ...c, mapboxToken: 'pk.test' }, null, (async () => {
+      throw new Error('timeout');
+    }) as any);
+    const fallback = await down.drivingDistance({ latitude: 6.5, longitude: 3.3 }, to);
+    expect(fallback.method).toBe('estimate');
+    expect((await createRouting({ ...c, mapboxToken: '' }).drivingDistance(from, to)).method).toBe(
+      'estimate',
+    );
+  });
+  it('quotes and charges delivery on the road distance when Mapbox is configured', async () => {
+    const roadApp = createApp(db, { ...c, mapboxToken: 'pk.test' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ routes: [{ distance: 12000 }] }) })),
+    );
+    const { b } = await accepted();
+    await funded(b);
+    await db.query('UPDATE sellers SET latitude=6.551,longitude=3.351 WHERE user_id=$1', [
+      'seller',
+    ]);
+    const quote = await request(roadApp)
+      .post(`/v1/bookings/${b}/delivery/quote`)
+      .set('Authorization', 'Bearer token-buyer')
+      .send({ vehicle_type: 'motorcycle', dropoff: to });
+    expect(quote.body).toMatchObject({ distance_km: 12, distance_method: 'road' });
+    // 500 base + 12 km × 150 = ₦2,300
+    expect(quote.body.fare_kobo).toBe(230000);
+    const d = await request(roadApp)
+      .post(`/v1/bookings/${b}/delivery`)
+      .set('Authorization', 'Bearer token-buyer')
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        vehicle_type: 'motorcycle',
+        dropoff: to,
+        dropoff_address: '14 Allen Avenue, Ikeja',
+        expected_fare_kobo: quote.body.fare_kobo,
+      });
+    expect(d.status).toBe(200);
+    expect(d.body.distance_km).toBe(12);
+  });
+});
 describe('redis, rate limits and realtime', () => {
   it('publishes user events only after commit, never on rollback', async () => {
     const { events } = await import('../src/lib/events.js');

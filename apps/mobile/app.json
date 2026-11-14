@@ -40,6 +40,13 @@
         {
           "color": "#365b38"
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Farmers Market to scan delivery handover codes.",
+          "recordAudioAndroid": false
+        }
       ]
     ]
   }

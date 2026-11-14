@@ -4376,6 +4376,13 @@
                     "distance_km": {
                       "type": "number"
                     },
+                    "distance_method": {
+                      "type": "string",
+                      "enum": [
+                        "road",
+                        "estimate"
+                      ]
+                    },
                     "fare_kobo": {
                       "type": "number"
                     },
@@ -4388,6 +4395,7 @@
                   },
                   "required": [
                     "distance_km",
+                    "distance_method",
                     "fare_kobo",
                     "vehicle_name",
                     "vehicle_type"
@@ -7634,7 +7642,10 @@
                       "type": "string"
                     },
                     "public_token": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [

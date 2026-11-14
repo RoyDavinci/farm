@@ -6,6 +6,7 @@ import { currentPosition, directions } from '../DeliveryPanel';
 import { request } from '../request';
 import { VerificationDocuments } from '../SellerTools';
 import { Badge, Button, Chip, Empty, Field, s } from '../ui';
+import { PinQr, PinScanner } from '../PinCode';
 
 const earnings = (d: any) => Math.round((Number(d.fare_kobo) * (10000 - d.commission_bps)) / 10000);
 
@@ -179,10 +180,13 @@ export default function DriveScreen() {
               <Pressable onPress={() => directions(d.pickup_latitude, d.pickup_longitude)}>
                 <Text style={s.link}>Directions to seller ↗</Text>
               </Pressable>
-              <View style={s.codeBox}>
-                <Text style={s.eyebrow}>SHOW THE SELLER THIS PIN</Text>
-                <Text style={s.pickupCode}>{d.pickup_pin}</Text>
-              </View>
+              <PinQr
+                kind="pickup"
+                deliveryId={d.id}
+                pin={d.pickup_pin}
+                title="SHOW THE SELLER THIS CODE"
+                hint="The seller scans it (or types the digits) before handing over the order."
+              />
               <Pressable
                 disabled={busy}
                 onPress={() =>
@@ -219,6 +223,11 @@ export default function DriveScreen() {
                 keyboardType="number-pad"
                 maxLength={6}
                 onChangeText={(v: string) => setPins({ ...pins, [d.id]: v })}
+              />
+              <PinScanner
+                kind="delivery"
+                deliveryId={d.id}
+                onPin={(pin) => setPins({ ...pins, [d.id]: pin })}
               />
               <Button
                 title="Confirm delivery"

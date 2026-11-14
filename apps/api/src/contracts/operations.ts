@@ -691,6 +691,8 @@ export const operationResponses: Record<string, z.ZodType> = {
   }),
   'deliveries.quoteDelivery': z.looseObject({
     distance_km: z.number(),
+    /** 'road' when Mapbox routing is configured, otherwise a straight-line estimate. */
+    distance_method: z.enum(['road', 'estimate']),
     fare_kobo: z.number(),
     vehicle_name: z.string(),
     vehicle_type: z.string(),
@@ -766,7 +768,7 @@ export const operationResponses: Record<string, z.ZodType> = {
   'geography.getMapConfig': z.looseObject({
     permanent_geocoding: z.boolean(),
     public_pin_precision: z.string(),
-    public_token: z.string(),
+    public_token: z.string().nullable(),
   }),
   'geography.listMarkets': z.array(
     z.looseObject({

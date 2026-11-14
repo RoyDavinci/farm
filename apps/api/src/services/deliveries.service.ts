@@ -9,16 +9,8 @@ import { event } from './booking.service.js';
 import { notify } from './communications.service.js';
 import { ledger, lockedBalance } from './ledger.service.js';
 
-/** Straight-line distance in km. */
-export function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number) {
-  const rad = (d: number) => (d * Math.PI) / 180;
-  const h =
-    Math.sin(rad(bLat - aLat) / 2) ** 2 +
-    Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(rad(bLng - aLng) / 2) ** 2;
-  return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(h)));
-}
-/** Roads are longer than the straight line; 1.3 is a common urban detour factor. */
-export const ROAD_FACTOR = 1.3;
+import { createRouting, haversineKm } from './routing.service.js';
+export { haversineKm, ROAD_FACTOR } from './routing.service.js';
 
 export function fareFor(
   v: { base_fare_kobo: number; per_km_kobo: number; min_fare_kobo: number },
@@ -55,10 +47,12 @@ export async function cancelDelivery(q: Query, d: any, reason: string, actor: st
 /** Business logic for deliveries requests. HTTP-free: callers pass plain input. */
 export function createDeliveriesService(deps: AppDeps) {
   const { db } = deps;
+  const routing = createRouting(deps.config, deps.redis);
   async function quote(q: Query, b: any, vehicle: string, drop: z.infer<typeof point>) {
-    const [s] = await q.query('SELECT latitude,longitude FROM sellers WHERE user_id=$1', [
-      b.seller_id,
-    ]);
+    const [s] = await q.query<{ latitude: number; longitude: number }>(
+      'SELECT latitude,longitude FROM sellers WHERE user_id=$1',
+      [b.seller_id],
+    );
     ensure(
       s?.latitude != null,
       409,
@@ -69,12 +63,15 @@ export function createDeliveriesService(deps: AppDeps) {
       vehicle,
     ]);
     ensure(v, 400, 'INVALID_VEHICLE', 'Choose an available vehicle type.');
-    const km =
-      Math.round(
-        haversineKm(s.latitude, s.longitude, drop.latitude, drop.longitude) * ROAD_FACTOR * 10,
-      ) / 10;
+    const { km, method } = await routing.drivingDistance(s, drop);
     ensure(km <= v.max_km, 400, 'TOO_FAR', `${v.name} delivery covers up to ${v.max_km} km.`);
-    return { pickup: s, vehicle: v, distance_km: km, fare_kobo: fareFor(v, km) };
+    return {
+      pickup: s,
+      vehicle: v,
+      distance_km: km,
+      distance_method: method,
+      fare_kobo: fareFor(v, km),
+    };
   }
   async function buyerBooking(q: Query, id: string, uid: string, lock = false) {
     const [b] = await q.query(`SELECT * FROM bookings WHERE id=$1${lock ? ' FOR UPDATE' : ''}`, [
@@ -123,8 +120,19 @@ export function createDeliveriesService(deps: AppDeps) {
   async function quoteDelivery(user: any, input: RequestInput) {
     const d = z.object({ vehicle_type: z.string().max(30), dropoff: point }).parse(input.body);
     const b = await buyerBooking(db, input.params.id as string, user.id);
-    const { distance_km, fare_kobo, vehicle } = await quote(db, b, d.vehicle_type, d.dropoff);
-    return { distance_km, fare_kobo, vehicle_type: vehicle.code, vehicle_name: vehicle.name };
+    const { distance_km, distance_method, fare_kobo, vehicle } = await quote(
+      db,
+      b,
+      d.vehicle_type,
+      d.dropoff,
+    );
+    return {
+      distance_km,
+      distance_method,
+      fare_kobo,
+      vehicle_type: vehicle.code,
+      vehicle_name: vehicle.name,
+    };
   }
   async function requestDelivery(q: Query, u: any, input: RequestInput) {
     const d = z
