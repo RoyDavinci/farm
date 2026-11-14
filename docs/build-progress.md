@@ -19,7 +19,7 @@ Status of the features from the requirements brief and roadmap. Reservations sta
 - Wallet funding through Paystack/Flutterwave hosted checkout, verified server-side, plus a simulated development mode. Double-entry ledger with idempotent mutations.
 - **Seller and driver payouts**. Bank accounts are confirmed by name with the provider and stored encrypted (only the last four digits are shown). Funds are held when a payout is requested. Staff approve or reject each one. Transfers go out through Paystack or Flutterwave and are settled only after server-side verification (webhook or recheck). The payout minimum and fee are configurable.
 - **Sponsored listings**, paid from seller proceeds at a configurable daily price. They are labelled "Sponsored" in search. Staff can stop one with a pro-rata refund.
-- Reconciliation exceptions and rechecks for provider funding.
+- Reconciliation exceptions and rechecks for provider funding. Checkout preparation is recorded as a durable funding intent around the provider call; a recovery job releases interrupted checkouts, re-verifies pending top-ups with the provider and expires unpaid ones after 72 hours. The Wallet screen shows pending, interrupted, failed and expired top-ups.
 
 ### Delivery network
 
@@ -50,7 +50,8 @@ Status of the features from the requirements brief and roadmap. Reservations sta
 - `npm run backup`: `pg_dump` archive, optional copy to S3, and retention pruning.
 - `apps/api/Dockerfile` (one image for API and worker, verified to build and start). `apps/mobile/eas.json` build profiles.
 - Mobile offline support: the last loaded bookings, wallet, account and inbox show while offline, with a banner. New-listing drafts are saved on the device, and photo uploads retry automatically.
-- 26 integration tests (`npm test`), now run in CI.
+- 33 integration tests (`npm test`) on a real PostgreSQL test database, run in CI along with a check that the generated OpenAPI contract (`apps/api/openapi.json`) and shared API types are up to date.
+- Row locks follow one order (user → booking → delivery → listing → variant); `mutate` retries transactions Postgres aborts as deadlocks or serialization conflicts.
 
 ## Needs people, accounts or decisions (not code)
 

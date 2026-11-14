@@ -37,7 +37,9 @@ function mountPrefixes() {
     ['publicFileRoutes', ''],
     ['apiRoutes', '/v1'],
   ] as const) {
-    for (const m of section(fn).matchAll(/r\.use\((?:'([^']+)',\s*)?(?:[\w.]+,\s*)*(\w+)\(deps\)\)/g))
+    for (const m of section(fn).matchAll(
+      /r\.use\((?:'([^']+)',\s*)?(?:[\w.]+,\s*)*(\w+)\(deps\)\)/g,
+    ))
       prefixes[m[2]] = `${base}${m[1] ?? ''}`;
   }
   return prefixes;
@@ -52,7 +54,9 @@ function routes(): Route[] {
     for (const fn of text.matchAll(/export function (\w+)\(deps: AppDeps\) \{([\s\S]*?)\n\}/g)) {
       const prefix = prefixes[fn[1]];
       if (prefix === undefined) throw new Error(`${fn[1]} is not mounted in routes/index.ts`);
-      for (const r of fn[2].matchAll(/r\.(get|post|put|patch|delete)\('([^']*)',\s*(?:\.\.\.)?c\.(\w+)\)/g)) {
+      for (const r of fn[2].matchAll(
+        /r\.(get|post|put|patch|delete)\('([^']*)',\s*(?:\.\.\.)?c\.(\w+)\)/g,
+      )) {
         const path = `${prefix}${r[2] === '/' ? '' : r[2]}` || '/';
         out.push({ method: r[1] as Method, path, tag, handler: r[3] });
       }
@@ -66,8 +70,11 @@ function idempotentHandlers() {
   const names = new Set<string>();
   for (const file of readdirSync(join(src, 'controllers'))) {
     const text = read(`controllers/${file}`);
-    for (const m of text.matchAll(/const (\w+): RequestHandler(?:\[\])? = [\s\S]*?(?=\n  const \w+: RequestHandler|\n  return \{)/g))
-      if (/mutate\(|readIdempotency\(|service\.startFunding\(/.test(m[0])) names.add(`${file.replace('.controller.ts', '')}.${m[1]}`);
+    for (const m of text.matchAll(
+      /const (\w+): RequestHandler(?:\[\])? = [\s\S]*?(?=\n  const \w+: RequestHandler|\n  return \{)/g,
+    ))
+      if (/mutate\(|readIdempotency\(|service\.startFunding\(/.test(m[0]))
+        names.add(`${file.replace('.controller.ts', '')}.${m[1]}`);
   }
   return names;
 }
@@ -125,7 +132,8 @@ export function buildOpenApi() {
       responses: {
         [statusFor(r)]: {
           description: 'Success',
-          content: r.handler === 'paymentReturnPage' ? { 'text/html': {} } : { 'application/json': {} },
+          content:
+            r.handler === 'paymentReturnPage' ? { 'text/html': {} } : { 'application/json': {} },
         },
         default: { $ref: '#/components/responses/Error' },
       },
@@ -139,7 +147,12 @@ export function buildOpenApi() {
               'multipart/form-data': {
                 schema: {
                   type: 'object',
-                  properties: { [r.handler === 'uploadPhoto' ? 'image' : 'file']: { type: 'string', format: 'binary' } },
+                  properties: {
+                    [r.handler === 'uploadPhoto' ? 'image' : 'file']: {
+                      type: 'string',
+                      format: 'binary',
+                    },
+                  },
                 },
               },
             },
@@ -181,7 +194,10 @@ export function buildOpenApi() {
               type: 'object',
               required: ['code', 'message'],
               properties: {
-                code: { type: 'string', examples: ['VALIDATION_ERROR', 'NOT_FOUND', 'RATE_LIMITED'] },
+                code: {
+                  type: 'string',
+                  examples: ['VALIDATION_ERROR', 'NOT_FOUND', 'RATE_LIMITED'],
+                },
                 message: { type: 'string' },
                 requestId: { type: 'string' },
               },

@@ -65,7 +65,7 @@ Paystack and Flutterwave hosted-checkout adapters are implemented. To use provid
 3. Set `PAYMENT_RETURN_URL` to a reachable app/web return page. After checkout, the buyer uses **Verify completed payment**; signed provider webhooks also perform verification.
 4. Configure public HTTPS webhook endpoints `/v1/webhooks/paystack` and `/v1/webhooks/flutterwave`. Configure Flutterwave's webhook secret to match `FLUTTERWAVE_WEBHOOK_SECRET`; this implementation expects the documented `flutterwave-signature` HMAC-SHA256 signature over the raw body. Paystack uses `x-paystack-signature` HMAC-SHA512.
 
-Redirect parameters and payment screenshots never credit a wallet. Funding credits require an authenticated server-side provider verification with matching reference, exact amount and NGN currency; repeated callbacks cannot credit twice. Keys stay on the API server.
+A top-up interrupted mid-checkout is marked as interrupted and shown in Wallet; a background job re-checks pending top-ups with the provider every few minutes for 72 hours, so a lost webhook still credits the wallet (once). Redirect parameters and payment screenshots never credit a wallet. Funding credits require an authenticated server-side provider verification with matching reference, exact amount and NGN currency; repeated callbacks cannot credit twice. Keys stay on the API server.
 
 Live provider accounts, wallet/custody approval, and provider sandbox/live acceptance checks are still required before handling customer money. The internal held-payment ledger is a technical accounting mechanism; it does not itself establish a licensed escrow or wallet service. Live payments and transfers have not been exercised.
 
@@ -93,7 +93,9 @@ npm run db:seed
 npm test
 ```
 
-`npm test` runs 26 integration tests against an in-memory database (OTP sign-in, bookings, payments, payouts, push, pre-orders, promotions, staff roles, documents, delivery, paging and health). CI typechecks, tests and builds every push.
+`npm test` runs 33 integration tests against a real PostgreSQL test database (`farmers_market_test`, rebuilt each run): OTP sign-in, bookings, payments and funding recovery, payouts, push, pre-orders, promotions, staff roles, documents, delivery (including a cancel/claim race), paging, security headers and the API contract. CI typechecks, tests, checks the OpenAPI contract and builds every push.
+
+The API contract lives in `apps/api/openapi.json` and is generated from the code; `npm run api:contract` regenerates it and the TypeScript types in `packages/shared/src/api-types.ts`.
 
 Production helpers: `npm run worker` (background jobs as their own process), `npm run backup` (database backup, optional S3 copy), `apps/api/Dockerfile` (API and worker image), and `apps/mobile/eas.json` (native build profiles).
 

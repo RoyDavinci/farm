@@ -12,8 +12,10 @@ src/
   config/              env.ts validates every environment variable (zod); index.ts exposes typed config
   database/            client.ts (Prisma client + parameterised SQL in one transaction), seed.ts
   routes/              URL → controller wiring only; index.ts mounts everything under /v1 in order
-  controllers/         Request handling: validate input, call services, shape responses
-  services/            Business logic and data access shared across controllers
+  controllers/         HTTP only: build a RequestInput, call a service (inside mutate for writes),
+                       set status/headers. No SQL here.
+  services/            Business logic and data access. Each domain has a create<Name>Service(deps)
+                       factory whose methods take plain input (lib/http.ts RequestInput), not req/res
   middleware/          security (helmet, CORS, compression), request logging, authentication,
                        staff roles, idempotency, rate limits, errors
   validators/          Shared zod request schemas
@@ -25,10 +27,12 @@ src/
 prisma/
   schema.prisma        Schema of record
   migrations/          SQL migrations (0_init is the baseline of the pre-Prisma schema)
+scripts/openapi.ts     Generates openapi.json from routes, controllers and validators
+openapi.json           The API contract (generated; CI fails if stale)
 test/                  Integration tests against a real PostgreSQL test database
 ```
 
-A request flows `routes → controller → services → database`. Controllers get their dependencies (`db`, `config`, `mutate`) from `AppDeps`, so tests can build apps with different configuration.
+A request flows `routes → controller → service → database`. Controllers never touch the database; services never see Express objects, so they can be reused by jobs, scripts and tests. Controllers get their dependencies (`db`, `config`, `mutate`) from `AppDeps`, so tests can build apps with different configuration.
 
 ## Data access
 
@@ -37,12 +41,15 @@ A request flows `routes → controller → services → database`. Controllers g
 - Both styles share one transaction inside `db.transaction(async (q) => …)`.
 - Every state-changing endpoint goes through `mutate` (middleware/idempotency.ts): one transaction, serialised per user, with `Idempotency-Key` replay.
 
+Locking: take row locks in the order user → booking → delivery → listing → variant (the user lock comes from `mutate`). Transactions Postgres aborts as deadlocks or serialization conflicts are retried by `mutate`.
+
 Schema changes: edit `prisma/schema.prisma`, then `npm run db:migrate:dev -- --name <change>`; deploy with `npm run db:migrate` (`prisma migrate deploy`) as a release step before starting the new version. Check constraints and partial indexes are written in migration SQL because Prisma doesn't model them.
 
 ## Operations
 
 - Logs: `LOG_LEVEL` (error, warn, info, http, debug). Production writes JSON lines to stdout; secrets, tokens, codes and account numbers are redacted. Each request gets an `X-Request-Id`.
-- Health: `/health` (liveness) and `/health/ready` (database, job heartbeats, delayed email/push, stuck payouts).
+- Health: `/health` (liveness) and `/health/ready` (database, job heartbeats, delayed email/push, stuck payouts, top-ups stuck as uncertain).
+- Jobs (jobs/scheduler.ts): reservation expiry, email, push, auth cleanup and funding recovery, each with a heartbeat.
 - Security: helmet headers (strict CSP, HSTS in production, no framing), CORS limited to `CORS_ORIGINS`, compression, per-IP rate limits (`RATE_LIMIT_PER_MINUTE`, `AUTH_RATE_LIMIT`), `TRUST_PROXY` for load balancers, 100 kB JSON limit.
 - Production refuses to start without `DATABASE_URL`, SMTP, a strong `OTP_SECRET` and `PAYOUT_ENCRYPTION_KEY`, an `https://` `PUBLIC_API_URL` and `https://` CORS origins.
 - Docker: `apps/api/Dockerfile` builds one image for the API (`node dist/server.js`), the worker (`node dist/worker.js`) and migrations (`npx prisma migrate deploy`).
@@ -57,4 +64,5 @@ npm run db:migrate     # apply migrations
 npm run db:migrate:dev # create a migration from schema.prisma changes
 npm run db:seed        # demo accounts (development only)
 npm run db:studio      # browse data
+npm run openapi        # regenerate openapi.json (root: npm run api:contract also refreshes shared types)
 ```

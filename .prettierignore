@@ -3,3 +3,4 @@ node_modules/
 **/.data/
 **/.expo/
 package-lock.json
+apps/api/openapi.json
