@@ -1,16 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { X } from 'lucide-react';
 import { money } from '@farmers-market/shared';
-import { api } from '../api';
-import { Badge, Empty } from '../ui';
+import { X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';
+import { request } from '../api';
+import { Badge, Empty } from '../ui';
 
 export default function PromotionsPage() {
   const { busy, action, setError } = useAdmin();
   const [rows, setRows] = useState<any[]>([]);
   const load = useCallback(
     () =>
-      api<any[]>('/admin/promotions')
+      (request('get', '/admin/promotions') as Promise<any[]>)
         .then(setRows)
         .catch((e) => setError(e.message)),
     [setError],
@@ -64,7 +64,10 @@ export default function PromotionsPage() {
                         );
                         if (reason)
                           void action(async () => {
-                            await api(`/admin/promotions/${p.id}/cancel`, 'POST', { reason });
+                            await request('post', '/admin/promotions/{id}/cancel', {
+                              params: { id: p.id },
+                              body: { reason },
+                            });
                             await load();
                           }, 'Promotion stopped; unused days refunded to the seller.');
                       }}

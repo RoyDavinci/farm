@@ -30,3 +30,4 @@ export const statusLabel = (status: string) => status.toLowerCase().replaceAll('
  * Example: `paths['/v1/bookings/{id}']['get']` or `operations['wallet.startFunding']`.
  */
 export type { components, operations, paths } from './api-types';
+export { createRequest, type ApiPath, type Send } from './request';

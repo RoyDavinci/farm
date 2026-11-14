@@ -1,32 +1,8 @@
-import React, { useState } from 'react';
-import {
-  Sprout,
-  Store,
-  ShoppingBag,
-  Package,
-  Settings,
-  ScrollText,
-  Wallet,
-  ArrowUpRight,
-  Search,
-  Check,
-  ChevronRight,
-  Clock,
-  X,
-  ShieldCheck,
-} from 'lucide-react';
-import {
-  money,
-  statusLabel,
-  type Seller,
-  type Booking,
-  type Listing,
-  type Settings as MarketSettings,
-  type OrderEvent,
-} from '@farmers-market/shared';
-import { api } from '../api';
-import { Badge, Stat, Empty, Toolbar, BookingTable } from '../ui';
+import { type Settings as MarketSettings } from '@farmers-market/shared';
+import { Check } from 'lucide-react';
+import { useState } from 'react';
 import { useAdmin } from '../AdminContext';
+import { request } from '../api';
 import { VehicleTypesCard } from './DeliveryPages';
 export default function SettingsPage({ settings }: { settings: MarketSettings }) {
   const { busy, action, go, openTimeline, openReview } = useAdmin();
@@ -45,15 +21,17 @@ export default function SettingsPage({ settings }: { settings: MarketSettings })
             const f = new FormData(e.currentTarget);
             void action(
               () =>
-                api('/admin/settings', 'PUT', {
-                  reservation_hours: Number(f.get('hours')),
-                  commission_bps: Math.round(Number(f.get('commission')) * 100),
-                  payout_min_kobo: Math.round(Number(f.get('payoutMin')) * 100),
-                  payout_fee_kobo: Math.round(Number(f.get('payoutFee')) * 100),
-                  promotion_daily_kobo: Math.round(Number(f.get('promoDaily')) * 100),
-                  delivery_commission_bps: Math.round(Number(f.get('deliveryCommission')) * 100),
-                  delivery_radius_km: Number(f.get('deliveryRadius')),
-                  pay_on_delivery_enabled: f.get('pod') === 'on',
+                request('put', '/admin/settings', {
+                  body: {
+                    reservation_hours: Number(f.get('hours')),
+                    commission_bps: Math.round(Number(f.get('commission')) * 100),
+                    payout_min_kobo: Math.round(Number(f.get('payoutMin')) * 100),
+                    payout_fee_kobo: Math.round(Number(f.get('payoutFee')) * 100),
+                    promotion_daily_kobo: Math.round(Number(f.get('promoDaily')) * 100),
+                    delivery_commission_bps: Math.round(Number(f.get('deliveryCommission')) * 100),
+                    delivery_radius_km: Number(f.get('deliveryRadius')),
+                    pay_on_delivery_enabled: f.get('pod') === 'on',
+                  },
                 }),
               'Marketplace rules saved.',
             );

@@ -1,19 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowUpRight, Check } from 'lucide-react';
 import { money, statusLabel } from '@farmers-market/shared';
-import { api } from '../api';
-import { Badge, Empty, Modal } from '../ui';
+import { ArrowUpRight, Check } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';
+import { request } from '../api';
+import { Badge, Empty, Modal } from '../ui';
 import { SellerDocuments } from './Modals';
 
-function useList<T>(path: string) {
+function useList<T>(path: '/admin/drivers' | '/admin/deliveries' | '/admin/vehicle-types') {
   const { setError } = useAdmin();
   const [rows, setRows] = useState<T[]>([]);
   const load = useCallback(
-    () =>
-      api<T[]>(path)
-        .then(setRows)
-        .catch((e) => setError(e.message)),
+    () => (request('get', path) as Promise<T[]>).then(setRows).catch((e) => setError(e.message)),
     [path, setError],
   );
   useEffect(() => void load(), [load]);
@@ -111,9 +108,12 @@ export function DriversPage() {
                 onClick={() =>
                   void action(
                     async () => {
-                      await api(`/admin/drivers/${review.user_id}/review`, 'POST', {
-                        status,
-                        reason,
+                      await request('post', '/admin/drivers/{id}/review', {
+                        params: { id: review.user_id },
+                        body: {
+                          status,
+                          reason,
+                        },
                       });
                       setReview(null);
                       await load();
@@ -199,13 +199,16 @@ export function VehicleTypesCard() {
             const f = new FormData(e.currentTarget);
             const kobo = (name: string) => Math.round(Number(f.get(name)) * 100);
             void action(async () => {
-              await api(`/admin/vehicle-types/${v.code}`, 'PUT', {
-                name: v.name,
-                base_fare_kobo: kobo('base'),
-                per_km_kobo: kobo('perKm'),
-                min_fare_kobo: kobo('min'),
-                max_km: Number(f.get('maxKm')),
-                active: f.get('active') === 'on',
+              await request('put', '/admin/vehicle-types/{code}', {
+                params: { code: v.code },
+                body: {
+                  name: v.name,
+                  base_fare_kobo: kobo('base'),
+                  per_km_kobo: kobo('perKm'),
+                  min_fare_kobo: kobo('min'),
+                  max_km: Number(f.get('maxKm')),
+                  active: f.get('active') === 'on',
+                },
               });
               await load();
             }, `${v.name} fares saved.`);

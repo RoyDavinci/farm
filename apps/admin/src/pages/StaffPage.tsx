@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Check } from 'lucide-react';
 import { statusLabel } from '@farmers-market/shared';
-import { api } from '../api';
-import { Badge, Empty } from '../ui';
+import { Check } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';
+import { request } from '../api';
+import { Badge, Empty } from '../ui';
 
 const roles = [
   ['owner', 'Everything, including settings and staff'],
@@ -17,7 +17,7 @@ export default function StaffPage() {
   const [rows, setRows] = useState<any[]>([]);
   const load = useCallback(
     () =>
-      api<any[]>('/admin/staff')
+      (request('get', '/admin/staff') as Promise<any[]>)
         .then(setRows)
         .catch((e) => setError(e.message)),
     [setError],
@@ -26,7 +26,7 @@ export default function StaffPage() {
   const save = (email: string, role: string | null, reason: string) =>
     action(
       async () => {
-        await api('/admin/staff', 'POST', { email, role, reason });
+        await request('post', '/admin/staff', { body: { email, role, reason } });
         await load();
       },
       role ? `Role set to ${role}.` : 'Console access removed.',

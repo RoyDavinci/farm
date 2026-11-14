@@ -1,5 +1,5 @@
-import { createContext, useContext } from 'react';
 import type { Booking, Seller } from '@farmers-market/shared';
+import { createContext, useContext } from 'react';
 export type Page =
   | 'Overview'
   | 'Sellers'

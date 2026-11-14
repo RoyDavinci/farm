@@ -1,32 +1,8 @@
-import React, { useState } from 'react';
-import {
-  Sprout,
-  Store,
-  ShoppingBag,
-  Package,
-  Settings,
-  ScrollText,
-  Wallet,
-  ArrowUpRight,
-  Search,
-  Check,
-  ChevronRight,
-  Clock,
-  X,
-  ShieldCheck,
-} from 'lucide-react';
-import {
-  money,
-  statusLabel,
-  type Seller,
-  type Booking,
-  type Listing,
-  type Settings as MarketSettings,
-  type OrderEvent,
-} from '@farmers-market/shared';
-import { api } from '../api';
-import { Badge, Stat, Empty, Toolbar, BookingTable } from '../ui';
+import { money, type Listing } from '@farmers-market/shared';
+import { useState } from 'react';
 import { useAdmin } from '../AdminContext';
+import { request } from '../api';
+import { Badge, Empty, Toolbar } from '../ui';
 export default function ListingsPage({ listings }: { listings: Listing[] }) {
   const { busy, action, go, openTimeline, openReview } = useAdmin();
   const [search, setSearch] = useState(''),
@@ -76,9 +52,12 @@ export default function ListingsPage({ listings }: { listings: Listing[] }) {
                         if (reason)
                           void action(
                             () =>
-                              api(`/admin/listings/${l.id}/moderate`, 'POST', {
-                                status: l.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE',
-                                reason,
+                              request('post', '/admin/listings/{id}/moderate', {
+                                params: { id: l.id },
+                                body: {
+                                  status: l.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE',
+                                  reason,
+                                },
                               }),
                             'Listing updated.',
                           );

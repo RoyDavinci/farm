@@ -8,7 +8,7 @@ import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
-import { responses } from '../src/contracts/responses.js';
+import { responses } from '../src/contracts/index.js';
 import { fundingInput } from '../src/validators/funding.validators.js';
 import { searchInput } from '../src/validators/geography.validators.js';
 import { listingSchema, sellerSchema } from '../src/validators/marketplace.validators.js';

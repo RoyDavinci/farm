@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Check, RefreshCw, X } from 'lucide-react';
 import { money } from '@farmers-market/shared';
-import { api } from '../api';
-import { Badge, Empty, Toolbar } from '../ui';
+import { Check, RefreshCw, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';
+import { request } from '../api';
+import { Badge, Empty, Toolbar } from '../ui';
 
 interface Payout {
   id: string;
@@ -28,7 +28,7 @@ export default function PayoutsPage() {
     [filter, setFilter] = useState('ALL');
   const load = useCallback(
     () =>
-      api<Payout[]>('/admin/payouts')
+      (request('get', '/admin/payouts') as Promise<Payout[]>)
         .then(setRows)
         .catch((e) => setError(e.message)),
     [setError],
@@ -107,7 +107,10 @@ export default function PayoutsPage() {
                             )
                           )
                             void act(
-                              () => api(`/admin/payouts/${p.id}/approve`, 'POST'),
+                              () =>
+                                request('post', '/admin/payouts/{id}/approve', {
+                                  params: { id: p.id },
+                                }),
                               'Payout approved and sent to the provider.',
                             );
                         }}
@@ -121,7 +124,11 @@ export default function PayoutsPage() {
                           const reason = window.prompt('Reason for rejecting this payout');
                           if (reason)
                             void act(
-                              () => api(`/admin/payouts/${p.id}/reject`, 'POST', { reason }),
+                              () =>
+                                request('post', '/admin/payouts/{id}/reject', {
+                                  params: { id: p.id },
+                                  body: { reason },
+                                }),
                               'Payout rejected and funds returned to the seller.',
                             );
                         }}
@@ -136,7 +143,10 @@ export default function PayoutsPage() {
                       disabled={busy}
                       onClick={() =>
                         void act(
-                          () => api(`/admin/payouts/${p.id}/recheck`, 'POST'),
+                          () =>
+                            request('post', '/admin/payouts/{id}/recheck', {
+                              params: { id: p.id },
+                            }),
                           'Transfer status checked with the provider.',
                         )
                       }

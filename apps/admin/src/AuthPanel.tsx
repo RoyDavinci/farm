@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { ShieldCheck, ArrowUpRight } from 'lucide-react';
-import { api, saveSession } from './api';
+import { ArrowUpRight, ShieldCheck } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { request, saveSession } from './api';
 export default function AuthPanel({ onSignedIn }: { onSignedIn: (u: any) => void }) {
   const [reset, setReset] = useState(false),
     [challenge, setChallenge] = useState<any>(null),
@@ -31,10 +31,12 @@ export default function AuthPanel({ onSignedIn }: { onSignedIn: (u: any) => void
     const f = new FormData(e.currentTarget);
     await run(async () => {
       if (challenge) {
-        const d = await api('/auth/otp/verify', 'POST', {
-          challenge_id: challenge.challenge_id,
-          code: f.get('code'),
-          ...(reset ? { new_password: f.get('new_password') } : {}),
+        const d = await request('post', '/auth/otp/verify', {
+          body: {
+            challenge_id: challenge.challenge_id,
+            code: f.get('code'),
+            ...(reset ? { new_password: f.get('new_password') } : {}),
+          },
         });
         if (d.password_reset) {
           setChallenge(null);
@@ -46,11 +48,12 @@ export default function AuthPanel({ onSignedIn }: { onSignedIn: (u: any) => void
         saveSession(d);
         onSignedIn(d.user);
       } else {
-        const d = await api(
-          reset ? '/auth/password/forgot' : '/auth/login',
-          'POST',
-          Object.fromEntries(f),
-        );
+        const fields = Object.fromEntries(f) as Record<string, string>;
+        const d = reset
+          ? await request('post', '/auth/password/forgot', { body: { email: fields.email } })
+          : await request('post', '/auth/login', {
+              body: { email: fields.email, password: fields.password },
+            });
         setChallenge(d);
         setResendAt(Date.now() + 60000);
         setNotice('');
@@ -162,7 +165,9 @@ export default function AuthPanel({ onSignedIn }: { onSignedIn: (u: any) => void
             disabled={busy || seconds > 0}
             onClick={() =>
               void run(async () => {
-                await api('/auth/otp/resend', 'POST', { challenge_id: challenge.challenge_id });
+                await request('post', '/auth/otp/resend', {
+                  body: { challenge_id: challenge.challenge_id },
+                });
                 setResendAt(Date.now() + 60000);
                 setNotice('A new code has been sent.');
               })

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { api } from './api';
+import { useEffect, useState } from 'react';
+import { request } from './api';
 export default function OperationsPanel({ page }: { page: 'Users' | 'Reports' | 'Email queue' }) {
   const [rows, setRows] = useState<any[]>([]),
     [query, setQuery] = useState(''),
@@ -15,7 +15,7 @@ export default function OperationsPanel({ page }: { page: 'Users' | 'Reports' | 
         ? '/admin/reports'
         : '/admin/email-queue';
   async function load() {
-    setRows(await api(endpoint));
+    setRows(await request('get', endpoint));
   }
   useEffect(() => {
     setRows([]);
@@ -25,12 +25,12 @@ export default function OperationsPanel({ page }: { page: 'Users' | 'Reports' | 
     const id = setInterval(() => void load().catch(() => {}), 30000);
     return () => clearInterval(id);
   }, [endpoint]);
-  async function action(path: string, body: object) {
+  async function action(send: () => Promise<unknown>) {
     setBusy(true);
     setError('');
     setNotice('');
     try {
-      await api(path, 'POST', body);
+      await send();
       setSelected(null);
       setReason('');
       setNotice('Operation recorded.');
@@ -145,7 +145,13 @@ export default function OperationsPanel({ page }: { page: 'Users' | 'Reports' | 
                           <button
                             disabled={busy}
                             className="secondary compact"
-                            onClick={() => void action(`/admin/email-queue/${r.id}/retry`, {})}
+                            onClick={() =>
+                              void action(() =>
+                                request('post', '/admin/email-queue/{id}/retry', {
+                                  params: { id: r.id },
+                                }),
+                              )
+                            }
                           >
                             Retry
                           </button>
@@ -184,13 +190,19 @@ export default function OperationsPanel({ page }: { page: 'Users' | 'Reports' | 
               className="primary"
               disabled={busy || reason.trim().length < 5}
               onClick={() =>
-                void action(
+                void action(() =>
                   page === 'Users'
-                    ? `/admin/users/${selected.id}/status`
-                    : `/admin/reports/${selected.id}/resolve`,
-                  page === 'Users'
-                    ? { status: selected.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE', reason }
-                    : { resolution: reason },
+                    ? request('post', '/admin/users/{id}/status', {
+                        params: { id: selected.id },
+                        body: {
+                          status: selected.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE',
+                          reason,
+                        },
+                      })
+                    : request('post', '/admin/reports/{id}/resolve', {
+                        params: { id: selected.id },
+                        body: { resolution: reason },
+                      }),
                 )
               }
             >

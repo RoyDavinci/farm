@@ -1,32 +1,8 @@
-import React, { useState } from 'react';
-import {
-  Sprout,
-  Store,
-  ShoppingBag,
-  Package,
-  Settings,
-  ScrollText,
-  Wallet,
-  ArrowUpRight,
-  Search,
-  Check,
-  ChevronRight,
-  Clock,
-  X,
-  ShieldCheck,
-} from 'lucide-react';
-import {
-  money,
-  statusLabel,
-  type Seller,
-  type Booking,
-  type Listing,
-  type Settings as MarketSettings,
-  type OrderEvent,
-} from '@farmers-market/shared';
-import { api } from '../api';
-import { Badge, Stat, Empty, Toolbar, BookingTable } from '../ui';
+import { money, statusLabel } from '@farmers-market/shared';
+import { useState } from 'react';
 import { useAdmin } from '../AdminContext';
+import { request } from '../api';
+import { Empty } from '../ui';
 export default function LedgerPage({ ledger: first }: { ledger: any[] }) {
   const [older, setOlder] = useState<any[]>([]),
     [end, setEnd] = useState(false);
@@ -34,8 +10,10 @@ export default function LedgerPage({ ledger: first }: { ledger: any[] }) {
   const loadOlder = () => {
     const last = ledger.at(-1);
     if (!last) return;
-    void api<any[]>(
-      `/admin/ledger?limit=100&before=${encodeURIComponent(last.cursor)}&before_id=${encodeURIComponent(last.id)}`,
+    void (
+      request('get', '/admin/ledger', {
+        query: { limit: '100', before: last.cursor, before_id: last.id },
+      }) as Promise<any[]>
     ).then((rows) => {
       setOlder((o) => [...o, ...rows]);
       if (rows.length < 100) setEnd(true);

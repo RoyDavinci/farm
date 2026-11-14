@@ -1,29 +1,6 @@
+import { money, statusLabel, type Booking } from '@farmers-market/shared';
+import { ArrowUpRight, Clock, Package, Search, X } from 'lucide-react';
 import React, { useEffect } from 'react';
-import {
-  Sprout,
-  Store,
-  ShoppingBag,
-  Package,
-  Settings,
-  ScrollText,
-  Wallet,
-  ArrowUpRight,
-  Search,
-  Check,
-  ChevronRight,
-  Clock,
-  X,
-  ShieldCheck,
-} from 'lucide-react';
-import {
-  money,
-  statusLabel,
-  type Seller,
-  type Booking,
-  type Listing,
-  type Settings as MarketSettings,
-  type OrderEvent,
-} from '@farmers-market/shared';
 export function Badge({ status }: { status: string }) {
   return <span className={`badge ${status.toLowerCase()}`}>{statusLabel(status)}</span>;
 }

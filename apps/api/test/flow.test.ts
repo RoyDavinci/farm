@@ -5,12 +5,41 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createApp } from '../src/app.js';
+import express from 'express';
+import sharp from 'sharp';
+import bcrypt from 'bcryptjs';
+import { writeFileSync } from 'node:fs';
+import { createApp as buildApp } from '../src/app.js';
 import { config } from '../src/config/index.js';
 import { connect, type Database } from '../src/database/client.js';
 import { expireReservations } from '../src/services/booking.service.js';
 import { recoverFunding } from '../src/services/funding-recovery.service.js';
 import { deliverPush } from '../src/services/push.service.js';
+/**
+ * Every JSON response is recorded and checked against the published response schemas by the
+ * last test. With CONTRACT_CAPTURE=<file> the recordings are also written out (to derive schemas).
+ */
+const captures: { method: string; path: string; status: number; body: unknown }[] = [];
+function createApp(...args: Parameters<typeof buildApp>) {
+  const inner = buildApp(...args);
+  const outer = express();
+  outer.use((req, res, next) => {
+    const json = res.json.bind(res);
+    res.json = (body: unknown) => {
+      captures.push({
+        method: req.method,
+        path: req.originalUrl.split('?')[0],
+        status: res.statusCode,
+        // Exactly what goes over the wire (dates become strings, BigInts numbers).
+        body: body === undefined ? undefined : JSON.parse(JSON.stringify(body)),
+      });
+      return json(body);
+    };
+    next();
+  });
+  outer.use(inner);
+  return outer as unknown as ReturnType<typeof buildApp>;
+}
 let db: Database;
 let app: ReturnType<typeof createApp>;
 const mailDir = mkdtempSync(join(tmpdir(), 'fm-test-'));
@@ -30,7 +59,7 @@ const c = {
 const actors = ['seller', 'buyer', 'other', 'admin'] as const;
 function call(
   actor: (typeof actors)[number],
-  method: 'get' | 'post' | 'put' | 'patch',
+  method: 'get' | 'post' | 'put' | 'patch' | 'delete',
   path: string,
   body?: any,
   key = randomUUID(),
@@ -83,6 +112,8 @@ function latestCode() {
   return /code is (\d{6})/.exec(readFileSync(join(folder, newest), 'utf8'))![1];
 }
 afterAll(async () => {
+  if (process.env.CONTRACT_CAPTURE)
+    writeFileSync(process.env.CONTRACT_CAPTURE, JSON.stringify(captures));
   await db.close();
 });
 async function setup(stock = 10) {
@@ -1190,7 +1221,7 @@ describe('API contract', () => {
 });
 describe('response contract', () => {
   it('returns responses that match the published schemas', async () => {
-    const { responses } = await import('../src/contracts/responses.js');
+    const { responses } = await import('../src/contracts/index.js');
     const b = await completedSale();
     const [{ listing_id }] = await db.query('SELECT listing_id FROM bookings WHERE id=$1', [b]);
     const checks: [string, string, string][] = [
@@ -1214,5 +1245,290 @@ describe('response contract', () => {
       const parsed = responses[operation].safeParse(r.body);
       expect(parsed.success, `${operation}: ${parsed.error?.message}`).toBe(true);
     }
+  });
+});
+describe('contract tour', () => {
+  /** Calls every endpoint the other tests don't, asserting success, so each has a smoke test. */
+  it('exercises every remaining endpoint successfully', async () => {
+    const ok = async (r: any, label: string) => {
+      const res = await r;
+      expect(res.status, `${label}: ${JSON.stringify(res.body).slice(0, 300)}`).toBeLessThan(300);
+      return res.body;
+    };
+    const sale = await completedSale();
+    const [{ listing_id: listing }] = await db.query(
+      'SELECT listing_id FROM bookings WHERE id=$1',
+      [sale],
+    );
+    await db.query('UPDATE sellers SET latitude=6.55,longitude=3.35 WHERE user_id=$1', ['seller']);
+
+    // Account
+    await ok(
+      call('buyer', 'patch', '/me', { name: 'Buyer Renamed', phone: '+2348000000099' }),
+      'updateMe',
+    );
+    await db.query(
+      "UPDATE sessions SET refresh_expires_at=now()+interval '1 day',id=gen_random_uuid()::text WHERE user_id='buyer'",
+    );
+    const sessions = await ok(call('buyer', 'get', '/me/sessions'), 'listSessions');
+    await db.query(
+      "INSERT INTO sessions(token_hash,user_id,expires_at,refresh_expires_at) VALUES('old-device','buyer',now()+interval '1 day',now()+interval '1 day')",
+    );
+    const old = (await call('buyer', 'get', '/me/sessions')).body.find((s: any) => !s.current);
+    expect(sessions.length).toBeGreaterThan(0);
+    await ok(call('buyer', 'delete', `/me/sessions/${old.id}`), 'revokeSession');
+
+    // Notifications, messaging, blocks, reports, favourites, reviews
+    await ok(call('seller', 'get', '/notifications'), 'listNotifications');
+    await ok(call('seller', 'post', '/notifications/read', {}), 'markNotificationsRead');
+    await ok(call('seller', 'get', '/notification-preferences'), 'getNotificationPreferences');
+    const convo = await ok(
+      call('buyer', 'post', '/conversations', { listing_id: listing }),
+      'startConversation',
+    );
+    await ok(
+      call('buyer', 'post', `/conversations/${convo.id}/messages`, { body: 'Is it fresh?' }),
+      'sendMessage',
+    );
+    await ok(call('seller', 'get', '/conversations'), 'listConversations');
+    await ok(call('seller', 'get', `/conversations/${convo.id}/messages`), 'listMessages');
+    await ok(call('seller', 'post', `/conversations/${convo.id}/read`, {}), 'markConversationRead');
+    await ok(call('buyer', 'put', '/me/blocks/other'), 'blockUser');
+    await ok(call('buyer', 'get', '/me/blocks'), 'listBlocks');
+    await ok(call('buyer', 'delete', '/me/blocks/other'), 'unblockUser');
+    const report = await ok(
+      call('buyer', 'post', '/reports', {
+        subject_type: 'listing',
+        subject_id: listing,
+        reason: 'Photo looks wrong',
+      }),
+      'createReport',
+    );
+    await ok(call('admin', 'get', '/admin/reports'), 'listReports');
+    await ok(
+      call('admin', 'post', `/admin/reports/${report.id}/resolve`, {
+        resolution: 'Checked; photo is fine',
+      }),
+      'resolveReport',
+    );
+    await ok(call('buyer', 'put', '/favourites/seller'), 'addFavourite');
+    await ok(call('buyer', 'get', '/favourites'), 'listFavourites');
+    await ok(call('buyer', 'delete', '/favourites/seller'), 'removeFavourite');
+    await ok(call('buyer', 'get', '/sellers/seller'), 'getSellerProfile');
+    await ok(call('buyer', 'get', `/bookings/${sale}/rating`), 'getRating');
+    await ok(
+      call('buyer', 'post', `/bookings/${sale}/rating`, { score: 5, comment: 'Lovely tomatoes' }),
+      'rateBooking',
+    );
+    await ok(call('buyer', 'put', `/listings/${listing}/stock-alert`), 'addStockAlert');
+    await ok(call('buyer', 'delete', `/listings/${listing}/stock-alert`), 'removeStockAlert');
+    await ok(
+      call('buyer', 'delete', '/me/push-tokens', { token: 'ExponentPushToken[none]' }),
+      'removePushToken',
+    );
+
+    // Disputes, evidence and receipts
+    await ok(call('buyer', 'get', `/bookings/${sale}/receipt`), 'getReceipt');
+    await ok(call('buyer', 'get', `/bookings/${sale}/dispute`), 'getBookingDispute(none)');
+    const dispute = await ok(
+      call('buyer', 'post', `/bookings/${sale}/dispute`, {
+        reason_code: 'DAMAGED',
+        description: 'Half the crate was crushed',
+      }),
+      'openDispute',
+    );
+    await ok(call('buyer', 'get', `/bookings/${sale}/dispute`), 'getBookingDispute');
+    await ok(call('buyer', 'get', '/disputes'), 'listDisputes');
+    await ok(call('seller', 'get', `/disputes/${dispute.id}`), 'getDispute');
+    const png = await sharp({ create: { width: 8, height: 8, channels: 3, background: '#3a5' } })
+      .png()
+      .toBuffer();
+    const evidence = await ok(
+      request(app)
+        .post(`/v1/disputes/${dispute.id}/evidence`)
+        .set('Authorization', 'Bearer token-buyer')
+        .attach('file', png, 'photo.png'),
+      'uploadEvidence',
+    );
+    await ok(call('buyer', 'get', `/evidence/${evidence.id}/link`), 'getEvidenceLink');
+    await ok(call('admin', 'get', '/admin/disputes'), 'listAllDisputes');
+    await ok(
+      call('admin', 'post', `/disputes/${dispute.id}/return`, { action: 'request' }),
+      'updateReturn',
+    );
+    await ok(
+      call('seller', 'post', `/disputes/${dispute.id}/return`, { action: 'received' }),
+      'updateReturn(received)',
+    );
+    await ok(
+      call('admin', 'post', `/admin/disputes/${dispute.id}/resolve`, {
+        resolution: 'Partial refund for damage',
+        refund_kobo: 50000,
+      }),
+      'resolveDispute',
+    );
+
+    // Seller tools, markets, maps, media
+    await ok(
+      call('admin', 'post', '/admin/markets', {
+        name: 'Mile 12 Market',
+        city: 'Lagos',
+        area: 'Kosofe',
+        latitude: 6.6,
+        longitude: 3.4,
+      }),
+      'createMarket',
+    );
+    await ok(call('seller', 'get', '/markets?city=Lagos'), 'listMarkets');
+    await ok(call('seller', 'get', '/maps/config'), 'getMapConfig');
+    await ok(
+      call('seller', 'patch', '/sellers/me/location', {
+        address: '12 Harvest Lane, Ikorodu',
+        city: 'Lagos',
+        area: 'Ikorodu',
+        reason: 'Moved stall',
+        latitude: 6.56,
+        longitude: 3.36,
+      }),
+      'updateSellerLocation',
+    );
+    await db.query("UPDATE sellers SET status='APPROVED' WHERE user_id='seller'");
+    await ok(
+      request(app)
+        .post('/v1/media')
+        .set('Authorization', 'Bearer token-seller')
+        .attach('image', png, { filename: 'p.png', contentType: 'image/png' }),
+      'uploadPhoto',
+    );
+    await ok(call('seller', 'get', '/sellers/me/promotions'), 'listMyPromotions');
+    await ok(call('admin', 'get', '/admin/promotions'), 'listPromotions');
+    await ok(call('admin', 'get', '/admin/seller-documents?seller_id=seller'), 'listDocuments');
+
+    // Delivery and drivers
+    await ok(call('buyer', 'get', '/delivery/options'), 'getDeliveryOptions');
+    await ok(call('other', 'get', '/drivers/me'), 'getMyDriverProfile');
+    await ok(call('admin', 'get', '/admin/drivers'), 'listDrivers');
+    await ok(call('admin', 'get', '/admin/deliveries'), 'listDeliveries');
+    await ok(call('admin', 'get', '/admin/vehicle-types'), 'listVehicleTypes');
+    await ok(
+      call('admin', 'put', '/admin/vehicle-types/bicycle', {
+        name: 'Bicycle',
+        base_fare_kobo: 30000,
+        per_km_kobo: 10000,
+        min_fare_kobo: 50000,
+        max_km: 8,
+        active: true,
+      }),
+      'saveVehicleType',
+    );
+
+    // Admin console
+    for (const path of [
+      '/admin/overview',
+      '/admin/sellers',
+      '/admin/bookings',
+      '/admin/listings',
+      '/admin/reconciliation',
+      '/admin/audit',
+      '/admin/email-queue',
+      '/admin/users',
+    ])
+      await ok(call('admin', 'get', path), path);
+    await ok(
+      call('admin', 'post', `/admin/listings/${listing}/moderate`, {
+        status: 'PAUSED',
+        reason: 'Checking photos',
+      }),
+      'moderateListing',
+    );
+    const [job] = await db.query(
+      "UPDATE notification_outbox SET status='FAILED' WHERE id=(SELECT id FROM notification_outbox LIMIT 1) RETURNING id",
+    );
+    await ok(call('admin', 'post', `/admin/email-queue/${job.id}/retry`, {}), 'retryEmail');
+    await ok(
+      call('admin', 'post', '/admin/users/other/status', {
+        status: 'SUSPENDED',
+        reason: 'Testing suspension',
+      }),
+      'setUserStatus',
+    );
+
+    // Payouts in simulated mode
+    const sim = createApp(db, { ...c, payments: false, demo: true });
+    const simCall = (path: string, body?: any) =>
+      (body ? request(sim).post(`/v1${path}`).send(body) : request(sim).get(`/v1${path}`))
+        .set('Authorization', 'Bearer token-seller')
+        .set('Idempotency-Key', randomUUID());
+    await ok(simCall('/payouts/banks'), 'listBanks');
+    await ok(
+      simCall('/payouts/accounts/resolve', { bank_code: '058', account_number: '0123456789' }),
+      'resolveAccount',
+    );
+
+    // Auth: forgot password, resend code, refresh session
+    await ok(
+      request(app).post('/v1/auth/password/forgot').send({ email: 'buyer@test.com' }),
+      'forgotPassword',
+    );
+    await db.query("UPDATE otp_challenges SET sent_at=now()-interval '2 minutes'");
+    const [otp] = await db.query('SELECT id FROM otp_challenges ORDER BY created_at DESC LIMIT 1');
+    await ok(request(app).post('/v1/auth/otp/resend').send({ challenge_id: otp.id }), 'resendCode');
+    await db.query("UPDATE otp_challenges SET sent_at=now()-interval '2 minutes'");
+    await db.query("UPDATE users SET password_hash=$1 WHERE id='seller'", [
+      await bcrypt.hash('correct-horse-123', 4),
+    ]);
+    const login = await ok(
+      request(app)
+        .post('/v1/auth/login')
+        .send({ email: 'seller@test.com', password: 'correct-horse-123' }),
+      'login',
+    );
+    const verified = await ok(
+      request(app)
+        .post('/v1/auth/otp/verify')
+        .send({ challenge_id: login.challenge_id, code: latestCode() }),
+      'verifyCode',
+    );
+    await ok(
+      request(app).post('/v1/auth/refresh').send({ refresh_token: verified.refresh_token }),
+      'refreshSession',
+    );
+    await ok(request(app).get('/health'), 'liveness');
+  });
+});
+
+describe('response contract (whole suite)', () => {
+  // Runs last: every response recorded by the tests above must match its published schema.
+  it('every JSON operation has a schema and every recorded response matches it', async () => {
+    const { responses, nonJsonOperations } = await import('../src/contracts/index.js');
+    const { buildOpenApi } = await import('../scripts/openapi.js');
+    const spec = buildOpenApi() as any;
+    const routes: { method: string; rx: RegExp; id: string; depth: number }[] = [];
+    for (const [path, ops] of Object.entries<any>(spec.paths))
+      for (const [method, op] of Object.entries<any>(ops)) {
+        const rx = new RegExp(`^${path.replace(/\{\w+\}/g, '[^/]+')}$`);
+        routes.push({
+          method: method.toUpperCase(),
+          rx,
+          id: op.operationId,
+          depth: path.split('{').length,
+        });
+      }
+    routes.sort((a, b) => a.depth - b.depth);
+    const missing = routes
+      .map((r) => r.id)
+      .filter((id) => !responses[id] && !nonJsonOperations.has(id));
+    expect(missing).toEqual([]);
+    const seen = new Set<string>();
+    for (const c of captures) {
+      if (c.status < 200 || c.status >= 300) continue;
+      const route = routes.find((r) => r.method === c.method && r.rx.test(c.path));
+      if (!route || nonJsonOperations.has(route.id)) continue;
+      seen.add(route.id);
+      const parsed = responses[route.id].safeParse(c.body);
+      expect(parsed.success, `${route.id} ${c.path}: ${parsed.error?.message}`).toBe(true);
+    }
+    // The suite (including the contract tour) exercises nearly every JSON operation.
+    expect(seen.size).toBeGreaterThan(110);
   });
 });

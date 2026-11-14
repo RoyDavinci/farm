@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { api } from './api';
 import { money, statusLabel } from '@farmers-market/shared';
+import { useEffect, useState } from 'react';
+import { request } from './api';
 export default function CommercePanel({
   page,
 }: {
@@ -22,7 +22,7 @@ export default function CommercePanel({
         ? '/admin/disputes'
         : '/admin/reconciliation';
   async function load() {
-    const data = await api(endpoint);
+    const data = await request('get', endpoint);
     setRows(page === 'Reconciliation' ? data.funding : data);
     setExceptions(data.exceptions || []);
   }
@@ -50,7 +50,7 @@ export default function CommercePanel({
     setBusy(true);
     setError('');
     try {
-      setSelected(await api(`/disputes/${id}`));
+      setSelected(await request('get', '/disputes/{id}', { params: { id } }));
       setResolution('');
       setRefund('0');
       setRestock(false);
@@ -166,7 +166,10 @@ export default function CommercePanel({
                             disabled={busy}
                             onClick={() =>
                               void run(async () => {
-                                await api(`/admin/funding/${r.id}/recheck`, 'POST', {});
+                                await request('post', '/admin/funding/{id}/recheck', {
+                                  params: { id: r.id },
+                                  body: {},
+                                });
                               }, 'Funding verified with provider.')
                             }
                           >
@@ -196,13 +199,18 @@ export default function CommercePanel({
               const form = e.currentTarget,
                 f = new FormData(form);
               void run(async () => {
-                await api('/admin/markets', 'POST', {
-                  name: f.get('name'),
-                  city: f.get('city'),
-                  area: f.get('area'),
-                  ...(f.get('latitude') || f.get('longitude')
-                    ? { latitude: Number(f.get('latitude')), longitude: Number(f.get('longitude')) }
-                    : {}),
+                await request('post', '/admin/markets', {
+                  body: {
+                    name: f.get('name'),
+                    city: f.get('city'),
+                    area: f.get('area'),
+                    ...(f.get('latitude') || f.get('longitude')
+                      ? {
+                          latitude: Number(f.get('latitude')),
+                          longitude: Number(f.get('longitude')),
+                        }
+                      : {}),
+                  },
                 });
                 form.reset();
               }, 'Market added.');
@@ -284,7 +292,9 @@ export default function CommercePanel({
                 disabled={busy}
                 onClick={() =>
                   void run(async () => {
-                    const d = await api(`/evidence/${file.id}/link`);
+                    const d = await request('get', '/evidence/{id}/link', {
+                      params: { id: file.id },
+                    });
                     window.open(d.url, '_blank', 'noopener,noreferrer');
                   }, 'Attachment link opened.')
                 }
@@ -303,8 +313,13 @@ export default function CommercePanel({
                     disabled={busy}
                     onClick={() =>
                       void run(async () => {
-                        await api(`/disputes/${selected.id}/return`, 'POST', { action: 'request' });
-                        setSelected(await api(`/disputes/${selected.id}`));
+                        await request('post', '/disputes/{id}/return', {
+                          params: { id: selected.id },
+                          body: { action: 'request' },
+                        });
+                        setSelected(
+                          await request('get', '/disputes/{id}', { params: { id: selected.id } }),
+                        );
                       }, 'Return requested.')
                     }
                   >
@@ -320,10 +335,13 @@ export default function CommercePanel({
                 onSubmit={(e) => {
                   e.preventDefault();
                   void run(async () => {
-                    await api(`/admin/disputes/${selected.id}/resolve`, 'POST', {
-                      resolution,
-                      refund_kobo: Math.round(Number(refund) * 100),
-                      restock,
+                    await request('post', '/admin/disputes/{id}/resolve', {
+                      params: { id: selected.id },
+                      body: {
+                        resolution,
+                        refund_kobo: Math.round(Number(refund) * 100),
+                        restock,
+                      },
                     });
                     setSelected(null);
                   }, 'Case resolved. Any approved wallet adjustment has been recorded.');

@@ -278,8 +278,8 @@ export const Delivery = z
   })
   .meta({ id: 'Delivery' });
 
-/** Success response schema per operation id (the rest are documented as generic JSON). */
-export const responses: Record<string, z.ZodType> = {
+/** Success response schemas for the core resources, by operation id. */
+export const coreResponses: Record<string, z.ZodType> = {
   'account.getMe': Me,
   'account.getSettings': Settings,
   'account.logout': Ok,

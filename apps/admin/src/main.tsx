@@ -1,52 +1,61 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { createRoot } from 'react-dom/client';
+import type { ApiPath } from '@farmers-market/shared';
 import {
-  Sprout,
-  LayoutDashboard,
-  Store,
-  ShoppingBag,
-  Package,
-  Settings,
-  ScrollText,
-  Wallet,
-  ArrowUpRight,
-  Search,
-  LogOut,
-  RefreshCw,
-  Check,
-  ChevronRight,
-  Clock,
-  Menu,
-  X,
-  ShieldCheck,
-} from 'lucide-react';
-import {
-  money,
   statusLabel,
-  type Seller,
   type Booking,
   type Listing,
   type Settings as MarketSettings,
   type OrderEvent,
+  type Seller,
 } from '@farmers-market/shared';
-import { api, saveToken, onSessionExpired } from './api';
-import './styles.css';
-import AuthPanel from './AuthPanel';
-import OperationsPanel from './OperationsPanel';
-import CommercePanel from './CommercePanel';
+import {
+  ArrowUpRight,
+  Check,
+  ChevronRight,
+  Clock,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Package,
+  RefreshCw,
+  ScrollText,
+  Settings,
+  ShieldCheck,
+  ShoppingBag,
+  Sprout,
+  Store,
+  Wallet,
+} from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { createRoot } from 'react-dom/client';
 import { AdminContext, type AdminState, type Page } from './AdminContext';
-import OverviewPage from './pages/OverviewPage';
-import SellersPage from './pages/SellersPage';
-import BookingsPage from './pages/BookingsPage';
-import ListingsPage from './pages/ListingsPage';
-import SettingsPage from './pages/SettingsPage';
+import { onSessionExpired, request, saveToken } from './api';
+import AuthPanel from './AuthPanel';
+import CommercePanel from './CommercePanel';
+import OperationsPanel from './OperationsPanel';
 import AuditPage from './pages/AuditPage';
+import BookingsPage from './pages/BookingsPage';
+import { DeliveriesPage, DriversPage } from './pages/DeliveryPages';
 import LedgerPage from './pages/LedgerPage';
+import ListingsPage from './pages/ListingsPage';
 import { SellerReviewModal, TimelineModal } from './pages/Modals';
+import OverviewPage from './pages/OverviewPage';
 import PayoutsPage from './pages/PayoutsPage';
 import PromotionsPage from './pages/PromotionsPage';
+import SellersPage from './pages/SellersPage';
+import SettingsPage from './pages/SettingsPage';
 import StaffPage from './pages/StaffPage';
-import { DriversPage, DeliveriesPage } from './pages/DeliveryPages';
+import './styles.css';
+
+/** Contract paths that the console loads with GET and no parameters. */
+type GetPath = Extract<
+  ApiPath,
+  | '/admin/overview'
+  | '/admin/sellers'
+  | '/admin/bookings'
+  | '/admin/listings'
+  | '/admin/audit'
+  | '/admin/ledger'
+>;
 // Maps each console page to the API area its staff role must have.
 const pageArea: Record<Page, string> = {
   Overview: 'overview',
@@ -120,7 +129,7 @@ function App() {
     [],
   );
   useEffect(() => {
-    api('/me')
+    request('get', '/me')
       .then((d) => {
         if (!d.user.admin) {
           saveToken('');
@@ -136,11 +145,11 @@ function App() {
     setError('');
     try {
       // Staff roles see only some areas; load what this role may read and leave the rest empty.
-      const me = await api('/me');
+      const me = await request('get', '/me');
       const areas: string[] = me.staff_areas || [];
       setStaffAreas(areas);
-      const get = (area: string, path: string, empty: any) =>
-        areas.includes(area) ? api(path) : Promise.resolve(empty);
+      const get = (area: string, path: GetPath, empty: any) =>
+        areas.includes(area) ? request('get', path) : Promise.resolve(empty);
       const [o, s, b, l, a, e, c] = await Promise.all([
         get('overview', '/admin/overview', null),
         get('sellers', '/admin/sellers', []),
@@ -148,7 +157,7 @@ function App() {
         get('listings', '/admin/listings', []),
         get('audit', '/admin/audit', []),
         get('ledger', '/admin/ledger', []),
-        api('/settings'),
+        request('get', '/settings'),
       ]);
       setOverview(o);
       setSellers(s);
@@ -223,7 +232,9 @@ function App() {
     setError,
     go,
     openTimeline: (b) =>
-      void api<OrderEvent[]>(`/bookings/${b.id}/events`)
+      void (
+        request('get', '/bookings/{id}/events', { params: { id: b.id } }) as Promise<OrderEvent[]>
+      )
         .then((events) => setTimeline({ booking: b, events }))
         .catch((e) => setError(e.message)),
     openReview: setReview,
@@ -277,7 +288,7 @@ function App() {
               className="profile"
               onClick={() =>
                 void action(async () => {
-                  await api('/auth/logout', 'POST');
+                  await request('post', '/auth/logout');
                   saveToken('');
                   setUser(null);
                 }, '')

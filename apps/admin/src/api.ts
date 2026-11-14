@@ -1,3 +1,4 @@
+import { createRequest } from '@farmers-market/shared';
 const base = import.meta.env.VITE_API_URL || '/v1';
 let expiredHandler: () => void = () => {};
 export function onSessionExpired(handler: () => void) {
@@ -37,13 +38,30 @@ async function renew() {
   }
   saveSession(d);
 }
-export async function api<T = any>(path: string, method = 'GET', body?: unknown): Promise<T> {
+/** An API error with the server's machine-readable code. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+export async function api<T = any>(
+  path: string,
+  method = 'GET',
+  body?: unknown,
+  requestOptions: { idempotencyKey?: string } = {},
+): Promise<T> {
   const options: RequestInit = {
     method,
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(method !== 'GET' ? { 'Idempotency-Key': crypto.randomUUID() } : {}),
+      ...(method !== 'GET'
+        ? { 'Idempotency-Key': requestOptions.idempotencyKey || crypto.randomUUID() }
+        : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   };
@@ -62,6 +80,14 @@ export async function api<T = any>(path: string, method = 'GET', body?: unknown)
     expiredHandler();
   }
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error?.message || 'Request failed.');
+  if (!response.ok)
+    throw new ApiError(
+      data.error?.message || 'Request failed.',
+      data.error?.code || 'ERROR',
+      response.status,
+    );
   return data;
 }
+
+/** Typed API calls from the contract: request('get', '/admin/payouts'). */
+export const request = createRequest(api);

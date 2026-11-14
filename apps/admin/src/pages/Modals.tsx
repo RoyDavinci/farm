@@ -1,16 +1,14 @@
-import React, { useEffect, useState } from 'react';
 import {
   money,
   statusLabel,
-  type Seller,
   type Booking,
-  type Listing,
-  type Settings as MarketSettings,
   type OrderEvent,
+  type Seller,
 } from '@farmers-market/shared';
-import { api } from '../api';
-import { Badge, Modal } from '../ui';
+import { useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';
+import { request } from '../api';
+import { Badge, Modal } from '../ui';
 export function SellerReviewModal({
   seller: review,
   error,
@@ -62,9 +60,12 @@ export function SellerReviewModal({
             onClick={() =>
               void action(
                 async () => {
-                  await api(`/admin/sellers/${review.user_id}/review`, 'POST', {
-                    status,
-                    reason,
+                  await request('post', '/admin/sellers/{id}/review', {
+                    params: { id: review.user_id },
+                    body: {
+                      status,
+                      reason,
+                    },
                   });
                   onClose();
                 },
@@ -139,8 +140,10 @@ export function SellerDocuments({
   const [docs, setDocs] = useState<any[]>([]);
   const [failed, setFailed] = useState('');
   const load = () =>
-    api<any[]>(
-      `/admin/seller-documents?seller_id=${encodeURIComponent(sellerId)}&subject=${subject}`,
+    (
+      request('get', '/admin/seller-documents', {
+        query: { seller_id: sellerId, subject },
+      }) as Promise<any[]>
     )
       .then(setDocs)
       .catch((e) => setFailed(e.message));
@@ -163,7 +166,11 @@ export function SellerDocuments({
           <button
             className="secondary compact"
             onClick={() =>
-              void api<{ url: string }>(`/admin/seller-documents/${d.id}/link`)
+              void (
+                request('get', '/admin/seller-documents/{id}/link', {
+                  params: { id: d.id },
+                }) as Promise<{ url: string }>
+              )
                 .then(({ url }) => window.open(url, '_blank', 'noopener'))
                 .catch((e) => setFailed(e.message))
             }
@@ -184,7 +191,10 @@ export function SellerDocuments({
                   );
                   if (note)
                     void action(async () => {
-                      await api(`/admin/seller-documents/${d.id}/review`, 'POST', { status, note });
+                      await request('post', '/admin/seller-documents/{id}/review', {
+                        params: { id: d.id },
+                        body: { status, note },
+                      });
                       await load();
                     }, `Document ${status.toLowerCase()}.`);
                 }}
