@@ -1188,3 +1188,31 @@ describe('API contract', () => {
     expect(new Set(ops.map((o) => o.operationId)).size).toBe(ops.length);
   });
 });
+describe('response contract', () => {
+  it('returns responses that match the published schemas', async () => {
+    const { responses } = await import('../src/contracts/responses.js');
+    const b = await completedSale();
+    const [{ listing_id }] = await db.query('SELECT listing_id FROM bookings WHERE id=$1', [b]);
+    const checks: [string, string, string][] = [
+      ['buyer', '/me', 'account.getMe'],
+      ['seller', '/me', 'account.getMe'],
+      ['buyer', '/settings', 'account.getSettings'],
+      ['buyer', '/bookings', 'bookings.listBookings'],
+      ['seller', `/bookings/${b}`, 'bookings.getBooking'],
+      ['buyer', `/bookings/${b}/events`, 'bookings.listBookingEvents'],
+      ['seller', '/listings?mine=true', 'marketplace.listListings'],
+      ['buyer', `/listings/${listing_id}`, 'retention.getListing'],
+      ['buyer', '/sellers/seller/listings', 'retention.listSellerListings'],
+      ['buyer', '/search', 'geography.search'],
+      ['buyer', '/wallet', 'wallet.getWallet'],
+      ['seller', '/payouts', 'payouts.getPayoutSummary'],
+      ['buyer', `/bookings/${b}/delivery`, 'deliveries.getBookingDelivery'],
+    ];
+    for (const [actor, path, operation] of checks) {
+      const r = await call(actor as any, 'get', path);
+      expect(r.status, `${operation} ${path}`).toBe(200);
+      const parsed = responses[operation].safeParse(r.body);
+      expect(parsed.success, `${operation}: ${parsed.error?.message}`).toBe(true);
+    }
+  });
+});

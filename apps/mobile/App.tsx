@@ -1,41 +1,42 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  View,
-  Text,
-  Pressable,
-  ScrollView,
-  SafeAreaView,
+  type Booking,
+  type Listing,
+  type OrderEvent,
+  type Seller,
+  type Settings,
+} from '@farmers-market/shared';
+import { StatusBar } from 'expo-status-bar';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
   ActivityIndicator,
-  RefreshControl,
   Linking,
   Platform,
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  View,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import {
-  type Listing,
-  type Seller,
-  type Booking,
-  type Settings,
-  type OrderEvent,
-} from '@farmers-market/shared';
-import { api, saveToken, restoreToken, liveUpdates, onSessionExpired } from './src/api';
+import { liveUpdates, onSessionExpired, restoreToken, saveToken } from './src/api';
+import { AppContext, type AppState, type Tab } from './src/AppContext';
 import AuthScreen from './src/AuthScreen';
 import CommunityScreen from './src/CommunityScreen';
 import DiscoveryPanel from './src/DiscoveryPanel';
-import { AppContext, type AppState, type Tab } from './src/AppContext';
-import { Alert, s } from './src/ui';
-import ListingDetail from './src/screens/ListingDetail';
-import ListingEditor from './src/screens/ListingEditor';
-import SellScreen from './src/screens/SellScreen';
-import WalletScreen, { type WalletData } from './src/screens/WalletScreen';
-import AccountScreen from './src/screens/AccountScreen';
-import { BookingsScreen, HistoryView } from './src/screens/BookingsScreen';
-import { registerForPush, onNotificationTap } from './src/push';
-import SellerShop from './src/screens/SellerShop';
-import DriveScreen from './src/screens/DriveScreen';
 import { LanguageProvider, useI18n } from './src/i18n';
 import { onConnectivity } from './src/offline';
+import { onNotificationTap, registerForPush } from './src/push';
+import { request } from './src/request';
+import AccountScreen from './src/screens/AccountScreen';
+import { BookingsScreen, HistoryView } from './src/screens/BookingsScreen';
+import DriveScreen from './src/screens/DriveScreen';
+import ListingDetail from './src/screens/ListingDetail';
+import ListingEditor from './src/screens/ListingEditor';
+import SellerShop from './src/screens/SellerShop';
+import SellScreen from './src/screens/SellScreen';
+import WalletScreen, { type WalletData } from './src/screens/WalletScreen';
 import { sellerFromUrl } from './src/share';
+import { Alert, s } from './src/ui';
 
 const tabs: Tab[] = ['Market', 'Bookings', 'Sell', 'Drive', 'Wallet', 'Inbox', 'Account'];
 const tabIcons = ['❋', '▤', '♧', '➤', '▣', '✉', '◉'];
@@ -92,11 +93,11 @@ function Main() {
     setLoading(true);
     try {
       const [m, o, w, st, own] = await Promise.all([
-        api('/me'),
-        api('/bookings'),
-        api('/wallet'),
-        api('/settings'),
-        api('/listings?mine=true'),
+        request('get', '/me'),
+        request('get', '/bookings'),
+        request('get', '/wallet'),
+        request('get', '/settings'),
+        request('get', '/listings', { query: { mine: 'true' } }),
       ]);
       setMe(m.user);
       setSeller(m.seller);
@@ -116,7 +117,7 @@ function Main() {
       .then(async (exists) => {
         if (exists) {
           try {
-            const m = await api('/me');
+            const m = await request('get', '/me');
             setMe(m.user);
             await refresh();
           } catch {
@@ -202,7 +203,9 @@ function Main() {
     },
     openHistory: (booking) =>
       void run(async () => {
-        const events = await api<OrderEvent[]>(`/bookings/${booking.id}/events`);
+        const events = await request('get', '/bookings/{id}/events', {
+          params: { id: booking.id },
+        });
         setHistory({ booking, events });
       }),
     openConversation: (id) => {

@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable, Linking } from 'react-native';
-import * as Location from 'expo-location';
 import { money, statusLabel, type Booking } from '@farmers-market/shared';
-import { api } from './api';
-import MapPanel from './MapPanel';
-import { Field, Button, Chip, Badge, s } from './ui';
+import * as Location from 'expo-location';
+import { useCallback, useEffect, useState } from 'react';
+import { Linking, Pressable, Text, View } from 'react-native';
 import { useApp } from './AppContext';
+import MapPanel from './MapPanel';
+import { request } from './request';
+import { Badge, Button, Chip, Field, s } from './ui';
 
 export async function currentPosition() {
   const permission = await Location.requestForegroundPermissionsAsync();
@@ -20,7 +20,7 @@ let mapToken: Promise<string | null> | null = null;
 function useMapToken() {
   const [token, setToken] = useState<string | null>(null);
   useEffect(() => {
-    mapToken ??= api('/maps/config')
+    mapToken ??= request('get', '/maps/config')
       .then((c) => c.public_token)
       .catch(() => null);
     void mapToken.then(setToken);
@@ -49,7 +49,7 @@ export default function DeliveryPanel({
     [pin, setPin] = useState('');
   const load = useCallback(
     () =>
-      api(`/bookings/${b.id}/delivery`)
+      request('get', '/bookings/{id}/delivery', { params: { id: b.id } })
         .then(setDelivery)
         .catch(() => setDelivery(null)),
     [b.id],
@@ -63,9 +63,15 @@ export default function DeliveryPanel({
     const timer = setInterval(() => void load(), 10000);
     return () => clearInterval(timer);
   }, [delivery?.status, load]);
-  const act = (action: string, body: object = {}, message = '') =>
+  const act = (action: string, body: Record<string, unknown> = {}, message = '') =>
     run(
-      async () => setDelivery(await api(`/deliveries/${delivery.id}/${action}`, 'POST', body)),
+      async () =>
+        setDelivery(
+          await request('post', '/deliveries/{id}/{action}', {
+            params: { id: delivery.id, action },
+            body: body,
+          }),
+        ),
       message,
     );
 
@@ -81,7 +87,7 @@ export default function DeliveryPanel({
           disabled={busy}
           onPress={() =>
             void run(async () => {
-              setOptions(await api('/delivery/options'));
+              setOptions(await request('get', '/delivery/options'));
               setForm(true);
             })
           }
@@ -154,12 +160,15 @@ export default function DeliveryPanel({
               onPress={() =>
                 void run(async () => {
                   setDelivery(
-                    await api(`/bookings/${b.id}/delivery`, 'POST', {
-                      vehicle_type: vehicle,
-                      dropoff: drop,
-                      dropoff_address: address,
-                      pay_on_delivery: pod,
-                      expected_fare_kobo: quote.fare_kobo,
+                    await request('post', '/bookings/{id}/{action}', {
+                      params: { id: b.id, action: 'delivery' },
+                      body: {
+                        vehicle_type: vehicle,
+                        dropoff: drop,
+                        dropoff_address: address,
+                        pay_on_delivery: pod,
+                        expected_fare_kobo: quote.fare_kobo,
+                      },
                     }),
                   );
                   setForm(false);
@@ -174,9 +183,12 @@ export default function DeliveryPanel({
             onPress={() =>
               void run(async () =>
                 setQuote(
-                  await api(`/bookings/${b.id}/delivery/quote`, 'POST', {
-                    vehicle_type: vehicle,
-                    dropoff: drop,
+                  await request('post', '/bookings/{id}/delivery/quote', {
+                    params: { id: b.id },
+                    body: {
+                      vehicle_type: vehicle,
+                      dropoff: drop,
+                    },
                   }),
                 ),
               )

@@ -1,14 +1,14 @@
-import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import {
+  activateCacheAccount,
   cacheable,
+  cacheScope,
+  forgetAll,
   recall,
   remember,
   setOffline,
-  forgetAll,
-  activateCacheAccount,
-  cacheScope,
 } from './offline';
 export const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||

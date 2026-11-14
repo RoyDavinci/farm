@@ -339,7 +339,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -400,7 +401,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -439,7 +441,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -519,7 +522,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -553,7 +557,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -630,7 +635,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -669,7 +675,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -711,7 +718,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -772,7 +780,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -852,7 +861,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -942,7 +952,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1003,7 +1014,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1037,7 +1049,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1088,7 +1101,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1149,7 +1163,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1210,7 +1225,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1240,7 +1256,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1257,7 +1274,11 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {}
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
             }
           },
           "default": {
@@ -1269,7 +1290,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1299,7 +1321,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1329,7 +1352,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1359,7 +1383,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1389,7 +1414,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1419,7 +1445,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1436,7 +1463,14 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {}
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Booking"
+                  }
+                }
+              }
             }
           },
           "default": {
@@ -1470,7 +1504,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1497,7 +1532,11 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {}
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
             }
           },
           "default": {
@@ -1549,7 +1588,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1576,7 +1616,18 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {}
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Delivery"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
             }
           },
           "default": {
@@ -1618,7 +1669,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1657,7 +1709,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1726,7 +1779,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1753,7 +1807,14 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {}
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrderEvent"
+                  }
+                }
+              }
             }
           },
           "default": {
@@ -1824,7 +1885,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1904,7 +1966,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -1973,7 +2036,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -2015,7 +2079,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -2065,7 +2130,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -2219,7 +2285,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -2253,7 +2320,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -2320,7 +2388,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -2469,7 +2538,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -2486,7 +2556,14 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {}
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Listing"
+                  }
+                }
+              }
             }
           },
           "default": {
@@ -2727,7 +2804,11 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {}
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Listing"
+                }
+              }
             }
           },
           "default": {
@@ -2983,7 +3064,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -3055,7 +3137,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -3129,7 +3212,11 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {}
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
             }
           },
           "default": {
@@ -3163,7 +3250,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -3254,7 +3342,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -3300,7 +3389,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -3437,7 +3527,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -3490,7 +3581,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -3527,7 +3619,11 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {}
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutSummary"
+                }
+              }
             }
           },
           "default": {
@@ -3561,7 +3657,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -3603,7 +3700,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -3637,7 +3735,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -3666,7 +3765,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -3719,7 +3819,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -3929,7 +4030,11 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {}
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
             }
           },
           "default": {
@@ -4082,7 +4187,14 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {}
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Listing"
+                  }
+                }
+              }
             }
           },
           "default": {
@@ -4189,7 +4301,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -4226,7 +4339,11 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {}
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
             }
           },
           "default": {
@@ -4245,7 +4362,11 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {}
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Wallet"
+                }
+              }
             }
           },
           "default": {
@@ -4281,7 +4402,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -4303,7 +4425,11 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {}
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingCheckout"
+                }
+              }
             }
           },
           "default": {
@@ -4373,7 +4499,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -4413,7 +4540,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -4441,6 +4569,1110 @@
       }
     },
     "schemas": {
+      "User": {
+        "$id": "#/components/schemas/User",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "admin": {
+            "type": "boolean"
+          },
+          "email_verified_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "staff_role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "operations",
+                  "finance",
+                  "support"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "phone",
+          "admin"
+        ],
+        "additionalProperties": {}
+      },
+      "Seller": {
+        "$id": "#/components/schemas/Seller",
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "business_name": {
+            "type": "string"
+          },
+          "business_type": {
+            "type": "string",
+            "enum": [
+              "farm",
+              "shop",
+              "market_stall",
+              "home_based"
+            ]
+          },
+          "city": {
+            "type": "string"
+          },
+          "area": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "SUSPENDED"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "address": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "longitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "market_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "user_id",
+          "business_name",
+          "business_type",
+          "city",
+          "area",
+          "status",
+          "reason"
+        ],
+        "additionalProperties": {}
+      },
+      "Me": {
+        "$id": "#/components/schemas/Me",
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "seller": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Seller"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "staff_areas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "user",
+          "seller"
+        ],
+        "additionalProperties": {}
+      },
+      "Settings": {
+        "$id": "#/components/schemas/Settings",
+        "type": "object",
+        "properties": {
+          "reservation_hours": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "commission_bps": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "payout_min_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "payout_fee_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "promotion_daily_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "delivery_commission_bps": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "delivery_radius_km": {
+            "type": "number"
+          },
+          "pay_on_delivery_enabled": {
+            "type": "boolean"
+          },
+          "stock_confirmation": {
+            "type": "string"
+          },
+          "payment_mode": {
+            "type": "string",
+            "enum": [
+              "demo",
+              "provider",
+              "disabled"
+            ]
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "reservation_hours",
+          "commission_bps",
+          "stock_confirmation",
+          "payment_mode",
+          "providers"
+        ],
+        "additionalProperties": {}
+      },
+      "ProductVariant": {
+        "$id": "#/components/schemas/ProductVariant",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "listing_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "price_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "stock": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "min_quantity": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "is_primary": {
+            "type": "boolean"
+          },
+          "wholesale_tiers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "min_quantity": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "price_kobo": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "min_quantity",
+                "price_kobo"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "listing_id",
+          "name",
+          "unit",
+          "price_kobo",
+          "stock",
+          "min_quantity",
+          "active",
+          "is_primary",
+          "wholesale_tiers"
+        ],
+        "additionalProperties": {}
+      },
+      "Listing": {
+        "$id": "#/components/schemas/Listing",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "seller_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "price_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "stock": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "PAUSED"
+            ]
+          },
+          "image_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "image_urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "thumbnail_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductVariant"
+            }
+          },
+          "public_latitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "public_longitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "distance_km": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "search_price": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "market_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "business_name": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "area": {
+            "type": "string"
+          },
+          "business_type": {
+            "type": "string",
+            "enum": [
+              "farm",
+              "shop",
+              "market_stall",
+              "home_based"
+            ]
+          },
+          "in_stock": {
+            "type": "boolean"
+          },
+          "stock_alert": {
+            "type": "boolean"
+          },
+          "available_from": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "preorder_capacity": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "sponsored": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "seller_id",
+          "title",
+          "description",
+          "category",
+          "unit",
+          "price_kobo",
+          "stock",
+          "status",
+          "image_url",
+          "business_name",
+          "city",
+          "area",
+          "business_type"
+        ],
+        "additionalProperties": {}
+      },
+      "BookingStatus": {
+        "$id": "#/components/schemas/BookingStatus",
+        "type": "string",
+        "enum": [
+          "REQUESTED",
+          "COUNTERED",
+          "ACCEPTED",
+          "READY_FOR_PICKUP",
+          "COMPLETED",
+          "DECLINED",
+          "CANCELLED",
+          "EXPIRED"
+        ]
+      },
+      "Booking": {
+        "$id": "#/components/schemas/Booking",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "buyer_id": {
+            "type": "string"
+          },
+          "seller_id": {
+            "type": "string"
+          },
+          "listing_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "price_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "total_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "commission_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "commission_bps": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "$ref": "#/components/schemas/BookingStatus"
+          },
+          "paid": {
+            "type": "boolean"
+          },
+          "reserved_until": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "business_name": {
+            "type": "string"
+          },
+          "buyer_name": {
+            "type": "string"
+          },
+          "pickup_address": {
+            "type": "string"
+          },
+          "pickup_code": {
+            "type": "string"
+          },
+          "pickup_latitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "pickup_longitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "variant_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "variant_name": {
+            "type": "string"
+          },
+          "offer_version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "payment_recorded": {
+            "type": "boolean"
+          },
+          "offer_quantity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "offer_price_kobo": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "offer_note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "offer_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dispute_status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "preorder": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "buyer_id",
+          "seller_id",
+          "listing_id",
+          "title",
+          "unit",
+          "quantity",
+          "price_kobo",
+          "total_kobo",
+          "commission_kobo",
+          "commission_bps",
+          "status",
+          "paid",
+          "reserved_until",
+          "created_at",
+          "business_name",
+          "buyer_name"
+        ],
+        "additionalProperties": {}
+      },
+      "OrderEvent": {
+        "$id": "#/components/schemas/OrderEvent",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "booking_id": {
+            "type": "string"
+          },
+          "from_status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "to_status": {
+            "type": "string"
+          },
+          "actor_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "booking_id",
+          "from_status",
+          "to_status",
+          "actor_id",
+          "reason",
+          "created_at"
+        ],
+        "additionalProperties": {}
+      },
+      "FundingStatus": {
+        "$id": "#/components/schemas/FundingStatus",
+        "type": "string",
+        "enum": [
+          "INITIALIZING",
+          "PENDING",
+          "UNCERTAIN",
+          "FAILED",
+          "EXPIRED",
+          "SUCCESSFUL"
+        ]
+      },
+      "Funding": {
+        "$id": "#/components/schemas/Funding",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "amount_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "$ref": "#/components/schemas/FundingStatus"
+          },
+          "checkout_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "amount_kobo",
+          "status",
+          "checkout_url",
+          "created_at"
+        ],
+        "additionalProperties": {}
+      },
+      "Wallet": {
+        "$id": "#/components/schemas/Wallet",
+        "type": "object",
+        "properties": {
+          "balance_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "seller_payable_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "account": {
+                  "type": "string"
+                },
+                "amount_kobo": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "reference": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "account",
+                "amount_kobo",
+                "reference",
+                "created_at"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "funding": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Funding"
+            }
+          }
+        },
+        "required": [
+          "balance_kobo",
+          "seller_payable_kobo",
+          "entries",
+          "funding"
+        ],
+        "additionalProperties": {}
+      },
+      "FundingCheckout": {
+        "$id": "#/components/schemas/FundingCheckout",
+        "type": "object",
+        "properties": {
+          "reference": {
+            "type": "string"
+          },
+          "checkout_url": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "paystack",
+              "flutterwave"
+            ]
+          },
+          "fallback_used": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reference",
+          "checkout_url",
+          "provider",
+          "fallback_used"
+        ],
+        "additionalProperties": {}
+      },
+      "Ok": {
+        "$id": "#/components/schemas/Ok",
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "additionalProperties": {}
+      },
+      "SearchResult": {
+        "$id": "#/components/schemas/SearchResult",
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Listing"
+            }
+          },
+          "sponsored": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Listing"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "sponsored",
+          "next_cursor"
+        ],
+        "additionalProperties": {}
+      },
+      "PayoutSummary": {
+        "$id": "#/components/schemas/PayoutSummary",
+        "type": "object",
+        "properties": {
+          "account": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "bank_name": {
+                    "type": "string"
+                  },
+                  "account_last4": {
+                    "type": "string"
+                  },
+                  "account_name": {
+                    "type": "string"
+                  },
+                  "name_match": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "bank_name",
+                  "account_last4",
+                  "account_name",
+                  "name_match"
+                ],
+                "additionalProperties": {}
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "available_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "min_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "fee_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "provider",
+              "simulated",
+              "disabled"
+            ]
+          },
+          "payouts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "amount_kobo": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "fee_kobo": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "status": {
+                  "type": "string"
+                },
+                "failure_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "created_at": {
+                  "type": "string"
+                },
+                "bank_name": {
+                  "type": "string"
+                },
+                "account_last4": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "amount_kobo",
+                "fee_kobo",
+                "status",
+                "failure_reason",
+                "created_at",
+                "bank_name",
+                "account_last4"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "account",
+          "available_kobo",
+          "min_kobo",
+          "fee_kobo",
+          "mode",
+          "payouts"
+        ],
+        "additionalProperties": {}
+      },
+      "Delivery": {
+        "$id": "#/components/schemas/Delivery",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "booking_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "ASSIGNED",
+              "PICKED_UP",
+              "DELIVERED",
+              "CANCELLED"
+            ]
+          },
+          "vehicle_type": {
+            "type": "string"
+          },
+          "distance_km": {
+            "type": "number"
+          },
+          "fare_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "pay_on_delivery": {
+            "type": "boolean"
+          },
+          "fare_paid": {
+            "type": "boolean"
+          },
+          "dropoff_address": {
+            "type": "string"
+          },
+          "dropoff_latitude": {
+            "type": "number"
+          },
+          "dropoff_longitude": {
+            "type": "number"
+          },
+          "pickup_latitude": {
+            "type": "number"
+          },
+          "pickup_longitude": {
+            "type": "number"
+          },
+          "driver_latitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "driver_longitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "driver_location_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "driver_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "driver_phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "vehicle_name": {
+            "type": "string"
+          },
+          "plate_number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pickup_pin": {
+            "type": "string"
+          },
+          "delivery_pin": {
+            "type": "string"
+          },
+          "booking_paid": {
+            "type": "boolean"
+          },
+          "total_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "booking_id",
+          "status",
+          "vehicle_type",
+          "distance_km",
+          "fare_kobo",
+          "pay_on_delivery",
+          "fare_paid",
+          "dropoff_latitude",
+          "dropoff_longitude",
+          "pickup_latitude",
+          "pickup_longitude"
+        ],
+        "additionalProperties": {}
+      },
       "Error": {
         "type": "object",
         "required": [

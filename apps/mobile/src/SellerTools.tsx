@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
 import { money, statusLabel, type Listing } from '@farmers-market/shared';
-import { api, uploadSellerDocument } from './api';
-import { Button, Chip, Badge, s } from './ui';
+import * as DocumentPicker from 'expo-document-picker';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { uploadSellerDocument } from './api';
 import { useApp } from './AppContext';
+import { request } from './request';
+import { Badge, Button, Chip, s } from './ui';
 
 const documentKinds = [
   ['government_id', 'Government ID (NIN, passport, licence)'],
@@ -27,7 +28,7 @@ export function VerificationDocuments({ subject = 'seller' }: { subject?: 'selle
     [kind, setKind] = useState<string>(kinds[0][0]);
   const load = useCallback(
     () =>
-      api(`/sellers/me/documents?subject=${subject}`)
+      request('get', '/sellers/me/documents', { query: { subject } })
         .then(setDocs)
         .catch(() => {}),
     [subject],
@@ -105,7 +106,10 @@ export function PromoteListing({ listing }: { listing: Listing }) {
         disabled={busy}
         onPress={() =>
           void run(async () => {
-            await api(`/listings/${listing.id}/promote`, 'POST', { days });
+            await request('post', '/listings/{id}/promote', {
+              params: { id: listing.id },
+              body: { days },
+            });
             setOpen(false);
           }, 'Your listing is now sponsored.')
         }

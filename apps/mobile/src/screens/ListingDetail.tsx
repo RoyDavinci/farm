@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
-import { Pressable } from 'react-native';
-import { View, Text, ScrollView, Image } from 'react-native';
 import { money, type Listing } from '@farmers-market/shared';
-import { api } from '../api';
-import { SellerTrust } from '../TrustPanels';
-import { Field, Button, Chip, Badge, Empty, Back, s, produceIcon, categories } from '../ui';
+import { useState } from 'react';
+import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
 import { useI18n } from '../i18n';
+import { request } from '../request';
+import { SellerTrust } from '../TrustPanels';
+import { Back, Button, Chip, Field, produceIcon, s } from '../ui';
 
 export default function ListingDetail({
   listing: selected,
@@ -97,7 +96,9 @@ export default function ListingDetail({
           disabled={busy}
           onPress={() =>
             void run(async () => {
-              const c = await api('/conversations', 'POST', { listing_id: selected.id });
+              const c = await request('post', '/conversations', {
+                body: { listing_id: selected.id },
+              });
               openConversation(c.id);
             })
           }
@@ -154,10 +155,9 @@ export default function ListingDetail({
             disabled={busy}
             onPress={() =>
               void run(async () => {
-                const r = await api(
-                  `/listings/${selected.id}/stock-alert`,
-                  alerted ? 'DELETE' : 'PUT',
-                );
+                const r = await request(alerted ? 'delete' : 'put', '/listings/{id}/stock-alert', {
+                  params: { id: selected.id },
+                });
                 setAlerted(r.stock_alert);
               })
             }
@@ -185,10 +185,12 @@ export default function ListingDetail({
         }
         onPress={() =>
           void run(async () => {
-            await api('/bookings', 'POST', {
-              listing_id: selected.id,
-              variant_id: selectedVariant?.id,
-              quantity: Number(quantity),
+            await request('post', '/bookings', {
+              body: {
+                listing_id: selected.id,
+                variant_id: selectedVariant?.id,
+                quantity: Number(quantity),
+              },
             });
             setTab('Bookings');
           }, 'Request sent. The seller will confirm stock before reserving it.')

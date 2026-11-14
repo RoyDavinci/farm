@@ -1,5 +1,4 @@
-import React from 'react';
-import { View, Text } from 'react-native';
+import { Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { MapPanelProps } from './MapPanel.types';
 export default function MapPanel(props: MapPanelProps) {

@@ -1,6 +1,5 @@
-import React from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Platform } from 'react-native';
 import { statusLabel } from '@farmers-market/shared';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 export const categories = ['All', 'Vegetables', 'Fruit', 'Grains', 'Tubers', 'Livestock', 'Other'];
 export const produceIcon = (category: string) =>
   ({

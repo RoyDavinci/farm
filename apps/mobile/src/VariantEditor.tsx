@@ -1,5 +1,4 @@
-import React from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Switch } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 export interface VariantDraft {
   id?: string;
   name: string;

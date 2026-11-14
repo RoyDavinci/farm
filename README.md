@@ -95,7 +95,7 @@ npm test
 
 `npm test` runs 33 integration tests against a real PostgreSQL test database (`farmers_market_test`, rebuilt each run): OTP sign-in, bookings, payments and funding recovery, payouts, push, pre-orders, promotions, staff roles, documents, delivery (including a cancel/claim race), paging, security headers and the API contract. CI typechecks, checks the OpenAPI contract and builds every push. Tests also run in CI but are optional: a failure is reported without failing the build.
 
-The API contract lives in `apps/api/openapi.json` and is generated from the code; `npm run api:contract` regenerates it and the TypeScript types in `packages/shared/src/api-types.ts`.
+The API contract lives in `apps/api/openapi.json` and is generated from the code; `npm run api:contract` regenerates it and the TypeScript types in `packages/shared/src/api-types.ts`. The shared domain types (`Listing`, `Booking`, `Wallet`, …) are aliases of those generated types, and the mobile app calls the API through `apps/mobile/src/request.ts`, which checks paths, parameters and request bodies against the contract at compile time.
 
 Production helpers: `npm run worker` (background jobs as their own process), `npm run backup` (database backup, optional S3 copy), `apps/api/Dockerfile` (API and worker image), and `apps/mobile/eas.json` (native build profiles).
 

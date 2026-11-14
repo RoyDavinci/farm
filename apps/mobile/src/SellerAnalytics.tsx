@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
 import { money } from '@farmers-market/shared';
-import { api } from './api';
+import { useEffect, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { request } from './request';
 import { Chip, s } from './ui';
 
 interface Analytics {
@@ -32,7 +32,7 @@ export default function SellerAnalytics({ refreshVersion }: { refreshVersion: nu
     [data, setData] = useState<Analytics | null>(null),
     [error, setError] = useState('');
   useEffect(() => {
-    api<Analytics>(`/sellers/me/analytics?days=${days}`)
+    (request('get', '/sellers/me/analytics', { query: { days } }) as Promise<Analytics>)
       .then((d) => {
         setData(d);
         setError('');

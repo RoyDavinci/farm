@@ -1,6 +1,6 @@
+import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
 import { dictionaries, english, languages, type Key, type Language } from './translations';
 
 export { languages, type Language };

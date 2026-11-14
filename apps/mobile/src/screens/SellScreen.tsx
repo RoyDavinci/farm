@@ -1,15 +1,21 @@
-import React, { useState } from 'react';
-import { View, Text } from 'react-native';
-import { money, statusLabel, type Booking, type Listing } from '@farmers-market/shared';
-import { api } from '../api';
+import {
+  money,
+  statusLabel,
+  type Booking,
+  type Listing,
+  type Seller,
+} from '@farmers-market/shared';
+import { useState } from 'react';
+import { Text, View } from 'react-native';
+import { useApp } from '../AppContext';
+import { useI18n } from '../i18n';
 import { LocationPicker, SellerLocationPanel } from '../LocationEditor';
-import BookingCard from './BookingCard';
+import { request } from '../request';
 import SellerAnalytics from '../SellerAnalytics';
 import { PromoteListing, VerificationDocuments } from '../SellerTools';
 import { shareOnWhatsApp, shopMessage } from '../share';
-import { Field, Button, Chip, Badge, Empty, Back, s } from '../ui';
-import { useApp } from '../AppContext';
-import { useI18n } from '../i18n';
+import { Badge, Button, Chip, Empty, Field, s } from '../ui';
+import BookingCard from './BookingCard';
 
 export default function SellScreen({
   mine,
@@ -24,7 +30,7 @@ export default function SellScreen({
   const { t } = useI18n();
   const [profile, setProfile] = useState({
     business_name: '',
-    business_type: 'farm',
+    business_type: 'farm' as Seller['business_type'],
     city: '',
     area: '',
     address: '',
@@ -53,7 +59,7 @@ export default function SellScreen({
           )}
           <Text style={s.label}>Business type</Text>
           <View style={s.chipWrap}>
-            {['farm', 'shop', 'market_stall', 'home_based'].map((type) => (
+            {(['farm', 'shop', 'market_stall', 'home_based'] as const).map((type) => (
               <Chip
                 key={type}
                 title={statusLabel(type)}
@@ -90,7 +96,7 @@ export default function SellScreen({
             disabled={busy}
             onPress={() =>
               void run(async () => {
-                await api('/sellers', 'POST', profile);
+                await request('post', '/sellers', { body: profile });
               }, 'Your seller application has been submitted.')
             }
           />
@@ -151,8 +157,11 @@ export default function SellScreen({
                     onPress={() =>
                       void run(
                         () =>
-                          api(`/listings/${l.id}`, 'PATCH', {
-                            status: l.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE',
+                          request('patch', '/listings/{id}', {
+                            params: { id: l.id },
+                            body: {
+                              status: l.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE',
+                            },
                           }),
                         'Listing visibility updated.',
                       )

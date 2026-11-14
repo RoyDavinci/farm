@@ -1,11 +1,11 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-import { api, saveToken } from '../api';
+import { Text, View } from 'react-native';
 import AccountPanel from '../AccountPanel';
-import { unregisterPush } from '../push';
-import { Field, Button, Chip, Badge, Empty, Back, s } from '../ui';
+import { saveToken } from '../api';
 import { useApp } from '../AppContext';
-import { useI18n, languages } from '../i18n';
+import { languages, useI18n } from '../i18n';
+import { unregisterPush } from '../push';
+import { request } from '../request';
+import { Button, Chip, s } from '../ui';
 
 export default function AccountScreen({ onSignedOut }: { onSignedOut: () => void }) {
   const { me, settings, busy, run, refresh } = useApp();
@@ -49,7 +49,7 @@ export default function AccountScreen({ onSignedOut }: { onSignedOut: () => void
         onPress={() =>
           void run(async () => {
             await unregisterPush();
-            await api('/auth/logout', 'POST');
+            await request('post', '/auth/logout');
             await saveToken('');
             onSignedOut();
           }, '')

@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
-import { api } from './api';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { request } from './request';
 export function SellerTrust({ sellerId }: { sellerId: string }) {
   const [seller, setSeller] = useState<any>(null),
     [favourite, setFavourite] = useState(false),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
   useEffect(() => {
-    Promise.all([api(`/sellers/${sellerId}`), api('/favourites')])
+    Promise.all([
+      request('get', '/sellers/{id}', { params: { id: sellerId } }),
+      request('get', '/favourites'),
+    ])
       .then(([s, f]) => {
         setSeller(s);
         setFavourite(f.some((v: any) => v.user_id === sellerId));
@@ -29,7 +32,9 @@ export function SellerTrust({ sellerId }: { sellerId: string }) {
               setBusy(true);
               setError('');
               try {
-                await api(`/favourites/${sellerId}`, favourite ? 'DELETE' : 'PUT');
+                await request(favourite ? 'delete' : 'put', '/favourites/{id}', {
+                  params: { id: sellerId },
+                });
                 setFavourite(!favourite);
               } catch (e) {
                 setError((e as Error).message);
@@ -63,7 +68,7 @@ export function ReviewForm({ bookingId }: { bookingId: string }) {
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
   useEffect(() => {
-    api(`/bookings/${bookingId}/rating`)
+    request('get', '/bookings/{id}/rating', { params: { id: bookingId } })
       .then((r) => {
         if (r) {
           setSent(true);
@@ -107,7 +112,10 @@ export function ReviewForm({ bookingId }: { bookingId: string }) {
               setBusy(true);
               setError('');
               try {
-                await api(`/bookings/${bookingId}/rating`, 'POST', { score, comment });
+                await request('post', '/bookings/{id}/{action}', {
+                  params: { id: bookingId, action: 'rating' },
+                  body: { score, comment },
+                });
                 setSent(true);
               } catch (e) {
                 setError((e as Error).message);

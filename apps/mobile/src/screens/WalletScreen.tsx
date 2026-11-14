@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, Linking } from 'react-native';
 import { money, statusLabel } from '@farmers-market/shared';
-import { api } from '../api';
-import { describeFunding, startCheckout, type FundingRow } from '../funding';
-import PayoutPanel from '../PayoutPanel';
-import { Field, Button, Chip, Badge, Empty, Back, s } from '../ui';
+import { useState } from 'react';
+import { Linking, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
+import { describeFunding, startCheckout, type FundingRow, type PaymentProvider } from '../funding';
 import { useI18n } from '../i18n';
+import PayoutPanel from '../PayoutPanel';
+import { request } from '../request';
+import { Badge, Button, Field, s } from '../ui';
 
 export interface WalletData {
   balance_kobo: number;
@@ -43,8 +43,10 @@ export default function WalletScreen({ wallet }: { wallet: WalletData }) {
           onPress={() =>
             void run(
               () =>
-                api('/wallet/demo-fund', 'POST', {
-                  amount_kobo: Math.round(Number(fund) * 100),
+                request('post', '/wallet/demo-fund', {
+                  body: {
+                    amount_kobo: Math.round(Number(fund) * 100),
+                  },
                 }),
               'Simulated funds added. This is not real money.',
             )
@@ -59,7 +61,10 @@ export default function WalletScreen({ wallet }: { wallet: WalletData }) {
           disabled={busy}
           onPress={() =>
             void run(async () => {
-              const d = await startCheckout(provider, Math.round(Number(fund) * 100));
+              const d = await startCheckout(
+                provider as PaymentProvider,
+                Math.round(Number(fund) * 100),
+              );
               await Linking.openURL(d.checkout_url);
             }, 'Complete payment in the provider’s checkout, then verify it below.')
           }
@@ -100,7 +105,8 @@ export default function WalletScreen({ wallet }: { wallet: WalletData }) {
                   disabled={busy}
                   onPress={() =>
                     void run(
-                      () => api(`/wallet/funding/${f.id}/verify`, 'POST'),
+                      () =>
+                        request('post', '/wallet/funding/{id}/verify', { params: { id: f.id } }),
                       'Payment verified and wallet credited.',
                     )
                   }

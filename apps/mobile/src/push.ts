@@ -1,8 +1,8 @@
-import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import Constants from 'expo-constants';
-import { api } from './api';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+import { request } from './request';
 
 // Show alerts while the app is open, too.
 Notifications.setNotificationHandler({
@@ -36,7 +36,7 @@ export async function registerForPush(): Promise<string | null> {
       (Constants as any).easConfig?.projectId;
     if (!projectId) return null;
     const { data } = await Notifications.getExpoPushTokenAsync({ projectId });
-    await api('/me/push-tokens', 'PUT', { token: data, platform: Platform.OS });
+    await request('put', '/me/push-tokens', { body: { token: data, platform: Platform.OS } });
     registered = data;
     return data;
   } catch {
@@ -51,7 +51,7 @@ export async function unregisterPush() {
   const token = registered;
   registered = null;
   try {
-    await api('/me/push-tokens', 'DELETE', { token });
+    await request('delete', '/me/push-tokens', { body: { token } });
   } catch {}
 }
 

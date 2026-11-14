@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { api, saveSession } from './api';
+import { saveSession } from './api';
+import { request } from './request';
 export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => Promise<void> }) {
   const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login'),
     [challenge, setChallenge] = useState<any>(null),
@@ -125,10 +126,12 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
                 disabled={busy || !/^\d{6}$/.test(code)}
                 onPress={() =>
                   void run(async () => {
-                    const d = await api('/auth/otp/verify', 'POST', {
-                      challenge_id: challenge.challenge_id,
-                      code,
-                      ...(mode === 'reset' ? { new_password: newPassword } : {}),
+                    const d = await request('post', '/auth/otp/verify', {
+                      body: {
+                        challenge_id: challenge.challenge_id,
+                        code,
+                        ...(mode === 'reset' ? { new_password: newPassword } : {}),
+                      },
                     });
                     if (d.password_reset) {
                       switchMode('login');
@@ -152,7 +155,9 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
                 disabled={busy || seconds > 0}
                 onPress={() =>
                   void run(async () => {
-                    await api('/auth/otp/resend', 'POST', { challenge_id: challenge.challenge_id });
+                    await request('post', '/auth/otp/resend', {
+                      body: { challenge_id: challenge.challenge_id },
+                    });
                     setResendAt(Date.now() + 60000);
                     setCode('');
                     setNotice('A new code has been sent.');
@@ -219,15 +224,16 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
                 disabled={busy}
                 onPress={() =>
                   void run(async () => {
-                    const d = await api(
-                      mode === 'reset' ? '/auth/password/forgot' : `/auth/${mode}`,
-                      'POST',
+                    const d =
                       mode === 'register'
-                        ? form
+                        ? await request('post', '/auth/register', { body: form })
                         : mode === 'reset'
-                          ? { email: form.email }
-                          : { email: form.email, password: form.password },
-                    );
+                          ? await request('post', '/auth/password/forgot', {
+                              body: { email: form.email },
+                            })
+                          : await request('post', '/auth/login', {
+                              body: { email: form.email, password: form.password },
+                            });
                     setChallenge(d);
                     setResendAt(Date.now() + 60000);
                     setCode('');

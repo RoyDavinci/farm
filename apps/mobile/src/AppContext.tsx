@@ -1,5 +1,5 @@
-import { createContext, useContext } from 'react';
 import type { Booking, Listing, Seller, Settings } from '@farmers-market/shared';
+import { createContext, useContext } from 'react';
 
 export type Tab = 'Market' | 'Bookings' | 'Sell' | 'Drive' | 'Wallet' | 'Inbox' | 'Account';
 

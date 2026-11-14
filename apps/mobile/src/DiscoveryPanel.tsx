@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Image, StyleSheet } from 'react-native';
-import * as Location from 'expo-location';
 import { type Listing, money } from '@farmers-market/shared';
-import { api } from './api';
+import * as Location from 'expo-location';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import MapPanel from './MapPanel';
+import { request } from './request';
 export default function DiscoveryPanel({
   name,
   onSelect,
@@ -36,10 +36,10 @@ export default function DiscoveryPanel({
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
   useEffect(() => {
-    api('/markets')
+    request('get', '/markets')
       .then(setMarkets)
       .catch(() => {});
-    api('/maps/config')
+    request('get', '/maps/config')
       .then(setConfig)
       .catch(() => {});
   }, []);
@@ -80,7 +80,7 @@ export default function DiscoveryPanel({
         if (d.sellerType) p.set('seller_type', d.sellerType);
         if (d.wholesale) p.set('wholesale', 'true');
         if (next) p.set('cursor', next);
-        const result = await api(`/search?${p}`);
+        const result = await request('get', '/search', { query: Object.fromEntries(p) });
         if (requestId !== sequence.current) return;
         setItems((previous) =>
           next

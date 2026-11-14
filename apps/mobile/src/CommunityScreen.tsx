@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { api, liveUpdates } from './api';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { liveUpdates } from './api';
+import { request } from './request';
 export default function CommunityScreen({
   user,
   initialConversation,
@@ -24,11 +25,16 @@ export default function CommunityScreen({
     [notice, setNotice] = useState('');
   const load = useCallback(async () => {
     try {
-      const [c, n] = await Promise.all([api('/conversations'), api('/notifications')]);
+      const [c, n] = await Promise.all([
+        request('get', '/conversations'),
+        request('get', '/notifications'),
+      ]);
       setConversations(c);
       setNotifications(n);
       if (selected) {
-        const m = await api(`/conversations/${selected}/messages`);
+        const m = await request('get', '/conversations/{id}/messages', {
+          params: { id: selected },
+        });
         setMessages(m.messages);
         setPeerReadAt(m.peer_read_at);
       }
@@ -49,7 +55,10 @@ export default function CommunityScreen({
     };
   }, [load]);
   useEffect(() => {
-    if (selected) void api(`/conversations/${selected}/read`, 'POST').catch(() => {});
+    if (selected)
+      void request('post', '/conversations/{id}/read', { params: { id: selected } }).catch(
+        () => {},
+      );
   }, [selected, messages.length]);
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -101,7 +110,7 @@ export default function CommunityScreen({
             disabled={busy}
             onPress={() =>
               void run(async () => {
-                await api('/notifications/read', 'POST', {});
+                await request('post', '/notifications/read', { body: {} });
               })
             }
           >
@@ -114,7 +123,7 @@ export default function CommunityScreen({
               style={[s.card, !n.read_at && { borderColor: '#bacd9f' }]}
               onPress={() =>
                 void run(async () => {
-                  await api('/notifications/read', 'POST', { id: n.id });
+                  await request('post', '/notifications/read', { body: { id: n.id } });
                   if (n.booking_id) onBooking();
                   else setSection('messages');
                 })
@@ -189,7 +198,10 @@ export default function CommunityScreen({
                 disabled={busy || !text.trim()}
                 onPress={() =>
                   void run(async () => {
-                    await api(`/conversations/${selected}/messages`, 'POST', { body: text });
+                    await request('post', '/conversations/{id}/messages', {
+                      params: { id: selected },
+                      body: { body: text },
+                    });
                     setText('');
                   })
                 }
@@ -203,7 +215,9 @@ export default function CommunityScreen({
               disabled={busy || !peer || (c?.blocked && !c?.blocked_by_me)}
               onPress={() =>
                 void run(async () => {
-                  await api(`/me/blocks/${peer}`, c?.blocked_by_me ? 'DELETE' : 'PUT');
+                  await request(c?.blocked_by_me ? 'delete' : 'put', '/me/blocks/{id}', {
+                    params: { id: peer },
+                  });
                 })
               }
             >
@@ -234,10 +248,12 @@ export default function CommunityScreen({
                 disabled={busy || report.trim().length < 5}
                 onPress={() =>
                   void run(async () => {
-                    await api('/reports', 'POST', {
-                      subject_type: 'conversation',
-                      subject_id: selected,
-                      reason: report,
+                    await request('post', '/reports', {
+                      body: {
+                        subject_type: 'conversation',
+                        subject_id: selected,
+                        reason: report,
+                      },
                     });
                     setReport('');
                     setReporting(false);

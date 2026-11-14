@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, Linking } from 'react-native';
-import { money, type Booking, type Listing } from '@farmers-market/shared';
-import { api } from '../api';
-import { ReviewForm } from '../TrustPanels';
-import CounterofferPanel from '../CounterofferPanel';
-import BookingSupport from '../BookingSupport';
-import DeliveryPanel from '../DeliveryPanel';
-import { Field, Button, Chip, Badge, Empty, Back, s, produceIcon, categories } from '../ui';
+import { money, type Booking } from '@farmers-market/shared';
+import { useState } from 'react';
+import { Linking, Pressable, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
+import BookingSupport from '../BookingSupport';
+import CounterofferPanel from '../CounterofferPanel';
+import DeliveryPanel from '../DeliveryPanel';
 import { useI18n } from '../i18n';
+import { request } from '../request';
+import { ReviewForm } from '../TrustPanels';
+import { Badge, Button, Field, s } from '../ui';
 
 const actionMessages: Record<string, string> = {
   accept: 'Booking accepted. Stock is reserved for one week.',
@@ -31,9 +31,12 @@ export default function BookingCard({
   const { busy, run, refresh, openHistory, openListing } = useApp();
   const [code, setCode] = useState('');
   const { t } = useI18n();
-  async function bookingAction(_b: Booking, action: string, body: object = {}) {
+  async function bookingAction(_b: Booking, action: string, body: Record<string, unknown> = {}) {
     await run(async () => {
-      await api(`/bookings/${b.id}/${action}`, 'POST', body);
+      await request('post', '/bookings/{id}/{action}', {
+        params: { id: b.id, action },
+        body: body,
+      });
       if (action === 'pickup') setCode('');
     }, actionMessages[action]);
   }
@@ -181,8 +184,13 @@ export default function BookingCard({
               disabled={busy}
               onPress={() =>
                 void run(async () => {
-                  const listing = await api<Listing>(`/listings/${b.listing_id}`);
-                  openListing(listing, { variantId: b.variant_id, quantity: b.quantity });
+                  const listing = await request('get', '/listings/{id}', {
+                    params: { id: b.listing_id },
+                  });
+                  openListing(listing, {
+                    variantId: b.variant_id ?? undefined,
+                    quantity: b.quantity,
+                  });
                 })
               }
             />

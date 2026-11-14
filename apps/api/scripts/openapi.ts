@@ -8,6 +8,7 @@ import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import { responses } from '../src/contracts/responses.js';
 import { fundingInput } from '../src/validators/funding.validators.js';
 import { searchInput } from '../src/validators/geography.validators.js';
 import { listingSchema, sellerSchema } from '../src/validators/marketplace.validators.js';
@@ -100,6 +101,31 @@ const bodies: Record<string, Record<string, unknown>> = {
 };
 const queries: Record<string, z.ZodObject<any>> = { 'geography.search': searchInput };
 
+/** Named response schemas (contracts/responses.ts) become components.schemas and are $ref'd. */
+const schemaUri = (id: string) => `#/components/schemas/${id}`;
+function namedSchemas() {
+  const out = z.toJSONSchema(z.globalRegistry, {
+    io: 'output',
+    uri: schemaUri,
+    unrepresentable: 'any',
+  });
+  const schemas: Record<string, Record<string, unknown>> = {};
+  for (const [id, schema] of Object.entries(out.schemas)) {
+    const { $schema: _drop, id: _id, ...rest } = schema as Record<string, unknown>;
+    schemas[id] = rest;
+  }
+  return schemas;
+}
+function responseSchema(schema: z.ZodType): Record<string, unknown> {
+  const id = (schema.meta() as { id?: string } | undefined)?.id;
+  if (id) return { $ref: schemaUri(id) };
+  if (schema instanceof z.ZodArray)
+    return { type: 'array', items: responseSchema(schema.element as z.ZodType) };
+  if (schema instanceof z.ZodNullable)
+    return { anyOf: [responseSchema(schema.unwrap() as z.ZodType), { type: 'null' }] };
+  return json(schema, 'output');
+}
+
 const statusFor = (r: Route) =>
   ['register', 'login', 'forgotPassword'].includes(r.handler) && r.tag === 'auth'
     ? '202'
@@ -133,7 +159,13 @@ export function buildOpenApi() {
         [statusFor(r)]: {
           description: 'Success',
           content:
-            r.handler === 'paymentReturnPage' ? { 'text/html': {} } : { 'application/json': {} },
+            r.handler === 'paymentReturnPage'
+              ? { 'text/html': {} }
+              : {
+                  'application/json': responses[key]
+                    ? { schema: responseSchema(responses[key]) }
+                    : {},
+                },
         },
         default: { $ref: '#/components/responses/Error' },
       },
@@ -159,7 +191,11 @@ export function buildOpenApi() {
           }
         : {
             required: Boolean(bodies[key]),
-            content: { 'application/json': { schema: bodies[key] ?? { type: 'object' } } },
+            content: {
+              'application/json': {
+                schema: bodies[key] ?? { type: 'object', additionalProperties: true },
+              },
+            },
           };
     }
     (paths[path] ??= {})[r.method] = op;
@@ -186,6 +222,7 @@ export function buildOpenApi() {
         },
       },
       schemas: {
+        ...namedSchemas(),
         Error: {
           type: 'object',
           required: ['error'],

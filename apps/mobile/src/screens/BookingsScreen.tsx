@@ -1,10 +1,8 @@
-import React from 'react';
-import { View, Text } from 'react-native';
 import { statusLabel, type Booking, type OrderEvent } from '@farmers-market/shared';
-import BookingCard from './BookingCard';
-import { Field, Button, Chip, Badge, Empty, Back, s } from '../ui';
-import { useApp } from '../AppContext';
+import { Text, View } from 'react-native';
 import { useI18n } from '../i18n';
+import { Back, Empty, s } from '../ui';
+import BookingCard from './BookingCard';
 
 export function BookingsScreen({ outgoing }: { outgoing: Booking[] }) {
   const { t } = useI18n();

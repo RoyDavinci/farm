@@ -1,5 +1,6 @@
 import * as Crypto from 'expo-crypto';
-import { api, ApiError } from './api';
+import { ApiError } from './api';
+import { request } from './request';
 
 export interface FundingRow {
   id: string;
@@ -15,16 +16,15 @@ export interface FundingRow {
  * dropped connection) return the same checkout instead of creating a second one. While the server
  * is still preparing it (FUNDING_IN_PROGRESS) we wait and ask again.
  */
-export async function startCheckout(provider: string, amount_kobo: number) {
+export type PaymentProvider = 'paystack' | 'flutterwave';
+export async function startCheckout(provider: PaymentProvider, amount_kobo: number) {
   const idempotencyKey = Crypto.randomUUID();
   for (let attempt = 0; ; attempt++) {
     try {
-      return await api<{ checkout_url: string; reference: string }>(
-        '/wallet/fund',
-        'POST',
-        { provider, amount_kobo },
-        { idempotencyKey },
-      );
+      return await request('post', '/wallet/fund', {
+        body: { provider, amount_kobo },
+        idempotencyKey,
+      });
     } catch (e) {
       const retryable =
         (e instanceof ApiError && e.code === 'FUNDING_IN_PROGRESS') ||

@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text } from 'react-native';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { useEffect, useRef } from 'react';
+import { Text, View } from 'react-native';
 import type { MapPanelProps } from './MapPanel.types';
 export default function MapPanel({
   token,

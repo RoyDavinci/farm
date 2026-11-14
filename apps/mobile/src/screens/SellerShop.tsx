@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, Image } from 'react-native';
 import { money, statusLabel, type Listing } from '@farmers-market/shared';
-import { api } from '../api';
-import { SellerTrust } from '../TrustPanels';
-import { shareOnWhatsApp, shopMessage } from '../share';
-import { Button, Empty, Back, s, produceIcon } from '../ui';
+import { useEffect, useState } from 'react';
+import { Image, Pressable, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
+import { request } from '../request';
+import { shareOnWhatsApp, shopMessage } from '../share';
+import { SellerTrust } from '../TrustPanels';
+import { Back, Button, Empty, produceIcon, s } from '../ui';
 
 export default function SellerShop({ sellerId, onBack }: { sellerId: string; onBack: () => void }) {
   const { me, openListing } = useApp();
@@ -13,7 +13,10 @@ export default function SellerShop({ sellerId, onBack }: { sellerId: string; onB
     [listings, setListings] = useState<Listing[]>([]),
     [error, setError] = useState('');
   useEffect(() => {
-    Promise.all([api(`/sellers/${sellerId}`), api<Listing[]>(`/sellers/${sellerId}/listings`)])
+    Promise.all([
+      request('get', '/sellers/{id}', { params: { id: sellerId } }),
+      request('get', '/sellers/{id}/listings', { params: { id: sellerId } }),
+    ])
       .then(([profile, items]) => {
         setSeller(profile);
         setListings(items);

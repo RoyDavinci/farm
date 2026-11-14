@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import * as Location from 'expo-location';
-import { api } from './api';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import MapPanel from './MapPanel';
+import { request } from './request';
 type Pin = { latitude?: number; longitude?: number; market_id?: string };
 export function LocationPicker({ value, onChange }: { value: Pin; onChange: (v: Pin) => void }) {
   const [config, setConfig] = useState<any>(null),
@@ -13,10 +13,10 @@ export function LocationPicker({ value, onChange }: { value: Pin; onChange: (v: 
     [busy, setBusy] = useState(false),
     [show, setShow] = useState(false);
   useEffect(() => {
-    api('/maps/config')
+    request('get', '/maps/config')
       .then(setConfig)
       .catch(() => {});
-    api('/markets')
+    request('get', '/markets')
       .then(setMarkets)
       .catch(() => {});
   }, []);
@@ -93,7 +93,7 @@ export function LocationPicker({ value, onChange }: { value: Pin; onChange: (v: 
               setBusy(true);
               setError('');
               try {
-                setResults(await api(`/maps/geocode?q=${encodeURIComponent(query)}`));
+                setResults(await request('get', '/maps/geocode', { query: { q: query } }));
               } catch (e) {
                 setError((e as Error).message);
               } finally {
@@ -206,7 +206,9 @@ export function SellerLocationPanel({
               setBusy(true);
               setError('');
               try {
-                await api('/sellers/me/location', 'PATCH', { ...pin, address, city, area, reason });
+                await request('patch', '/sellers/me/location', {
+                  body: { ...pin, address, city, area, reason },
+                });
                 await onSaved();
                 setOpen(false);
               } catch (e) {

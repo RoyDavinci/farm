@@ -1,12 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Image } from 'react-native';
-import type { Listing } from '@farmers-market/shared';
+import type { Listing, operations } from '@farmers-market/shared';
 import * as ImagePicker from 'expo-image-picker';
-import { api, uploadPhoto } from '../api';
-import { drafts, withRetry } from '../offline';
-import VariantEditor, { newVariant, variantDraft, serializeVariants } from '../VariantEditor';
-import { Field, Button, Chip, Badge, Empty, Back, s, produceIcon, categories } from '../ui';
+import { useEffect, useState } from 'react';
+import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { uploadPhoto } from '../api';
 import { useApp } from '../AppContext';
+import { drafts, withRetry } from '../offline';
+import { request } from '../request';
+import { Back, Button, categories, Chip, Field, s } from '../ui';
+import VariantEditor, { newVariant, serializeVariants, variantDraft } from '../VariantEditor';
+
+/** Request body for creating a listing, from the API contract. */
+type ListingInput =
+  operations['marketplace.createListing']['requestBody']['content']['application/json'];
 
 const blankListing = {
   title: '',
@@ -200,16 +205,17 @@ export default function ListingEditor({
                 throw new Error('Enter the ready date as YYYY-MM-DD.');
               available_from = new Date(`${draft.harvest.trim()}T08:00:00`).toISOString();
             }
-            const body = {
+            const body: ListingInput = {
               available_from,
               preorder_capacity: available_from ? Number(draft.preorder || 0) : 0,
               title: draft.title,
               description: draft.description,
-              category: draft.category,
-              unit: primary.unit,
+              // The chip lists offer exactly the API's categories and units.
+              category: draft.category as ListingInput['category'],
+              unit: primary.unit as ListingInput['unit'],
               price_kobo: primary.price_kobo,
               stock: primary.stock,
-              variants,
+              variants: variants as ListingInput['variants'],
               image_url: draft.image_url.trim() || null,
               image_urls: draft.image_urls.length
                 ? draft.image_urls
@@ -217,11 +223,9 @@ export default function ListingEditor({
                   ? [draft.image_url.trim()]
                   : [],
             };
-            await api(
-              editingId ? `/listings/${editingId}` : '/listings',
-              editingId ? 'PATCH' : 'POST',
-              body,
-            );
+            if (editingId)
+              await request('patch', '/listings/{id}', { params: { id: editingId }, body });
+            else await request('post', '/listings', { body });
             drafts.clear(draftKey);
             onDone();
           }, 'Listing saved. Stock is confirmed immediately.')

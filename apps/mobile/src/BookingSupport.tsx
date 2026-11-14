@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Share, Linking } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { type Booking, money, statusLabel } from '@farmers-market/shared';
-import { api, uploadEvidence } from './api';
+import * as ImagePicker from 'expo-image-picker';
+import { useState } from 'react';
+import { Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { uploadEvidence } from './api';
+import { request } from './request';
 export default function BookingSupport({
   booking: b,
   isSeller,
@@ -19,8 +20,8 @@ export default function BookingSupport({
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
   async function load() {
-    const d = await api(`/bookings/${b.id}/dispute`);
-    setRecord(d ? await api(`/disputes/${d.id}`) : null);
+    const d = await request('get', '/bookings/{id}/dispute', { params: { id: b.id } });
+    setRecord(d ? await request('get', '/disputes/{id}', { params: { id: d.id } }) : null);
   }
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -37,7 +38,7 @@ export default function BookingSupport({
   }
   async function receipt() {
     await run(async () => {
-      const r = await api(`/bookings/${b.id}/receipt`);
+      const r = await request('get', '/bookings/{id}/receipt', { params: { id: b.id } });
       await Share.share({
         title: 'Farmers Market receipt',
         message: `Farmers Market ${r.simulated ? 'DEVELOPMENT / SIMULATED ' : ''}receipt\n${r.receipt_number}\n${r.seller}\n${r.title} — ${r.variant}\n${r.quantity} ${r.unit} × ${money(r.unit_price_kobo)}\nTotal: ${money(r.total_kobo)}\nRefunded: ${money(r.refunded_kobo)}\nPayment: wallet\nStatus: ${r.status}`,
@@ -96,7 +97,9 @@ export default function BookingSupport({
                 key={e.id}
                 onPress={() =>
                   void run(async () => {
-                    const link = await api(`/evidence/${e.id}/link`);
+                    const link = await request('get', '/evidence/{id}/link', {
+                      params: { id: e.id },
+                    });
                     await Linking.openURL(link.url);
                   })
                 }
@@ -128,7 +131,10 @@ export default function BookingSupport({
                     disabled={busy}
                     onPress={() =>
                       void run(async () => {
-                        await api(`/disputes/${record.id}/return`, 'POST', { action: 'received' });
+                        await request('post', '/disputes/{id}/return', {
+                          params: { id: record.id },
+                          body: { action: 'received' },
+                        });
                       })
                     }
                   >
@@ -175,9 +181,12 @@ export default function BookingSupport({
               disabled={busy || description.trim().length < 10}
               onPress={() =>
                 void run(async () => {
-                  await api(`/bookings/${b.id}/dispute`, 'POST', {
-                    reason_code: code,
-                    description,
+                  await request('post', '/bookings/{id}/{action}', {
+                    params: { id: b.id, action: 'dispute' },
+                    body: {
+                      reason_code: code,
+                      description,
+                    },
                   });
                   setDescription('');
                 })

@@ -19,6 +19,7 @@ src/
   middleware/          security (helmet, CORS, compression), request logging, authentication,
                        staff roles, idempotency, rate limits, errors
   validators/          Shared zod request schemas
+  contracts/           Response schemas published in openapi.json (tests check real responses)
   jobs/                Scheduler for expiry, email, push and cleanup jobs (with heartbeats)
   realtime/            WebSocket hub that nudges clients to refresh
   lib/                 Infrastructure: errors, logger, mail, file storage

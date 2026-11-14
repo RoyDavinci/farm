@@ -1,32 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
-import { money } from '@farmers-market/shared';
-import { api } from './api';
-import { Field, Button, Badge, s } from './ui';
+import { money, type PayoutSummary } from '@farmers-market/shared';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useApp } from './AppContext';
+import { request } from './request';
+import { Badge, Button, Field, s } from './ui';
 
-interface PayoutData {
-  account: null | {
-    bank_name: string;
-    account_last4: string;
-    account_name: string;
-    name_match: boolean;
-  };
-  available_kobo: number;
-  min_kobo: number;
-  fee_kobo: number;
-  mode: 'provider' | 'simulated' | 'disabled';
-  payouts: {
-    id: string;
-    amount_kobo: number;
-    fee_kobo: number;
-    status: string;
-    failure_reason: string | null;
-    created_at: string;
-    bank_name: string;
-    account_last4: string;
-  }[];
-}
+type PayoutData = PayoutSummary;
 
 export default function PayoutPanel() {
   const { busy, run, seller } = useApp();
@@ -41,7 +20,7 @@ export default function PayoutPanel() {
     [loadError, setLoadError] = useState('');
   const load = useCallback(async () => {
     try {
-      setData(await api<PayoutData>('/payouts'));
+      setData(await request('get', '/payouts'));
       setLoadError('');
     } catch (e) {
       setLoadError((e as Error).message);
@@ -55,7 +34,7 @@ export default function PayoutPanel() {
     setEditing(true);
     setResolved(null);
     if (!banks.length) {
-      await run(async () => setBanks((await api('/payouts/banks')).banks));
+      await run(async () => setBanks((await request('get', '/payouts/banks')).banks));
     }
   }
   if (loadError.includes('available to sellers')) return null;
@@ -153,9 +132,11 @@ export default function PayoutPanel() {
                     disabled={busy}
                     onPress={() =>
                       void run(async () => {
-                        await api('/payouts/accounts', 'POST', {
-                          bank_code: bankCode,
-                          account_number: accountNumber,
+                        await request('post', '/payouts/accounts', {
+                          body: {
+                            bank_code: bankCode,
+                            account_number: accountNumber,
+                          },
                         });
                         setEditing(false);
                         setAccountNumber('');
@@ -172,9 +153,11 @@ export default function PayoutPanel() {
                   onPress={() =>
                     void run(async () =>
                       setResolved(
-                        await api('/payouts/accounts/resolve', 'POST', {
-                          bank_code: bankCode,
-                          account_number: accountNumber,
+                        await request('post', '/payouts/accounts/resolve', {
+                          body: {
+                            bank_code: bankCode,
+                            account_number: accountNumber,
+                          },
                         }),
                       ),
                     )
@@ -220,7 +203,7 @@ export default function PayoutPanel() {
             disabled={busy || !kobo || kobo < data.min_kobo || kobo > data.available_kobo}
             onPress={() =>
               void run(async () => {
-                await api('/payouts', 'POST', { amount_kobo: kobo });
+                await request('post', '/payouts', { body: { amount_kobo: kobo } });
                 setAmount('');
                 await load();
               }, 'Payout requested. We review payouts before sending them to your bank.')
@@ -245,7 +228,7 @@ export default function PayoutPanel() {
                 disabled={busy}
                 onPress={() =>
                   void run(async () => {
-                    await api(`/payouts/${p.id}/cancel`, 'POST');
+                    await request('post', '/payouts/{id}/cancel', { params: { id: p.id } });
                     await load();
                   }, 'Payout cancelled. The amount is back in your proceeds.')
                 }

@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Linking, Switch } from 'react-native';
 import { money } from '@farmers-market/shared';
-import { api } from '../api';
-import { currentPosition, directions } from '../DeliveryPanel';
-import { VerificationDocuments } from '../SellerTools';
-import { Field, Button, Chip, Badge, Empty, s } from '../ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Linking, Pressable, Switch, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
+import { currentPosition, directions } from '../DeliveryPanel';
+import { request } from '../request';
+import { VerificationDocuments } from '../SellerTools';
+import { Badge, Button, Chip, Empty, Field, s } from '../ui';
 
 const earnings = (d: any) => Math.round((Number(d.fare_kobo) * (10000 - d.commission_bps)) / 10000);
 
@@ -23,11 +23,11 @@ export default function DriveScreen() {
     }),
     [pins, setPins] = useState<Record<string, string>>({});
   const load = useCallback(async () => {
-    const d = await api('/drivers/me');
+    const d = await request('get', '/drivers/me');
     setDriver(d);
-    if (d?.status === 'APPROVED') setJobs(await api('/drivers/me/jobs'));
+    if (d?.status === 'APPROVED') setJobs(await request('get', '/drivers/me/jobs'));
     else if (!d || d.status === 'REJECTED')
-      setVehicles((await api('/delivery/options')).vehicle_types);
+      setVehicles((await request('get', '/delivery/options')).vehicle_types);
   }, []);
   useEffect(() => {
     void load().catch(() => setDriver(null));
@@ -41,8 +41,10 @@ export default function DriveScreen() {
       if (sending.current) return;
       sending.current = true;
       try {
-        await api('/drivers/me/status', 'PUT', { online: true, ...(await currentPosition()) });
-        setJobs(await api('/drivers/me/jobs'));
+        await request('put', '/drivers/me/status', {
+          body: { online: true, ...(await currentPosition()) },
+        });
+        setJobs(await request('get', '/drivers/me/jobs'));
       } catch {
       } finally {
         sending.current = false;
@@ -101,7 +103,7 @@ export default function DriveScreen() {
           disabled={busy}
           onPress={() =>
             void run(async () => {
-              await api('/drivers', 'POST', form);
+              await request('post', '/drivers', { body: form });
               await load();
             }, 'Application sent. Upload your licence and vehicle papers below.')
           }
@@ -145,12 +147,14 @@ export default function DriveScreen() {
               void run(async () => {
                 setDriver({
                   ...driver,
-                  ...(await api('/drivers/me/status', 'PUT', {
-                    online: value,
-                    ...(value ? await currentPosition() : {}),
+                  ...(await request('put', '/drivers/me/status', {
+                    body: {
+                      online: value,
+                      ...(value ? await currentPosition() : {}),
+                    },
                   })),
                 });
-                setJobs(await api('/drivers/me/jobs'));
+                setJobs(await request('get', '/drivers/me/jobs'));
               })
             }
           />
@@ -183,7 +187,9 @@ export default function DriveScreen() {
                 disabled={busy}
                 onPress={() =>
                   void run(async () => {
-                    await api(`/deliveries/${d.id}/release`, 'POST');
+                    await request('post', '/deliveries/{id}/{action}', {
+                      params: { id: d.id, action: 'release' },
+                    });
                     await load();
                   }, 'Job released for another driver.')
                 }
@@ -220,7 +226,10 @@ export default function DriveScreen() {
                 onPress={() =>
                   void run(
                     async () => {
-                      await api(`/deliveries/${d.id}/deliver`, 'POST', { pin: pins[d.id] });
+                      await request('post', '/deliveries/{id}/{action}', {
+                        params: { id: d.id, action: 'deliver' },
+                        body: { pin: pins[d.id] },
+                      });
                       await load();
                     },
                     `Delivered. ${money(earnings(d))} added to your earnings.`,
@@ -247,7 +256,9 @@ export default function DriveScreen() {
                   disabled={busy}
                   onPress={() =>
                     void run(async () => {
-                      await api(`/deliveries/${d.id}/claim`, 'POST');
+                      await request('post', '/deliveries/{id}/{action}', {
+                        params: { id: d.id, action: 'claim' },
+                      });
                       await load();
                     }, 'Job accepted. Head to the seller and show your PIN.')
                   }

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { money, type Booking } from '@farmers-market/shared';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 export default function CounterofferPanel({
   booking: b,
   isSeller,
@@ -10,7 +10,7 @@ export default function CounterofferPanel({
   booking: Booking;
   isSeller: boolean;
   busy: boolean;
-  onAction: (action: string, body?: object) => void;
+  onAction: (action: string, body?: Record<string, unknown>) => void;
 }) {
   const [open, setOpen] = useState(false),
     [quantity, setQuantity] = useState(String(b.offer_quantity || b.quantity)),

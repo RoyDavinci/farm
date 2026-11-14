@@ -1784,6 +1784,272 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    User: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string;
+      admin: boolean;
+      email_verified_at?: string | null;
+      staff_role?: ('owner' | 'operations' | 'finance' | 'support') | null;
+    } & {
+      [key: string]: unknown;
+    };
+    Seller: {
+      user_id: string;
+      business_name: string;
+      /** @enum {string} */
+      business_type: 'farm' | 'shop' | 'market_stall' | 'home_based';
+      city: string;
+      area: string;
+      /** @enum {string} */
+      status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+      reason: string | null;
+      address?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+      market_id?: string | null;
+    } & {
+      [key: string]: unknown;
+    };
+    Me: {
+      user: components['schemas']['User'];
+      seller: components['schemas']['Seller'] | null;
+      staff_areas?: string[];
+    } & {
+      [key: string]: unknown;
+    };
+    Settings: {
+      reservation_hours: number;
+      commission_bps: number;
+      payout_min_kobo?: number;
+      payout_fee_kobo?: number;
+      promotion_daily_kobo?: number;
+      delivery_commission_bps?: number;
+      delivery_radius_km?: number;
+      pay_on_delivery_enabled?: boolean;
+      stock_confirmation: string;
+      /** @enum {string} */
+      payment_mode: 'demo' | 'provider' | 'disabled';
+      providers: string[];
+    } & {
+      [key: string]: unknown;
+    };
+    ProductVariant: {
+      id: string;
+      listing_id: string;
+      name: string;
+      unit: string;
+      price_kobo: number;
+      stock: number;
+      min_quantity: number;
+      active: boolean;
+      is_primary: boolean;
+      wholesale_tiers: {
+        min_quantity: number;
+        price_kobo: number;
+      }[];
+    } & {
+      [key: string]: unknown;
+    };
+    Listing: {
+      id: string;
+      seller_id: string;
+      title: string;
+      description: string;
+      category: string;
+      unit: string;
+      price_kobo: number;
+      stock: number;
+      /** @enum {string} */
+      status: 'ACTIVE' | 'PAUSED';
+      image_url: string | null;
+      image_urls?: string[];
+      thumbnail_url?: string | null;
+      variants?: components['schemas']['ProductVariant'][];
+      public_latitude?: number | null;
+      public_longitude?: number | null;
+      distance_km?: number | null;
+      search_price?: number | null;
+      market_id?: string | null;
+      business_name: string;
+      city: string;
+      area: string;
+      /** @enum {string} */
+      business_type: 'farm' | 'shop' | 'market_stall' | 'home_based';
+      in_stock?: boolean;
+      stock_alert?: boolean;
+      available_from?: string | null;
+      preorder_capacity?: number;
+      sponsored?: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    /** @enum {string} */
+    BookingStatus:
+      | 'REQUESTED'
+      | 'COUNTERED'
+      | 'ACCEPTED'
+      | 'READY_FOR_PICKUP'
+      | 'COMPLETED'
+      | 'DECLINED'
+      | 'CANCELLED'
+      | 'EXPIRED';
+    Booking: {
+      id: string;
+      buyer_id: string;
+      seller_id: string;
+      listing_id: string;
+      title: string;
+      unit: string;
+      quantity: number;
+      price_kobo: number;
+      total_kobo: number;
+      commission_kobo: number;
+      commission_bps: number;
+      status: components['schemas']['BookingStatus'];
+      paid: boolean;
+      reserved_until: string | null;
+      created_at: string;
+      business_name: string;
+      buyer_name: string;
+      pickup_address?: string;
+      pickup_code?: string;
+      pickup_latitude?: number | null;
+      pickup_longitude?: number | null;
+      variant_id?: string | null;
+      variant_name?: string;
+      offer_version?: number;
+      payment_recorded?: boolean;
+      offer_quantity?: number | null;
+      offer_price_kobo?: number | null;
+      offer_note?: string | null;
+      offer_expires_at?: string | null;
+      dispute_status?: string | null;
+      preorder?: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    OrderEvent: {
+      id: string;
+      booking_id: string;
+      from_status: string | null;
+      to_status: string;
+      actor_id: string | null;
+      reason: string;
+      created_at: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /** @enum {string} */
+    FundingStatus: 'INITIALIZING' | 'PENDING' | 'UNCERTAIN' | 'FAILED' | 'EXPIRED' | 'SUCCESSFUL';
+    Funding: {
+      id: string;
+      provider: string;
+      amount_kobo: number;
+      status: components['schemas']['FundingStatus'];
+      checkout_url: string | null;
+      created_at: string;
+    } & {
+      [key: string]: unknown;
+    };
+    Wallet: {
+      balance_kobo: number;
+      seller_payable_kobo: number;
+      entries: ({
+        id: string;
+        account: string;
+        amount_kobo: number;
+        reference: string;
+        created_at: string;
+      } & {
+        [key: string]: unknown;
+      })[];
+      funding: components['schemas']['Funding'][];
+    } & {
+      [key: string]: unknown;
+    };
+    FundingCheckout: {
+      reference: string;
+      checkout_url: string;
+      /** @enum {string} */
+      provider: 'paystack' | 'flutterwave';
+      fallback_used: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    Ok: {
+      ok: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    SearchResult: {
+      items: components['schemas']['Listing'][];
+      sponsored: components['schemas']['Listing'][];
+      next_cursor: string | null;
+    } & {
+      [key: string]: unknown;
+    };
+    PayoutSummary: {
+      account:
+        | ({
+            bank_name: string;
+            account_last4: string;
+            account_name: string;
+            name_match: boolean;
+          } & {
+            [key: string]: unknown;
+          })
+        | null;
+      available_kobo: number;
+      min_kobo: number;
+      fee_kobo: number;
+      /** @enum {string} */
+      mode: 'provider' | 'simulated' | 'disabled';
+      payouts: ({
+        id: string;
+        amount_kobo: number;
+        fee_kobo: number;
+        status: string;
+        failure_reason: string | null;
+        created_at: string;
+        bank_name: string;
+        account_last4: string;
+      } & {
+        [key: string]: unknown;
+      })[];
+    } & {
+      [key: string]: unknown;
+    };
+    Delivery: {
+      id: string;
+      booking_id: string;
+      /** @enum {string} */
+      status: 'OPEN' | 'ASSIGNED' | 'PICKED_UP' | 'DELIVERED' | 'CANCELLED';
+      vehicle_type: string;
+      distance_km: number;
+      fare_kobo: number;
+      pay_on_delivery: boolean;
+      fare_paid: boolean;
+      dropoff_address?: string;
+      dropoff_latitude: number;
+      dropoff_longitude: number;
+      pickup_latitude: number;
+      pickup_longitude: number;
+      driver_latitude?: number | null;
+      driver_longitude?: number | null;
+      driver_location_at?: string | null;
+      driver_name?: string | null;
+      driver_phone?: string | null;
+      vehicle_name?: string;
+      plate_number?: string | null;
+      pickup_pin?: string;
+      delivery_pin?: string;
+      booking_paid?: boolean;
+      total_kobo?: number;
+    } & {
+      [key: string]: unknown;
+    };
     Error: {
       error: {
         /**
@@ -2080,7 +2346,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2130,7 +2398,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2157,7 +2427,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2228,7 +2500,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2255,7 +2529,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2324,7 +2600,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2351,7 +2629,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2380,7 +2660,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2430,7 +2712,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2501,7 +2785,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2574,7 +2860,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2624,7 +2912,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2651,7 +2941,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2699,7 +2991,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2749,7 +3043,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2799,7 +3095,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2824,7 +3122,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2849,7 +3149,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2859,7 +3161,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['Ok'];
         };
       };
       default: components['responses']['Error'];
@@ -2874,7 +3176,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2899,7 +3203,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2924,7 +3230,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2949,7 +3257,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -2974,7 +3284,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3005,7 +3317,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['Booking'][];
         };
       };
       default: components['responses']['Error'];
@@ -3022,7 +3334,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3055,7 +3369,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['Booking'];
         };
       };
       default: components['responses']['Error'];
@@ -3075,7 +3389,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3108,7 +3424,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['Delivery'] | null;
         };
       };
       default: components['responses']['Error'];
@@ -3127,7 +3443,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3154,7 +3472,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3206,7 +3526,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3239,7 +3561,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['OrderEvent'][];
         };
       };
       default: components['responses']['Error'];
@@ -3281,7 +3603,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3352,7 +3676,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3404,7 +3730,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3433,7 +3761,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3463,7 +3793,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3587,7 +3919,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3614,7 +3948,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3681,7 +4017,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3777,7 +4115,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -3833,7 +4173,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['Listing'][];
         };
       };
       default: components['responses']['Error'];
@@ -3919,7 +4259,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['Listing'];
         };
       };
       default: components['responses']['Error'];
@@ -4003,7 +4343,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -4032,7 +4374,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -4151,7 +4495,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['Me'];
         };
       };
       default: components['responses']['Error'];
@@ -4168,7 +4512,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -4218,7 +4564,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -4268,7 +4616,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -4411,7 +4761,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -4459,7 +4811,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -4511,7 +4865,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['PayoutSummary'];
         };
       };
       default: components['responses']['Error'];
@@ -4528,7 +4882,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -4557,7 +4913,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -4584,7 +4942,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -4609,7 +4969,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -4657,7 +5019,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -4705,7 +5069,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['SearchResult'];
         };
       };
       default: components['responses']['Error'];
@@ -4788,7 +5152,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['Listing'][];
         };
       };
       default: components['responses']['Error'];
@@ -4875,7 +5239,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -4927,7 +5293,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['Settings'];
         };
       };
       default: components['responses']['Error'];
@@ -4948,7 +5314,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['Wallet'];
         };
       };
       default: components['responses']['Error'];
@@ -4965,7 +5331,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -5006,7 +5374,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['FundingCheckout'];
         };
       };
       default: components['responses']['Error'];
@@ -5023,7 +5391,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -5050,7 +5420,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {

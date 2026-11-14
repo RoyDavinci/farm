@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, Switch, StyleSheet } from 'react-native';
-import { api } from './api';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { request } from './request';
 export default function AccountPanel({
   user,
   onUpdate,
@@ -19,9 +19,9 @@ export default function AccountPanel({
     [busy, setBusy] = useState(false);
   async function load() {
     const [s, b, p] = await Promise.all([
-      api('/me/sessions'),
-      api('/me/blocks'),
-      api('/notification-preferences'),
+      request('get', '/me/sessions'),
+      request('get', '/me/blocks'),
+      request('get', '/notification-preferences'),
     ]);
     setSessions(s);
     setBlocks(b);
@@ -81,7 +81,7 @@ export default function AccountPanel({
           disabled={busy}
           onPress={() =>
             void run(async () => {
-              await api('/me', 'PATCH', { name, phone });
+              await request('patch', '/me', { body: { name, phone } });
             }, 'Profile updated.')
           }
         >
@@ -98,9 +98,11 @@ export default function AccountPanel({
             disabled={busy}
             onValueChange={(value) =>
               void run(async () => {
-                await api('/notification-preferences', 'PUT', {
-                  email_enabled: value,
-                  push_enabled: push,
+                await request('put', '/notification-preferences', {
+                  body: {
+                    email_enabled: value,
+                    push_enabled: push,
+                  },
                 });
                 setEmail(value);
               }, 'Notification preference saved.')
@@ -115,9 +117,11 @@ export default function AccountPanel({
             disabled={busy}
             onValueChange={(value) =>
               void run(async () => {
-                await api('/notification-preferences', 'PUT', {
-                  email_enabled: email,
-                  push_enabled: value,
+                await request('put', '/notification-preferences', {
+                  body: {
+                    email_enabled: email,
+                    push_enabled: value,
+                  },
                 });
                 setPush(value);
               }, 'Notification preference saved.')
@@ -138,7 +142,7 @@ export default function AccountPanel({
                 disabled={busy}
                 onPress={() =>
                   void run(async () => {
-                    await api(`/me/sessions/${session.id}`, 'DELETE');
+                    await request('delete', '/me/sessions/{id}', { params: { id: session.id } });
                   }, 'Device signed out.')
                 }
               >
@@ -158,7 +162,7 @@ export default function AccountPanel({
                 disabled={busy}
                 onPress={() =>
                   void run(async () => {
-                    await api(`/me/blocks/${b.blocked_id}`, 'DELETE');
+                    await request('delete', '/me/blocks/{id}', { params: { id: b.blocked_id } });
                   }, 'Account unblocked.')
                 }
               >
