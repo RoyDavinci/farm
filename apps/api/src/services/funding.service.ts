@@ -84,7 +84,7 @@ const inProgress: FundingFailure = {
   code: 'FUNDING_IN_PROGRESS',
   message: 'Checkout is being prepared. Retry this request with the same Idempotency-Key shortly.',
 };
-const uncertain: FundingFailure = {
+export const uncertain: FundingFailure = {
   status: 409,
   code: 'FUNDING_UNCERTAIN',
   message:

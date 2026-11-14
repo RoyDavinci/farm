@@ -13,7 +13,7 @@ export function createHealthController(deps: AppDeps) {
       'SELECT name,EXTRACT(EPOCH FROM now()-beat_at)::int AS age_s,last_error FROM worker_heartbeats',
     );
     const [backlog] = await db.query(
-      "SELECT (SELECT COUNT(*)::int FROM notification_outbox WHERE status='PENDING' AND available_at<now()-interval '5 minutes') AS email_late,(SELECT COUNT(*)::int FROM push_outbox WHERE status='PENDING' AND available_at<now()-interval '5 minutes') AS push_late,(SELECT COUNT(*)::int FROM payouts WHERE status='PROCESSING' AND updated_at<now()-interval '1 day') AS payouts_stuck",
+      "SELECT (SELECT COUNT(*)::int FROM notification_outbox WHERE status='PENDING' AND available_at<now()-interval '5 minutes') AS email_late,(SELECT COUNT(*)::int FROM push_outbox WHERE status='PENDING' AND available_at<now()-interval '5 minutes') AS push_late,(SELECT COUNT(*)::int FROM payouts WHERE status='PROCESSING' AND updated_at<now()-interval '1 day') AS payouts_stuck,(SELECT COUNT(*)::int FROM funding WHERE status='UNCERTAIN' AND created_at<now()-interval '1 hour') AS funding_uncertain",
     );
     const expiry = beats.find((b) => b.name === 'reservation-expiry');
     const healthy = !!expiry && expiry.age_s < 300 && backlog.email_late < 100;

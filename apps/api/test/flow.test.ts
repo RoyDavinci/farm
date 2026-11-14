@@ -10,6 +10,7 @@ import { config } from '../src/config/index.js';
 import { connect, type Database } from '../src/database/client.js';
 import { expireReservations } from '../src/services/booking.service.js';
 import { deliverPush } from '../src/services/push.service.js';
+import { recoverFunding } from '../src/services/funding-recovery.service.js';
 let db: Database;
 let app: ReturnType<typeof createApp>;
 const mailDir = mkdtempSync(join(tmpdir(), 'fm-test-'));
@@ -872,6 +873,26 @@ describe('delivery network', () => {
     expect(quote.status).toBe(200);
     return { b, quote: quote.body };
   }
+  it('never fails when a buyer cancels while a driver claims the same delivery', async () => {
+    const { b, quote } = await readyForDelivery();
+    const d = await call('buyer', 'post', `/bookings/${b}/delivery`, {
+      vehicle_type: 'motorcycle',
+      dropoff: drop,
+      dropoff_address: '14 Allen Avenue, Ikeja, Lagos',
+      expected_fare_kobo: quote.fare_kobo,
+    });
+    const [cancel, claim] = await Promise.all([
+      call('buyer', 'post', `/bookings/${b}/cancel`),
+      call('other', 'post', `/deliveries/${d.body.id}/claim`),
+    ]);
+    // One wins; the other gets a clean business error, never a 500.
+    expect([cancel.status, claim.status].every((s) => s < 500)).toBe(true);
+    const [row] = await db.query('SELECT status FROM bookings WHERE id=$1', [b]);
+    expect(row.status).toBe('CANCELLED');
+    const [delivery] = await db.query('SELECT status FROM deliveries WHERE id=$1', [d.body.id]);
+    expect(delivery.status).toBe('CANCELLED');
+    expect(await ledgerBalances()).toBe(0);
+  });
   it('delivers a prepaid order with PIN handover and pays the driver', async () => {
     const { b, quote } = await readyForDelivery();
     expect(quote.distance_km).toBeGreaterThan(5);
@@ -1050,5 +1071,100 @@ describe('security and configuration', () => {
     expect(problems.join(' ')).toMatch(/PAYOUT_ENCRYPTION_KEY/);
     expect(problems.join(' ')).toMatch(/https/);
     expect(() => readEnv({ PORT: 'abc' })).toThrow(/PORT/);
+  });
+});
+
+describe('funding recovery', () => {
+  const paystackOk = (data: object) => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ status: true, data }),
+  });
+  it('releases interrupted checkouts so a retry gets a clear answer', async () => {
+    // The provider never answers, as if the server died mid-checkout.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise(() => {})),
+    );
+    const key = randomUUID();
+    const pending = call(
+      'buyer',
+      'post',
+      '/wallet/fund',
+      { provider: 'paystack', amount_kobo: 100000 },
+      key,
+    );
+    void pending.then(
+      () => {},
+      () => {},
+    );
+    await new Promise((r) => setTimeout(r, 300));
+    const [intent] = await db.query('SELECT current_reference FROM funding_intents');
+    expect(intent).toBeTruthy();
+    expect(
+      (
+        await call(
+          'buyer',
+          'post',
+          '/wallet/fund',
+          { provider: 'paystack', amount_kobo: 100000 },
+          key,
+        )
+      ).body.error.code,
+    ).toBe('FUNDING_IN_PROGRESS');
+    await db.query("UPDATE funding_intents SET lease_until=now()-interval '1 second'");
+    const result = await recoverFunding(db, c);
+    expect(result.released).toBe(1);
+    const [f] = await db.query('SELECT status FROM funding WHERE id=$1', [
+      intent.current_reference,
+    ]);
+    expect(f.status).toBe('UNCERTAIN');
+    expect(
+      (
+        await call(
+          'buyer',
+          'post',
+          '/wallet/fund',
+          { provider: 'paystack', amount_kobo: 100000 },
+          key,
+        )
+      ).body.error.code,
+    ).toBe('FUNDING_UNCERTAIN');
+    const wallet = await call('buyer', 'get', '/wallet');
+    expect(wallet.body.funding.map((x: any) => x.status)).toContain('UNCERTAIN');
+  });
+  it('credits a paid top-up whose webhook was lost, exactly once, and expires stale ones', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => paystackOk({ authorization_url: 'https://checkout.paystack.com/x' })),
+    );
+    const start = await call('buyer', 'post', '/wallet/fund', {
+      provider: 'paystack',
+      amount_kobo: 150000,
+    });
+    expect(start.status).toBe(200);
+    await db.query("UPDATE funding SET created_at=now()-interval '5 minutes'");
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        paystackOk({
+          status: 'success',
+          reference: start.body.reference,
+          amount: 150000,
+          currency: 'NGN',
+          id: 77,
+        }),
+      ),
+    );
+    expect((await recoverFunding(db, c)).credited).toBe(1);
+    // Checked rows back off, and a forced recheck cannot credit twice.
+    await db.query('UPDATE funding SET checked_at=NULL');
+    await recoverFunding(db, c);
+    expect((await call('buyer', 'get', '/wallet')).body.balance_kobo).toBe(150000);
+    await db.query(
+      "INSERT INTO funding(id,user_id,provider,amount_kobo,status,created_at) VALUES('fm-old','buyer','paystack',5000,'PENDING',now()-interval '4 days')",
+    );
+    expect((await recoverFunding(db, c)).expired).toBe(1);
+    expect(await ledgerBalances()).toBe(0);
   });
 });

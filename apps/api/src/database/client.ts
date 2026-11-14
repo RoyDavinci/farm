@@ -34,6 +34,17 @@ function runner(client: Prisma.TransactionClient | PrismaClient) {
     client.$queryRawUnsafe(sql, ...params).then((r) => rows<T>(r));
 }
 
+/**
+ * True when Postgres aborted the transaction because of a deadlock (40P01) or a serialization /
+ * write conflict (40001, Prisma P2034). The whole transaction rolled back, so retrying is safe.
+ */
+export function isTransientConflict(err: unknown) {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  if (err.code === 'P2034') return true;
+  const detail = `${err.message} ${JSON.stringify(err.meta ?? {})}`;
+  return /40P01|40001|deadlock detected|could not serialize/i.test(detail);
+}
+
 export function createPrisma(url: string) {
   const adapter = new PrismaPg({
     connectionString: url,

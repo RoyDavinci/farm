@@ -218,9 +218,11 @@ export function createDeliveriesController(deps: AppDeps) {
       .enum(['cancel', 'pay', 'claim', 'release', 'handover', 'deliver'])
       .parse(req.params.action);
     return mutate(req, res, async (q, u) => {
+      // Lock order matches booking cancel/expiry (booking → delivery) so the two can't deadlock.
+      const [ref] = await q.query('SELECT booking_id FROM deliveries WHERE id=$1', [req.params.id]);
+      ensure(ref, 404, 'NOT_FOUND', 'Delivery not found.');
+      const [b] = await q.query('SELECT * FROM bookings WHERE id=$1 FOR UPDATE', [ref.booking_id]);
       const [d] = await q.query('SELECT * FROM deliveries WHERE id=$1 FOR UPDATE', [req.params.id]);
-      ensure(d, 404, 'NOT_FOUND', 'Delivery not found.');
-      const [b] = await q.query('SELECT * FROM bookings WHERE id=$1 FOR UPDATE', [d.booking_id]);
       if (action === 'claim') {
         const [driver] = await q.query('SELECT * FROM drivers WHERE user_id=$1', [u.id]);
         ensure(driver?.status === 'APPROVED', 403, 'DRIVER_NOT_APPROVED', 'Approved drivers only.');

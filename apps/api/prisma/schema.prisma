@@ -228,10 +228,13 @@ model Funding {
   status                    String                   @default("PENDING")
   checkout_url              String?
   provider_id               String?
+  /// Last automatic provider check (funding recovery job).
+  checked_at                DateTime?                @db.Timestamptz(6)
   created_at                DateTime                 @default(now()) @db.Timestamptz(6)
   users                     User                     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   reconciliation_exceptions ReconciliationException?
 
+  @@index([status, checked_at], map: "funding_recovery_idx")
   @@map("funding")
 }
 

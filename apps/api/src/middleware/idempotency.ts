@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { Database } from '../database/client.js';
+import { isTransientConflict, type Database } from '../database/client.js';
 import { ensure } from '../lib/errors.js';
 import type { Mutate } from '../types/deps.js';
 
@@ -28,13 +28,15 @@ export function readIdempotency(req: import('express').Request) {
  * - rejects a reused key with a different request.
  * A handler may return `{ error: { status, code, message } }` to commit partial state (such as a
  * failed PIN attempt counter) and still answer with an error.
+ * A transaction that Postgres aborts as a deadlock or serialization conflict has fully rolled back
+ * (including the idempotency record), so it is retried up to twice before failing.
  */
 export function createMutate(db: Database): Mutate {
   return (req, res, fn) => {
     const { key, fingerprint } = readIdempotency(req);
     const actor = res.locals.user;
-    return db
-      .transaction(async (q) => {
+    const attempt = () =>
+      db.transaction(async (q) => {
         await q.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [actor.id]);
         const old = await q.prisma.idempotencyKey.findUnique({
           where: { actor_id_key: { actor_id: actor.id, key } },
@@ -58,10 +60,19 @@ export function createMutate(db: Database): Mutate {
           },
         });
         return data;
-      })
-      .then((data) => {
-        if (data?.error) res.status(data.error.status).json({ error: data.error });
-        else res.json(data);
       });
+    const run = async (tries = 0): Promise<any> => {
+      try {
+        return await attempt();
+      } catch (err) {
+        if (tries >= 2 || !isTransientConflict(err)) throw err;
+        await new Promise((r) => setTimeout(r, 25 * (tries + 1) + Math.random() * 25));
+        return run(tries + 1);
+      }
+    };
+    return run().then((data) => {
+      if (data?.error) res.status(data.error.status).json({ error: data.error });
+      else res.json(data);
+    });
   };
 }
