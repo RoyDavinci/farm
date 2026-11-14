@@ -10,6 +10,11 @@ import { Prisma, PrismaClient } from '../generated/prisma/client.js';
 export interface Query {
   query<T = Record<string, any>>(sql: string, params?: any[]): Promise<T[]>;
   prisma: Prisma.TransactionClient;
+  /**
+   * Runs `fn` once the surrounding transaction has committed (immediately outside a transaction).
+   * Use it for side effects others must not see early, such as realtime "data changed" events.
+   */
+  afterCommit(fn: () => void): void;
 }
 export interface Database extends Query {
   prisma: PrismaClient;
@@ -58,14 +63,26 @@ export function createPrisma(url: string) {
 export function connect(url: string): Database {
   if (!url) throw new Error('DATABASE_URL is required (see apps/api/.env.example).');
   const prisma = createPrisma(url);
+  const runSafely = (fn: () => void) => {
+    try {
+      fn();
+    } catch {
+      // A failed side effect must never undo or fail a committed write.
+    }
+  };
   return {
     prisma,
     query: runner(prisma),
-    transaction: (fn) =>
-      prisma.$transaction((tx) => fn({ prisma: tx, query: runner(tx) }), {
-        maxWait: 10000,
-        timeout: 30000,
-      }),
+    afterCommit: runSafely,
+    async transaction(fn) {
+      const pending: (() => void)[] = [];
+      const result = await prisma.$transaction(
+        (tx) => fn({ prisma: tx, query: runner(tx), afterCommit: (cb) => pending.push(cb) }),
+        { maxWait: 10000, timeout: 30000 },
+      );
+      pending.forEach(runSafely);
+      return result;
+    },
     close: () => prisma.$disconnect(),
   };
 }

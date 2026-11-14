@@ -1497,6 +1497,87 @@ describe('contract tour', () => {
   });
 });
 
+describe('redis, rate limits and realtime', () => {
+  it('publishes user events only after commit, never on rollback', async () => {
+    const { events } = await import('../src/lib/events.js');
+    const seen: string[] = [];
+    const stop = events.onUserChanged((id) => seen.push(id));
+    await db.transaction(async (q) => {
+      q.afterCommit(() => events.userChanged('committed'));
+      expect(seen).toEqual([]);
+    });
+    await db
+      .transaction(async (q) => {
+        q.afterCommit(() => events.userChanged('rolled-back'));
+        throw new Error('abort');
+      })
+      .catch(() => {});
+    stop();
+    expect(seen).toEqual(['committed']);
+  });
+  it('pushes a sync to the connected app as soon as its data changes', async () => {
+    const { attachRealtime } = await import('../src/realtime/socket.js');
+    const { WebSocket } = await import('ws');
+    const token = 'a'.repeat(64);
+    await db.query(
+      "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,'buyer',now()+interval '1 hour')",
+      [createHash('sha256').update(token).digest('hex')],
+    );
+    const listing = await setup();
+    const b = await book(listing);
+    const server = app.listen(0);
+    const close = attachRealtime(server, db, { ...c, origins: [] });
+    const port = (server.address() as any).port;
+    const socket = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    const messages: string[] = [];
+    await new Promise<void>((resolve) => {
+      socket.on('message', (m) => {
+        const type = JSON.parse(String(m)).type;
+        messages.push(type);
+        if (type === 'ready') resolve();
+      });
+      socket.on('open', () => socket.send(JSON.stringify({ type: 'authenticate', token })));
+    });
+    const started = Date.now();
+    await call('seller', 'post', `/bookings/${b}/accept`);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(messages).toContain('sync');
+    expect(Date.now() - started).toBeLessThan(5000); // the fallback poll is 30 s
+    socket.close();
+    close();
+    await new Promise((r) => server.close(r));
+  });
+  it.skipIf(!process.env.TEST_REDIS_URL)(
+    'shares rate limits and events between instances through Redis',
+    async () => {
+      const { connectRedis } = await import('../src/lib/redis.js');
+      const { events } = await import('../src/lib/events.js');
+      const url = process.env.TEST_REDIS_URL!;
+      const [one, two, sub, outside] = ['a', 'b', 'sub', 'outside'].map((n) =>
+        connectRedis(url, `test-${n}`),
+      );
+      await one.flushdb();
+      const limited = { ...c, rateLimitPerMinute: 3 };
+      const first = createApp(db, limited, one);
+      const second = createApp(db, limited, two);
+      const statuses: number[] = [];
+      for (const target of [first, second, first, second])
+        statuses.push((await request(target).get('/v1/settings')).status);
+      expect(statuses).toEqual([200, 200, 200, 429]);
+      events.useRedis(one, sub);
+      await new Promise((r) => setTimeout(r, 200));
+      const seen: string[] = [];
+      const stop = events.onUserChanged((id) => seen.push(id));
+      // Published by "another instance" (a separate connection).
+      await outside.publish('farmers-market:user-sync', 'buyer');
+      await new Promise((r) => setTimeout(r, 200));
+      stop();
+      expect(seen).toEqual(['buyer']);
+      expect((await request(createApp(db, c, one)).get('/health/ready')).body.redis).toBe('ok');
+      await Promise.all([one, two, sub, outside].map((r) => r.quit()));
+    },
+  );
+});
 describe('response contract (whole suite)', () => {
   // Runs last: every response recorded by the tests above must match its published schema.
   it('every JSON operation has a schema and every recorded response matches it', async () => {

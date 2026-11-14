@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Config } from '../config/index.js';
+import { events } from '../lib/events.js';
 import type { Database, Query } from '../database/client.js';
 import { ensure } from '../lib/errors.js';
 import type { RequestInput } from '../lib/http.js';
@@ -25,6 +26,8 @@ export async function notify(
     nid,
   ]);
   await q.query('INSERT INTO push_outbox(id,notification_id) VALUES($1,$2)', [randomUUID(), nid]);
+  // Open apps refresh right away (only once the notification is committed and visible).
+  q.afterCommit(() => events.userChanged(user));
 }
 
 interface DeliveryJob {
@@ -173,6 +176,8 @@ export function createCommunicationsService(deps: AppDeps) {
       `UPDATE conversations SET ${u.id === c.buyer_id ? 'buyer_read_at' : 'seller_read_at'}=now() WHERE id=$1`,
       [c.id],
     );
+    // The other participant's app shows the message as read.
+    q.afterCommit(() => events.userChanged(u.id === c.buyer_id ? c.seller_id : c.buyer_id));
     return { ok: true };
   }
   async function sendMessage(q: Query, u: any, input: RequestInput) {

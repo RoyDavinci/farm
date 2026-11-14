@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import type { Config } from '../config/index.js';
+import type { RedisClient } from '../lib/redis.js';
 import type { Database, Query } from '../database/client.js';
 
 /**
@@ -17,4 +18,6 @@ export interface AppDeps {
   db: Database;
   config: Config;
   mutate: Mutate;
+  /** Shared Redis connection when REDIS_URL is set. */
+  redis?: RedisClient | null;
 }

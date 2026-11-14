@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { Config } from '../config/index.js';
 import type { Database } from '../database/client.js';
+import { events } from '../lib/events.js';
 import { tokenHash } from '../services/auth.service.js';
 /** WebSocket hub: authenticated clients receive "sync" nudges when their data changes. */
 export function attachRealtime(server: Server, db: Database, c: Config) {
@@ -57,6 +58,7 @@ export function attachRealtime(server: Server, db: Database, c: Config) {
       clients.delete(socket);
     });
   });
+  // Safety net: catches changes that didn't send an event and closes expired sessions.
   const interval = setInterval(() => {
     for (const [socket, client] of clients) {
       if (client.checking || socket.readyState !== WebSocket.OPEN) continue;
@@ -92,9 +94,16 @@ export function attachRealtime(server: Server, db: Database, c: Config) {
           client.checking = false;
         });
     }
-  }, 2000);
+  }, 30000);
   interval.unref();
+  // Instant refresh: any instance (via Redis) announces which user's data changed.
+  const stopEvents = events.onUserChanged((userId) => {
+    for (const [socket, client] of clients)
+      if (client.user === userId && socket.readyState === WebSocket.OPEN)
+        socket.send(JSON.stringify({ type: 'sync' }));
+  });
   return () => {
+    stopEvents();
     clearInterval(interval);
     for (const socket of clients.keys()) socket.close(1001, 'Server restarting');
     hub.close();

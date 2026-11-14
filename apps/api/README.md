@@ -50,6 +50,7 @@ Schema changes: edit `prisma/schema.prisma`, then `npm run db:migrate:dev -- --n
 
 - Logs: `LOG_LEVEL` (error, warn, info, http, debug). Production writes JSON lines to stdout; secrets, tokens, codes and account numbers are redacted. Each request gets an `X-Request-Id`.
 - Health: `/health` (liveness) and `/health/ready` (database, job heartbeats, delayed email/push, stuck payouts, top-ups stuck as uncertain).
+- Redis (optional, `REDIS_URL`): shared rate-limit counters and realtime events across API and worker instances. Notifications publish a "user changed" event after commit; every instance pushes a sync to that user's open apps at once (a 30 s poll is the fallback). Without Redis each process works alone, which is fine for one instance.
 - Jobs (jobs/scheduler.ts): reservation expiry, email, push, auth cleanup and funding recovery, each with a heartbeat.
 - Security: helmet headers (strict CSP, HSTS in production, no framing), CORS limited to `CORS_ORIGINS`, compression, per-IP rate limits (`RATE_LIMIT_PER_MINUTE`, `AUTH_RATE_LIMIT`), `TRUST_PROXY` for load balancers, 100 kB JSON limit.
 - Production refuses to start without `DATABASE_URL`, SMTP, a strong `OTP_SECRET` and `PAYOUT_ENCRYPTION_KEY`, an `https://` `PUBLIC_API_URL` and `https://` CORS origins.

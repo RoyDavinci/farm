@@ -31,6 +31,7 @@ if (!/^POSTGRES_PORT=\d+$/m.test(root))
 writeFileSync('.env', root, { mode: 0o600 });
 const password = /^POSTGRES_PASSWORD=(.+)$/m.exec(root)[1];
 const port = /^POSTGRES_PORT=(\d+)$/m.exec(root)[1];
+const redisPort = /^REDIS_PORT=(\d+)$/m.exec(root)[1];
 const url = (db) => `postgresql://farmers_market:${password}@127.0.0.1:${port}/${db}`;
 
 // 2. App env files.
@@ -52,6 +53,10 @@ if (!/^ALLOW_DEMO_FUNDING=true$/m.test(api) && !/^PAYMENTS_ENABLED=true$/m.test(
 if (!/^DATABASE_URL=postgres/m.test(api) || /CHANGE_ME/.test(api)) {
   api = setVar(api, 'DATABASE_URL', url('farmers_market'));
   api = setVar(api, 'TEST_DATABASE_URL', url('farmers_market_test'));
+}
+if (!/^REDIS_URL=redis/m.test(api)) {
+  api = setVar(api, 'REDIS_URL', `redis://127.0.0.1:${redisPort}/0`);
+  api = setVar(api, 'TEST_REDIS_URL', `redis://127.0.0.1:${redisPort}/15`);
 }
 writeFileSync('apps/api/.env', api, { mode: 0o600 });
 

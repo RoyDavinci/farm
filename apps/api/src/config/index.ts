@@ -17,6 +17,7 @@ export const config = {
   host: env.HOST,
   trustProxy: env.TRUST_PROXY,
   runWorkers: env.RUN_WORKERS,
+  redisUrl: env.REDIS_URL,
   rateLimitPerMinute: env.RATE_LIMIT_PER_MINUTE,
   authRateLimit: env.AUTH_RATE_LIMIT,
   shutdownTimeoutMs: env.SHUTDOWN_TIMEOUT_MS,

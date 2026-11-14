@@ -19,6 +19,8 @@ export const envSchema = z.object({
   HOST: str('0.0.0.0'),
   TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
   RUN_WORKERS: bool(true),
+  // Shared rate limits and realtime events across instances. Optional for a single instance.
+  REDIS_URL: str(),
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(300),
   AUTH_RATE_LIMIT: z.coerce.number().int().min(1).default(25),
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(15000),

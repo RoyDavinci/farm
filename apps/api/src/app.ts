@@ -1,5 +1,6 @@
 import express from 'express';
 import type { Config } from './config/index.js';
+import type { RedisClient } from './lib/redis.js';
 import type { Database } from './database/client.js';
 import { authenticate } from './middleware/authenticate.js';
 import { errorHandler, notFound } from './middleware/error-handler.js';
@@ -13,9 +14,13 @@ import { apiRoutes, publicFileRoutes } from './routes/index.js';
 import type { AppDeps } from './types/deps.js';
 
 /** Builds the Express app. Kept free of side effects so tests can create instances freely. */
-export function createApp(db: Database, config: Config) {
+/**
+ * `redis` (optional) shares rate-limit counters across instances; pass the same client used for
+ * realtime events.
+ */
+export function createApp(db: Database, config: Config, redis?: RedisClient | null) {
   const app = express();
-  const deps: AppDeps = { db, config, mutate: createMutate(db) };
+  const deps: AppDeps = { db, config, mutate: createMutate(db), redis };
 
   applySecurity(app, config);
   app.use(requestLogger);
@@ -39,7 +44,7 @@ export function createApp(db: Database, config: Config) {
       },
     }),
   );
-  const limiters = createLimiters(config);
+  const limiters = createLimiters(config, redis);
   app.use('/v1', limiters.api);
   app.use(
     '/v1',
