@@ -138,14 +138,35 @@ async function authenticatedFetch(path: string, options: RequestInit, allowRefre
   }
   return res;
 }
-export async function api<T = any>(path: string, method = 'GET', body?: unknown): Promise<T> {
+/** An API error with the server's machine-readable code (e.g. FUNDING_IN_PROGRESS). */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+/**
+ * Calls the API. Writes get a fresh Idempotency-Key unless `options.idempotencyKey` is given:
+ * pass the same key when retrying one user action so the server never repeats it.
+ */
+export async function api<T = any>(
+  path: string,
+  method = 'GET',
+  body?: unknown,
+  requestOptions: { idempotencyKey?: string } = {},
+): Promise<T> {
   const requestScope = cacheScope();
   const requestEpoch = sessionEpoch;
   const options: RequestInit = {
     method,
     headers: {
       'Content-Type': 'application/json',
-      ...(method !== 'GET' ? { 'Idempotency-Key': Crypto.randomUUID() } : {}),
+      ...(method !== 'GET'
+        ? { 'Idempotency-Key': requestOptions.idempotencyKey || Crypto.randomUUID() }
+        : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   };
@@ -174,7 +195,12 @@ export async function api<T = any>(path: string, method = 'GET', body?: unknown)
   }
   setOffline(false);
   const d = await response.json();
-  if (!response.ok) throw new Error(d.error?.message || 'Request failed.');
+  if (!response.ok)
+    throw new ApiError(
+      d.error?.message || 'Request failed.',
+      d.error?.code || 'ERROR',
+      response.status,
+    );
   if (requestEpoch !== sessionEpoch) throw new SessionChangedError();
   let scope = requestScope;
   if (path === '/me' && typeof d?.user?.id === 'string' && d.user.id !== accountId) {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Linking } from 'react-native';
 import { money, statusLabel } from '@farmers-market/shared';
 import { api } from '../api';
+import { describeFunding, startCheckout, type FundingRow } from '../funding';
 import PayoutPanel from '../PayoutPanel';
 import { Field, Button, Chip, Badge, Empty, Back, s } from '../ui';
 import { useApp } from '../AppContext';
@@ -11,7 +12,7 @@ export interface WalletData {
   balance_kobo: number;
   seller_payable_kobo: number;
   entries: any[];
-  funding: any[];
+  funding: FundingRow[];
 }
 export default function WalletScreen({ wallet }: { wallet: WalletData }) {
   const { seller, settings, busy, run } = useApp();
@@ -58,10 +59,7 @@ export default function WalletScreen({ wallet }: { wallet: WalletData }) {
           disabled={busy}
           onPress={() =>
             void run(async () => {
-              const d = await api('/wallet/fund', 'POST', {
-                provider,
-                amount_kobo: Math.round(Number(fund) * 100),
-              });
+              const d = await startCheckout(provider, Math.round(Number(fund) * 100));
               await Linking.openURL(d.checkout_url);
             }, 'Complete payment in the provider’s checkout, then verify it below.')
           }
@@ -70,26 +68,47 @@ export default function WalletScreen({ wallet }: { wallet: WalletData }) {
       {settings?.payment_mode === 'disabled' && (
         <Text style={s.body}>Wallet funding is not enabled on this server.</Text>
       )}
+      {/* Top-ups that still need attention, plus the latest completed ones. */}
       {wallet.funding
-        .filter((f: any) => f.status === 'PENDING')
-        .map((f: any) => (
-          <View style={s.orderCard} key={f.id}>
-            <Text style={s.bold}>
-              {money(f.amount_kobo)} · {f.provider}
-            </Text>
-            <Button
-              secondary
-              title="Verify completed payment"
-              disabled={busy}
-              onPress={() =>
-                void run(
-                  () => api(`/wallet/funding/${f.id}/verify`, 'POST'),
-                  'Payment verified and wallet credited.',
-                )
-              }
-            />
-          </View>
-        ))}
+        .filter((f: FundingRow, i: number) => f.status !== 'SUCCESSFUL' || i < 3)
+        .map((f: FundingRow) => {
+          const info = describeFunding(f);
+          return (
+            <View style={s.orderCard} key={f.id}>
+              <View style={s.rowBetween}>
+                <Text style={s.bold}>
+                  {money(f.amount_kobo)} · {f.provider === 'paystack' ? 'Paystack' : 'Flutterwave'}
+                </Text>
+                <Badge status={f.status === 'SUCCESSFUL' ? 'COMPLETED' : f.status} />
+              </View>
+              <Text style={s.small}>
+                {info.label} · {new Date(f.created_at).toLocaleString()}
+              </Text>
+              {!!info.detail && <Text style={s.fine}>{info.detail}</Text>}
+              {info.reopen && f.checkout_url && (
+                <Button
+                  secondary
+                  title="Open checkout again ↗"
+                  disabled={busy}
+                  onPress={() => void Linking.openURL(f.checkout_url!)}
+                />
+              )}
+              {info.verify && (
+                <Button
+                  secondary
+                  title="Verify payment"
+                  disabled={busy}
+                  onPress={() =>
+                    void run(
+                      () => api(`/wallet/funding/${f.id}/verify`, 'POST'),
+                      'Payment verified and wallet credited.',
+                    )
+                  }
+                />
+              )}
+            </View>
+          );
+        })}
       <Text style={s.sectionTitle}>{t('wallet.recent')}</Text>
       {wallet.entries.length ? (
         wallet.entries.map((e: any) => (
