@@ -8,16 +8,24 @@
     "scheme": "farmersmarket",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "market.farmers.app"
+      "bundleIdentifier": "market.farmers.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "market.farmers.app",
-      "permissions": []
+      "permissions": [],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#365b38"
+      }
     },
     "web": {
       "bundler": "metro",
       "name": "Farmers Market",
-      "shortName": "Farmers Market"
+      "shortName": "Farmers Market",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-secure-store",
@@ -38,6 +46,7 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/notification-icon.png",
           "color": "#365b38"
         }
       ],
@@ -47,7 +56,17 @@
           "cameraPermission": "Allow Farmers Market to scan delivery handover codes.",
           "recordAudioAndroid": false
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#365b38"
+        }
       ]
-    ]
+    ],
+    "icon": "./assets/icon.png"
   }
 }
