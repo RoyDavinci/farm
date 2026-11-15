@@ -136,6 +136,12 @@ Seller profiles show completed-pickup reviews and allow favouriting. Only the bo
 
 Buyers can choose **Get it delivered instead** on an accepted booking. Drivers apply free in the **Drive** tab and are approved under **Drivers** in the console. Vehicle fares, the delivery commission, the driver job radius and digital Pay on Delivery (off by default) are set under **Settings**. Drop-off and pickup use map pins, so the seller needs a collection pin.
 
+## Staging and phone builds
+
+- Staging on Render: [docs/deploy-staging.md](docs/deploy-staging.md)
+- Payment acceptance in provider test mode: [docs/payment-acceptance.md](docs/payment-acceptance.md)
+- Phone builds with Expo EAS: [docs/mobile-builds.md](docs/mobile-builds.md)
+
 ## Current scope
 
 This is still a local build rather than a production release. What's built, what needs external accounts or decisions (legal review, live payment accounts, native-speaker translation review, store accounts), and known limitations are tracked in [build progress](docs/build-progress.md).
