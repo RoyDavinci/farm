@@ -4,6 +4,7 @@ import { logger } from '../lib/logger.js';
 import { expireReservations } from '../services/booking.service.js';
 import { deliverNotifications } from '../services/communications.service.js';
 import { recoverFunding } from '../services/funding-recovery.service.js';
+import { recoverPayouts } from '../services/payouts.service.js';
 import { deliverPush } from '../services/push.service.js';
 interface Job {
   name: string;
@@ -21,6 +22,7 @@ export function startWorkers(db: Database, c: Config) {
     { name: 'reservation-expiry', every: 30000, run: () => expireReservations(db) },
     { name: 'email', every: 5000, run: () => deliverNotifications(db, c) },
     { name: 'push', every: 5000, run: () => deliverPush(db, c) },
+    { name: 'payout-recovery', every: 60000, run: () => recoverPayouts(db, c) },
     { name: 'funding-recovery', every: 60000, run: () => recoverFunding(db, c) },
     {
       name: 'auth-cleanup',

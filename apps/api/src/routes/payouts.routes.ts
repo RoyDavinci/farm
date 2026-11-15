@@ -24,5 +24,6 @@ export function adminPayoutRoutes(deps: AppDeps) {
   r.post('/payouts/:id/approve', c.approvePayout);
   r.post('/payouts/:id/reject', c.rejectPayout);
   r.post('/payouts/:id/recheck', c.recheckPayout);
+  r.post('/payouts/:id/resolve', c.resolvePayout);
   return r;
 }

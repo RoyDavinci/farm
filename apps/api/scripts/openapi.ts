@@ -116,14 +116,42 @@ function namedSchemas() {
   }
   return schemas;
 }
-function responseSchema(schema: z.ZodType): Record<string, unknown> {
+function responseSchema(
+  schema: z.ZodType,
+  definitions: Record<string, unknown>,
+  prefix: string,
+): Record<string, unknown> {
   const id = (schema.meta() as { id?: string } | undefined)?.id;
   if (id) return { $ref: schemaUri(id) };
   if (schema instanceof z.ZodArray)
-    return { type: 'array', items: responseSchema(schema.element as z.ZodType) };
+    return {
+      type: 'array',
+      items: responseSchema(schema.element as z.ZodType, definitions, prefix),
+    };
   if (schema instanceof z.ZodNullable)
-    return { anyOf: [responseSchema(schema.unwrap() as z.ZodType), { type: 'null' }] };
-  return json(schema, 'output');
+    return {
+      anyOf: [responseSchema(schema.unwrap() as z.ZodType, definitions, prefix), { type: 'null' }],
+    };
+  const result = json(schema, 'output');
+  const defs = (result.$defs || {}) as Record<string, unknown>;
+  delete result.$defs;
+  // JSON Schema's local definitions must live at the OpenAPI document root. Otherwise
+  // #/$defs references inside a response point at a nonexistent document-level $defs.
+  const relocate = (value: any): any => {
+    if (Array.isArray(value)) return value.map(relocate);
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [
+        key,
+        key === '$ref' && typeof child === 'string' && child.startsWith('#/$defs/')
+          ? schemaUri(`${prefix}.${child.slice('#/$defs/'.length)}`)
+          : relocate(child),
+      ]),
+    );
+  };
+  for (const [id, definition] of Object.entries(defs))
+    definitions[`${prefix}.${id}`] = relocate(definition);
+  return relocate(result);
 }
 
 const statusFor = (r: Route) =>
@@ -136,6 +164,7 @@ const statusFor = (r: Route) =>
 export function buildOpenApi() {
   const idempotent = idempotentHandlers();
   const paths: Record<string, Record<string, unknown>> = {};
+  const definitions: Record<string, unknown> = {};
   for (const r of routes()) {
     const key = `${r.tag}.${r.handler}`;
     const path = r.path.replace(/:(\w+)/g, '{$1}');
@@ -163,7 +192,7 @@ export function buildOpenApi() {
               ? { 'text/html': {} }
               : {
                   'application/json': responses[key]
-                    ? { schema: responseSchema(responses[key]) }
+                    ? { schema: responseSchema(responses[key], definitions, key) }
                     : {},
                 },
         },
@@ -223,6 +252,7 @@ export function buildOpenApi() {
       },
       schemas: {
         ...namedSchemas(),
+        ...definitions,
         Error: {
           type: 'object',
           required: ['error'],

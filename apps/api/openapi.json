@@ -1648,6 +1648,18 @@
                           "null"
                         ]
                       },
+                      "dispatch_state": {
+                        "type": "string"
+                      },
+                      "recovery_error": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "recovery_after": {
+                        "type": "string"
+                      },
                       "failure_reason": {
                         "type": [
                           "string",
@@ -1686,6 +1698,9 @@
                       "fee_kobo",
                       "status",
                       "provider",
+                      "dispatch_state",
+                      "recovery_error",
+                      "recovery_after",
                       "failure_reason",
                       "created_at",
                       "bank_name",
@@ -1864,6 +1879,18 @@
                         "null"
                       ]
                     },
+                    "dispatch_state": {
+                      "type": "string"
+                    },
+                    "recovery_error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "recovery_after": {
+                      "type": "string"
+                    },
                     "failure_reason": {
                       "type": [
                         "string",
@@ -1885,6 +1912,9 @@
                     "fee_kobo",
                     "status",
                     "provider",
+                    "dispatch_state",
+                    "recovery_error",
+                    "recovery_after",
                     "failure_reason",
                     "created_at",
                     "updated_at"
@@ -1999,6 +2029,120 @@
                     "status",
                     "updated_at",
                     "user_id"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/payouts/{id}/resolve": {
+      "post": {
+        "operationId": "payouts.resolvePayout",
+        "tags": [
+          "payouts"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": "string"
+                    },
+                    "account_id": {
+                      "type": "string"
+                    },
+                    "amount_kobo": {
+                      "type": "number"
+                    },
+                    "fee_kobo": {
+                      "type": "number"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "provider": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "dispatch_state": {
+                      "type": "string"
+                    },
+                    "recovery_error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "recovery_after": {
+                      "type": "string"
+                    },
+                    "failure_reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "user_id",
+                    "account_id",
+                    "amount_kobo",
+                    "fee_kobo",
+                    "status",
+                    "provider",
+                    "dispatch_state",
+                    "recovery_error",
+                    "recovery_after",
+                    "failure_reason",
+                    "created_at",
+                    "updated_at"
                   ],
                   "additionalProperties": {}
                 }
@@ -2282,7 +2426,7 @@
                             "type": "number"
                           },
                           "status": {
-                            "$ref": "#/$defs/FundingStatus"
+                            "$ref": "#/components/schemas/admin.getReconciliation.FundingStatus"
                           },
                           "created_at": {
                             "type": "string"
@@ -2307,20 +2451,7 @@
                     "exceptions",
                     "funding"
                   ],
-                  "additionalProperties": {},
-                  "$defs": {
-                    "FundingStatus": {
-                      "type": "string",
-                      "enum": [
-                        "INITIALIZING",
-                        "PENDING",
-                        "UNCERTAIN",
-                        "FAILED",
-                        "EXPIRED",
-                        "SUCCESSFUL"
-                      ]
-                    }
-                  }
+                  "additionalProperties": {}
                 }
               }
             }
@@ -6002,16 +6133,16 @@
                     "active": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/$defs/Delivery"
+                        "$ref": "#/components/schemas/deliveries.listDriverJobs.Delivery"
                       }
                     },
                     "driver": {
-                      "$ref": "#/$defs/Driver"
+                      "$ref": "#/components/schemas/deliveries.listDriverJobs.Driver"
                     },
                     "history": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/$defs/Delivery"
+                        "$ref": "#/components/schemas/deliveries.listDriverJobs.Delivery"
                       }
                     },
                     "open": {
@@ -6213,204 +6344,7 @@
                     "history",
                     "open"
                   ],
-                  "additionalProperties": {},
-                  "$defs": {
-                    "Delivery": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "booking_id": {
-                          "type": "string"
-                        },
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "OPEN",
-                            "ASSIGNED",
-                            "PICKED_UP",
-                            "DELIVERED",
-                            "CANCELLED"
-                          ]
-                        },
-                        "vehicle_type": {
-                          "type": "string"
-                        },
-                        "distance_km": {
-                          "type": "number"
-                        },
-                        "fare_kobo": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        },
-                        "pay_on_delivery": {
-                          "type": "boolean"
-                        },
-                        "fare_paid": {
-                          "type": "boolean"
-                        },
-                        "dropoff_address": {
-                          "type": "string"
-                        },
-                        "dropoff_latitude": {
-                          "type": "number"
-                        },
-                        "dropoff_longitude": {
-                          "type": "number"
-                        },
-                        "pickup_latitude": {
-                          "type": "number"
-                        },
-                        "pickup_longitude": {
-                          "type": "number"
-                        },
-                        "driver_latitude": {
-                          "type": [
-                            "number",
-                            "null"
-                          ]
-                        },
-                        "driver_longitude": {
-                          "type": [
-                            "number",
-                            "null"
-                          ]
-                        },
-                        "driver_location_at": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "driver_name": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "driver_phone": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "vehicle_name": {
-                          "type": "string"
-                        },
-                        "plate_number": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "pickup_pin": {
-                          "type": "string"
-                        },
-                        "delivery_pin": {
-                          "type": "string"
-                        },
-                        "booking_paid": {
-                          "type": "boolean"
-                        },
-                        "total_kobo": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "booking_id",
-                        "status",
-                        "vehicle_type",
-                        "distance_km",
-                        "fare_kobo",
-                        "pay_on_delivery",
-                        "fare_paid",
-                        "dropoff_latitude",
-                        "dropoff_longitude",
-                        "pickup_latitude",
-                        "pickup_longitude"
-                      ],
-                      "additionalProperties": {}
-                    },
-                    "Driver": {
-                      "type": "object",
-                      "properties": {
-                        "user_id": {
-                          "type": "string"
-                        },
-                        "vehicle_type": {
-                          "type": "string"
-                        },
-                        "plate_number": {
-                          "type": "string"
-                        },
-                        "licence_number": {
-                          "type": "string"
-                        },
-                        "city": {
-                          "type": "string"
-                        },
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "PENDING",
-                            "APPROVED",
-                            "REJECTED",
-                            "SUSPENDED"
-                          ]
-                        },
-                        "reason": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "online": {
-                          "type": "boolean"
-                        },
-                        "latitude": {
-                          "type": [
-                            "number",
-                            "null"
-                          ]
-                        },
-                        "longitude": {
-                          "type": [
-                            "number",
-                            "null"
-                          ]
-                        },
-                        "location_at": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "created_at": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "user_id",
-                        "vehicle_type",
-                        "plate_number",
-                        "licence_number",
-                        "city",
-                        "status",
-                        "reason",
-                        "online",
-                        "latitude",
-                        "longitude",
-                        "location_at",
-                        "created_at"
-                      ],
-                      "additionalProperties": {}
-                    }
-                  }
+                  "additionalProperties": {}
                 }
               }
             }
@@ -11445,6 +11379,212 @@
           "status",
           "cancel_reason",
           "refund_kobo",
+          "created_at"
+        ],
+        "additionalProperties": {}
+      },
+      "admin.getReconciliation.FundingStatus": {
+        "type": "string",
+        "enum": [
+          "INITIALIZING",
+          "PENDING",
+          "UNCERTAIN",
+          "FAILED",
+          "EXPIRED",
+          "SUCCESSFUL"
+        ]
+      },
+      "deliveries.listDriverJobs.Delivery": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "booking_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "ASSIGNED",
+              "PICKED_UP",
+              "DELIVERED",
+              "CANCELLED"
+            ]
+          },
+          "vehicle_type": {
+            "type": "string"
+          },
+          "distance_km": {
+            "type": "number"
+          },
+          "fare_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "pay_on_delivery": {
+            "type": "boolean"
+          },
+          "fare_paid": {
+            "type": "boolean"
+          },
+          "dropoff_address": {
+            "type": "string"
+          },
+          "dropoff_latitude": {
+            "type": "number"
+          },
+          "dropoff_longitude": {
+            "type": "number"
+          },
+          "pickup_latitude": {
+            "type": "number"
+          },
+          "pickup_longitude": {
+            "type": "number"
+          },
+          "driver_latitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "driver_longitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "driver_location_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "driver_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "driver_phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "vehicle_name": {
+            "type": "string"
+          },
+          "plate_number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pickup_pin": {
+            "type": "string"
+          },
+          "delivery_pin": {
+            "type": "string"
+          },
+          "booking_paid": {
+            "type": "boolean"
+          },
+          "total_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "booking_id",
+          "status",
+          "vehicle_type",
+          "distance_km",
+          "fare_kobo",
+          "pay_on_delivery",
+          "fare_paid",
+          "dropoff_latitude",
+          "dropoff_longitude",
+          "pickup_latitude",
+          "pickup_longitude"
+        ],
+        "additionalProperties": {}
+      },
+      "deliveries.listDriverJobs.Driver": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "vehicle_type": {
+            "type": "string"
+          },
+          "plate_number": {
+            "type": "string"
+          },
+          "licence_number": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "SUSPENDED"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "online": {
+            "type": "boolean"
+          },
+          "latitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "longitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "location_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "vehicle_type",
+          "plate_number",
+          "licence_number",
+          "city",
+          "status",
+          "reason",
+          "online",
+          "latitude",
+          "longitude",
+          "location_at",
           "created_at"
         ],
         "additionalProperties": {}

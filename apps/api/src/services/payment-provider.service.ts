@@ -33,6 +33,18 @@ async function request(url: string, secret: string, body?: object) {
   );
   return data.data;
 }
+/** Missing IDs must stay absent so reference-based recovery can locate the transfer later. */
+function transferId(provider: Provider, data: any) {
+  const id = provider === 'paystack' ? data?.transfer_code : data?.id;
+  ensure(
+    (typeof id === 'string' && id.trim().length > 0) ||
+      (typeof id === 'number' && Number.isSafeInteger(id) && id > 0),
+    502,
+    'TRANSFER_ID_MISSING',
+    'The provider did not return a transfer identifier.',
+  );
+  return String(id);
+}
 export type TransferStatus = 'PROCESSING' | 'PAID' | 'FAILED';
 /** Normalizes Paystack/Flutterwave transfer statuses. Unknown values stay PROCESSING for review. */
 export function transferStatus(raw: string): TransferStatus {
@@ -164,11 +176,29 @@ export function paymentService(c: Config) {
               narration: t.reason,
             });
       return {
-        id: String(provider === 'paystack' ? d.transfer_code : d.id),
+        id: transferId(provider, d),
         status: transferStatus(String(d.status)),
       };
     },
     async verifyTransfer(provider: Provider, reference: string, providerId?: string | null) {
+      // A timeout can lose Flutterwave's ID even after the transfer was accepted.
+      // Resolve the merchant reference first, then verify the exact transfer by ID.
+      if (provider === 'flutterwave' && !providerId) {
+        const matches = await request(
+          `https://api.flutterwave.com/v3/transfers?reference=${encodeURIComponent(reference)}`,
+          c.flutterwave,
+        );
+        const exact = Array.isArray(matches)
+          ? matches.filter((t: any) => t.reference === reference)
+          : [];
+        ensure(
+          exact.length === 1 && exact[0].id != null,
+          502,
+          'TRANSFER_NOT_FOUND',
+          'Transfer could not be uniquely located; funds remain held for review.',
+        );
+        providerId = String(exact[0].id);
+      }
       const d =
         provider === 'paystack'
           ? await request(
@@ -176,10 +206,13 @@ export function paymentService(c: Config) {
               c.paystack,
             )
           : await request(
-              `https://api.flutterwave.com/v3/transfers/${encodeURIComponent(providerId || '')}`,
+              `https://api.flutterwave.com/v3/transfers/${encodeURIComponent(providerId!)}`,
               c.flutterwave,
             );
       return {
+        id: transferId(provider, d),
+        reference: d.reference,
+        currency: d.currency,
         status: transferStatus(String(d.status)),
         amount: provider === 'paystack' ? Number(d.amount) : Math.round(Number(d.amount) * 100),
       };

@@ -40,5 +40,7 @@ export function createAdminPayoutsController(deps: AppDeps) {
   const recheckPayout: RequestHandler = async (req, res) => {
     res.json(await service.recheckPayout(res.locals.user, requestInput(req)));
   };
-  return { listPayouts, approvePayout, rejectPayout, recheckPayout };
+  const resolvePayout: RequestHandler = (req, res) =>
+    mutate(req, res, (q, user) => service.resolvePayout(q, user, requestInput(req)));
+  return { listPayouts, approvePayout, rejectPayout, recheckPayout, resolvePayout };
 }

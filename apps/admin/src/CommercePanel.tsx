@@ -22,9 +22,14 @@ export default function CommercePanel({
         ? '/admin/disputes'
         : '/admin/reconciliation';
   async function load() {
-    const data = await request('get', endpoint);
-    setRows(page === 'Reconciliation' ? data.funding : data);
-    setExceptions(data.exceptions || []);
+    if (page === 'Reconciliation') {
+      const data = await request('get', '/admin/reconciliation');
+      setRows(data.funding);
+      setExceptions(data.exceptions);
+    } else {
+      setRows(await request('get', page === 'Markets' ? '/markets' : '/admin/disputes'));
+      setExceptions([]);
+    }
   }
   useEffect(() => {
     setRows([]);

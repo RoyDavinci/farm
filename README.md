@@ -69,6 +69,12 @@ A top-up interrupted mid-checkout is marked as interrupted and shown in Wallet; 
 
 Live provider accounts, wallet/custody approval, and provider sandbox/live acceptance checks are still required before handling customer money. The internal held-payment ledger is a technical accounting mechanism; it does not itself establish a licensed escrow or wallet service. Live payments and transfers have not been exercised.
 
+Payout approvals commit a durable `READY` dispatch record before contacting the provider. The payout recovery job runs every minute, resumes approvals that were never dispatched, and rechecks in-progress transfers after a two-minute dispatch lease or five-minute retry delay. Flutterwave transfers can be recovered by reference even if a timeout lost their provider ID. Settlement requires matching reference, amount and NGN currency, under a payout row lock.
+
+Once dispatch starts, recovery only verifies: it never automatically sends that payout again. An ambiguous or missing provider result keeps funds held and shows a review message and reference in **Payouts**; **Recheck** requests another verification. Operators must reconcile the reference with the provider before any manual correction. Existing interrupted payouts are migrated as `UNKNOWN` and verified without redispatch. A verified failed transfer returns held funds; an unverified rejection does not.
+
+Apply the additive payout recovery migration with `npm run db:migrate` before starting the updated API and worker. Automated tests are deferred for this batch; typechecking, contract generation and builds are the validation steps.
+
 Sellers and drivers withdraw earnings from **Wallet**: the bank account name is confirmed with the provider first, then staff approve each payout in the console's **Payouts** page. Transfers are settled only after the provider confirms them. Without provider keys, development payouts are simulated and labelled.
 
 Provider references: [Paystack webhooks](https://paystack.com/docs/payments/webhooks/), [Flutterwave webhooks](https://developer.flutterwave.com/docs/webhooks), [Flutterwave verification](https://developer.flutterwave.com/docs/transaction-verification).
@@ -93,7 +99,7 @@ npm run db:seed
 npm test
 ```
 
-`npm test` runs 33 integration tests against a real PostgreSQL test database (`farmers_market_test`, rebuilt each run): OTP sign-in, bookings, payments and funding recovery, payouts, push, pre-orders, promotions, staff roles, documents, delivery (including a cancel/claim race), paging, security headers and the API contract. CI typechecks, checks the OpenAPI contract and builds every push. Tests also run in CI but are optional: a failure is reported without failing the build.
+`npm test` runs the integration suite against a real PostgreSQL test database (`farmers_market_test`, rebuilt each run): OTP sign-in, bookings, payments and funding recovery, payouts, push, pre-orders, promotions, staff roles, documents, delivery (including a cancel/claim race), paging, security headers and the API contract. CI typechecks, checks the OpenAPI contract and builds every push. Tests also run in CI but are optional: a failure is reported without failing the build.
 
 The API contract lives in `apps/api/openapi.json` and is generated from the code; `npm run api:contract` regenerates it and the TypeScript types in `packages/shared/src/api-types.ts`. The shared domain types (`Listing`, `Booking`, `Wallet`, …) are aliases of those generated types, and the mobile app calls the API through `apps/mobile/src/request.ts`, which checks paths, parameters and request bodies against the contract at compile time.
 
@@ -124,13 +130,13 @@ Access tokens expire after 30 minutes; clients rotate refresh credentials automa
 
 ## Photos, messaging and notifications
 
-Approved sellers can choose or take up to six photos per listing. The API validates and compresses JPEG/PNG/WebP inputs (maximum 5 MB each) and creates WebP thumbnails. Set `PUBLIC_API_URL` to the reachable API origin so image URLs work on physical phones. Upload files currently persist under `UPLOAD_DIR`; deploy with persistent storage until the cloud object-storage adapter is built. New camera permissions require rebuilding a native development client.
+Approved sellers can choose or take up to six photos per listing. The API validates and compresses JPEG/PNG/WebP inputs (maximum 5 MB each) and creates WebP thumbnails. Set `PUBLIC_API_URL` to the reachable API origin so image URLs work on physical phones. Local uploads persist under `UPLOAD_DIR`. For deployments, set `STORAGE_PROVIDER=s3` and configure the S3-compatible photo bucket; use `RECORDS_STORAGE_PROVIDER=s3` and a private records bucket for verification documents and dispute evidence. New camera permissions require rebuilding a native development client.
 
 Open a listing and choose **Message seller**. The **Inbox** tab contains conversations and booking updates, with unread/read status, participant blocking and reporting. Messages are text only in this batch. WebSocket connections authenticate via a message rather than URL credentials, and polling provides a fallback. Messages are persisted before delivery/read acknowledgement.
 
-Booking events and seller-review decisions create inbox updates and durable email jobs in the same database transaction. A worker retries failed emails with backoff. Administrators can inspect **Email queue** and retry failed jobs. Account settings control non-authentication email alerts. Push notifications while the app is closed are still pending.
+Booking events and seller-review decisions create inbox updates and durable email jobs in the same database transaction. A worker retries failed emails with backoff. Administrators can inspect **Email queue** and retry failed jobs. Account settings control non-authentication email alerts. Expo push delivery is implemented with a durable queue and retries. Configure the EAS project and native push credentials before validating delivery on devices.
 
-Seller profiles show completed-pickup reviews and allow favouriting. Only the booking buyer can review a completed pickup. **Users** and **Reports** in the admin console support account status changes and moderation report resolution; financial disputes remain separate work.
+Seller profiles show completed-pickup reviews and allow favouriting. Only the booking buyer can review a completed pickup. **Users** and **Reports** in the admin console support account status changes and moderation report resolution; booking disputes support private evidence, returns, staff decisions and refunds, with receipts available to buyers.
 
 ## Delivery
 
@@ -138,7 +144,7 @@ Buyers can choose **Get it delivered instead** on an accepted booking. Drivers a
 
 ## Staging and phone builds
 
-- Staging on Render: [docs/deploy-staging.md](docs/deploy-staging.md)
+- Staging on Render: [docs/deploy-staging.md](docs/deploy-staging.md). The Blueprint wires browser API hosts and CORS to Render’s public hostnames, and gives the worker the API’s public URL. Custom domains need explicit CORS and public URL overrides.
 - Payment acceptance in provider test mode: [docs/payment-acceptance.md](docs/payment-acceptance.md)
 - Phone builds with Expo EAS: [docs/mobile-builds.md](docs/mobile-builds.md)
 

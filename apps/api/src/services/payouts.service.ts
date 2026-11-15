@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID }
 import { z } from 'zod';
 import type { Config } from '../config/index.js';
 import type { Database, Query } from '../database/client.js';
-import { AppError, ensure } from '../lib/errors.js';
+import { ensure } from '../lib/errors.js';
 import type { RequestInput } from '../lib/http.js';
 import type { AppDeps } from '../types/deps.js';
 import { audit } from './audit.service.js';
@@ -82,7 +82,7 @@ export function payoutService(db: Database, c: Config) {
       ]);
     }
     const [updated] = await q.query(
-      'UPDATE payouts SET status=$1,failure_reason=$2,updated_at=now() WHERE id=$3 RETURNING *',
+      'UPDATE payouts SET status=$1,failure_reason=$2,recovery_error=NULL,recovery_token=NULL,updated_at=now() WHERE id=$3 RETURNING *',
       [
         status,
         status === 'FAILED' ? reason || 'Transfer failed at the provider.' : null,
@@ -100,7 +100,105 @@ export function payoutService(db: Database, c: Config) {
     );
     return updated;
   }
-  return { payments, provider, settle };
+  /** A lease fences concurrent API, webhook and worker recovery. Only READY may send. */
+  async function recover(id: string, force = false) {
+    const token = randomUUID();
+    const p = await db.transaction(async (q) => {
+      const [row] = await q.query('SELECT * FROM payouts WHERE id=$1 FOR UPDATE', [id]);
+      if (!row || row.status !== 'PROCESSING') return null;
+      // Manual rechecks can bypass backoff, but never an active dispatch lease.
+      if (new Date(row.recovery_after).getTime() > Date.now() && (row.recovery_token || !force))
+        return null;
+      if (row.provider === 'simulated' ? !c.demo : !payments.enabled(row.provider)) return null;
+      const [claimed] = await q.query(
+        "UPDATE payouts SET recovery_token=$1,recovery_after=now()+interval '2 minutes',dispatch_state=CASE WHEN dispatch_state='READY' THEN 'SENDING' ELSE dispatch_state END WHERE id=$2 RETURNING *",
+        [token, id],
+      );
+      return Object.assign(claimed, { send: row.dispatch_state === 'READY' });
+    });
+    if (!p) return (await db.query('SELECT * FROM payouts WHERE id=$1', [id]))[0];
+    let providerId = p.provider_id;
+    try {
+      if (p.provider === 'simulated') {
+        // Legacy interrupted simulations are safe to finish locally.
+        return await db.transaction(async (q) => {
+          const [locked] = await q.query('SELECT * FROM payouts WHERE id=$1 FOR UPDATE', [id]);
+          if (locked.recovery_token !== token) return locked;
+          return settle(q, locked, 'PAID');
+        });
+      }
+      if (p.send) {
+        const [account] = await db.query('SELECT * FROM payout_accounts WHERE id=$1', [
+          p.account_id,
+        ]);
+        ensure(
+          account && account.provider === p.provider,
+          409,
+          'PAYOUT_ACCOUNT_MISMATCH',
+          'Payout account provider does not match.',
+        );
+        const transfer = await payments.transfer(p.provider, {
+          reference: p.id,
+          amount: Number(p.amount_kobo) - Number(p.fee_kobo),
+          recipient: account.recipient_code,
+          bankCode: account.bank_code,
+          accountNumber: decryptAccount(c, account.account_cipher),
+          reason: 'Farmers Market seller payout',
+        });
+        providerId = transfer.id;
+        await db.query(
+          "UPDATE payouts SET provider_id=$1,dispatch_state='SUBMITTED' WHERE id=$2 AND recovery_token=$3 AND status='PROCESSING'",
+          [providerId, id, token],
+        );
+      }
+      // Even a POST success/failure is verified independently before releasing held money.
+      const verified = await payments.verifyTransfer(p.provider, p.id, providerId);
+      ensure(
+        verified.reference === p.id &&
+          verified.currency === 'NGN' &&
+          verified.amount === Number(p.amount_kobo) - Number(p.fee_kobo),
+        502,
+        'TRANSFER_MISMATCH',
+        'Provider transfer details do not match this payout.',
+      );
+      return await db.transaction(async (q) => {
+        const [locked] = await q.query('SELECT * FROM payouts WHERE id=$1 FOR UPDATE', [id]);
+        if (locked.recovery_token !== token || locked.status !== 'PROCESSING') return locked;
+        const [updated] = await q.query(
+          "UPDATE payouts SET provider_id=$1,dispatch_state='SUBMITTED',recovery_token=NULL,recovery_error=NULL,recovery_after=now()+interval '5 minutes' WHERE id=$2 RETURNING *",
+          [verified.id, id],
+        );
+        return settle(q, updated, verified.status);
+      });
+    } catch {
+      // Rejection may mean duplicate reference, not absence of a transfer. Never resend or refund
+      // an ambiguous request, including legacy PROCESSING rows and expired SENDING leases.
+      const [updated] = await db.query(
+        "UPDATE payouts SET recovery_token=NULL,recovery_after=now()+interval '5 minutes',recovery_error=$1 WHERE id=$2 AND recovery_token=$3 AND status='PROCESSING' RETURNING *",
+        [
+          'Provider outcome could not be verified. Funds remain held; check the payout reference with the provider before taking action.',
+          id,
+          token,
+        ],
+      );
+      return updated || (await db.query('SELECT * FROM payouts WHERE id=$1', [id]))[0];
+    }
+  }
+  return { payments, provider, settle, recover };
+}
+
+/** Resume unsent approvals and verify interrupted/ongoing transfers without redispatching them. */
+export async function recoverPayouts(db: Database, c: Config) {
+  const service = payoutService(db, c);
+  const providers = (['paystack', 'flutterwave'] as const).filter((p) =>
+    service.payments.enabled(p),
+  );
+  const eligible: string[] = c.demo ? [...providers, 'simulated'] : providers;
+  const rows = await db.query(
+    "SELECT id FROM payouts WHERE status='PROCESSING' AND recovery_after<=now() AND provider=ANY($1::text[]) ORDER BY recovery_after,id LIMIT 10",
+    [eligible],
+  );
+  await Promise.all(rows.map((p) => service.recover(p.id)));
 }
 
 /** Handles provider transfer webhooks. Returns false when the event is not a transfer event. */
@@ -123,12 +221,7 @@ export async function handleTransferWebhook(
     provider,
   ]);
   if (!p || p.status !== 'PROCESSING') return true;
-  const v = await service.payments.verifyTransfer(provider, p.id, p.provider_id || body.data?.id);
-  if (v.status === 'PAID' && v.amount !== Number(p.amount_kobo) - Number(p.fee_kobo)) return true;
-  await db.transaction(async (q) => {
-    const [locked] = await q.query('SELECT * FROM payouts WHERE id=$1 FOR UPDATE', [p.id]);
-    await service.settle(q, locked, v.status);
-  });
+  await service.recover(p.id, true);
   return true;
 }
 
@@ -349,8 +442,8 @@ export function createAdminPayoutsService(deps: AppDeps) {
     );
   }
   async function approvePayout(user: any, input: RequestInput) {
-    // Step 1: claim the payout so a double click cannot send two transfers.
-    const claimed = await db.transaction(async (q) => {
+    // Approval and durable dispatch intent commit together. A worker resumes READY after a crash.
+    const payout = await db.transaction(async (q) => {
       const [p] = await q.query('SELECT * FROM payouts WHERE id=$1 FOR UPDATE', [input.params.id]);
       ensure(p, 404, 'NOT_FOUND', 'Payout not found.');
       ensure(
@@ -359,44 +452,25 @@ export function createAdminPayoutsService(deps: AppDeps) {
         'INVALID_TRANSITION',
         `This payout is already ${p.status.toLowerCase()}.`,
       );
-      const provider = service.provider();
-      await q.query(
-        "UPDATE payouts SET status='PROCESSING',provider=$1,reviewed_by=$2,reviewed_at=now(),updated_at=now() WHERE id=$3",
+      const [account] = await q.query('SELECT * FROM payout_accounts WHERE id=$1', [p.account_id]);
+      const provider = account?.provider;
+      ensure(
+        provider === 'simulated'
+          ? c.demo
+          : (provider === 'paystack' || provider === 'flutterwave') &&
+              service.payments.enabled(provider),
+        503,
+        'PAYOUTS_DISABLED',
+        'The bank account payment provider is not enabled.',
+      );
+      const [updated] = await q.query(
+        "UPDATE payouts SET status='PROCESSING',provider=$1,dispatch_state='READY',recovery_after=now(),reviewed_by=$2,reviewed_at=now(),updated_at=now() WHERE id=$3 RETURNING *",
         [provider, user.id, p.id],
       );
       await audit(q, user.id, 'payout.approve', p.id, { provider });
-      const [a] = await q.query('SELECT * FROM payout_accounts WHERE id=$1', [p.account_id]);
-      return { p: { ...p, status: 'PROCESSING' } as any, a, provider };
+      return updated;
     });
-    const { p, a, provider } = claimed;
-    // Step 2: send the transfer. The payout id is the provider reference, so retries are deduplicated.
-    let outcome: { id: string | null; status: TransferStatus; reason?: string };
-    if (provider === 'simulated') outcome = { id: `sim-${p.id}`, status: 'PAID' };
-    else {
-      try {
-        const t = await service.payments.transfer(provider, {
-          reference: p.id,
-          amount: Number(p.amount_kobo) - Number(p.fee_kobo),
-          recipient: a.recipient_code,
-          bankCode: a.bank_code,
-          accountNumber: decryptAccount(c, a.account_cipher),
-          reason: 'Farmers Market seller payout',
-        });
-        outcome = { id: t.id, status: t.status };
-      } catch (e) {
-        // A rejected request never reached the bank; unavailable/timeouts stay PROCESSING for recheck.
-        if (e instanceof AppError && e.code === 'PROVIDER_REJECTED')
-          outcome = { id: null, status: 'FAILED', reason: 'The provider rejected the transfer.' };
-        else outcome = { id: null, status: 'PROCESSING' };
-      }
-    }
-    const result = await db.transaction(async (q) => {
-      const [locked] = await q.query('SELECT * FROM payouts WHERE id=$1 FOR UPDATE', [p.id]);
-      if (outcome.id)
-        await q.query('UPDATE payouts SET provider_id=$1 WHERE id=$2', [outcome.id, p.id]);
-      return service.settle(q, locked, outcome.status, outcome.reason);
-    });
-    return result;
+    return service.recover(payout.id, true);
   }
   async function rejectPayout(q: Query, u: any, input: RequestInput) {
     const d = z.object({ reason: z.string().trim().min(3).max(500) }).parse(input.body);
@@ -435,17 +509,44 @@ export function createAdminPayoutsService(deps: AppDeps) {
       'INVALID_TRANSITION',
       'Only provider payouts in progress can be rechecked.',
     );
-    const v = await service.payments.verifyTransfer(p.provider, p.id, p.provider_id);
-    const status =
-      v.status === 'PAID' && v.amount !== Number(p.amount_kobo) - Number(p.fee_kobo)
-        ? 'PROCESSING'
-        : v.status;
-    const result = await db.transaction(async (q) => {
-      const [locked] = await q.query('SELECT * FROM payouts WHERE id=$1 FOR UPDATE', [p.id]);
-      await audit(q, user.id, 'payout.recheck', p.id, { provider_status: v.status });
-      return service.settle(q, locked, status);
-    });
-    return result;
+    await db.transaction((q) => audit(q, user.id, 'payout.recheck', p.id));
+    return service.recover(p.id, true);
   }
-  return { listPayouts, approvePayout, rejectPayout, recheckPayout };
+  /**
+   * Manual resolution for a payout automatic recovery could not settle (for example, the provider
+   * could not confirm the transfer). Staff record what the provider's dashboard shows: PAID
+   * completes the payout; FAILED returns the held amount to the seller's proceeds. Not allowed
+   * while a dispatch/verification is in progress.
+   */
+  async function resolvePayout(q: Query, u: any, input: RequestInput) {
+    const d = z
+      .object({
+        outcome: z.enum(['PAID', 'FAILED']),
+        reason: z.string().trim().min(10).max(500),
+      })
+      .parse(input.body);
+    const [p] = await q.query('SELECT * FROM payouts WHERE id=$1 FOR UPDATE', [input.params.id]);
+    ensure(p, 404, 'NOT_FOUND', 'Payout not found.');
+    ensure(
+      p.status === 'PROCESSING',
+      409,
+      'INVALID_TRANSITION',
+      'Only payouts in progress can be resolved manually.',
+    );
+    ensure(
+      !p.recovery_token || new Date(p.recovery_after).getTime() <= Date.now(),
+      409,
+      'PAYOUT_BUSY',
+      'This payout is being sent or verified right now. Try again in a few minutes.',
+    );
+    ensure(
+      p.recovery_error || Date.now() - new Date(p.updated_at).getTime() > 3600_000,
+      409,
+      'PAYOUT_NOT_STUCK',
+      'Automatic verification is still working on this payout. Use Recheck first.',
+    );
+    await audit(q, u.id, 'payout.resolve', p.id, d);
+    return service.settle(q, p, d.outcome, d.outcome === 'FAILED' ? d.reason : undefined);
+  }
+  return { listPayouts, approvePayout, rejectPayout, recheckPayout, resolvePayout };
 }

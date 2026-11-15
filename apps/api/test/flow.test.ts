@@ -583,37 +583,82 @@ describe('seller payouts', () => {
     expect((await as(sim, 'seller', 'get', '/payouts')).body.available_kobo).toBe(190000);
     expect(await ledgerBalances()).toBe(0);
   });
-  it('sends provider transfers and settles only after server-side verification', async () => {
-    await completedSale();
-    const fake = vi.fn(async (url: string) => ({
+  /** Controllable fake Paystack: counts transfer POSTs and can report pending/success, a wrong
+   * amount, or be unreachable when verifying. */
+  function fakePaystack() {
+    const state = {
+      transferStatus: 'pending',
+      verifyAmount: 145000,
+      verifyDown: false,
+      transfers: 0,
+    };
+    const ok = (data: unknown) => ({
       ok: true,
       status: 200,
-      json: async () =>
-        url.includes('/bank?')
-          ? { status: true, data: [{ code: '058', name: 'Guaranty Trust Bank' }] }
-          : url.includes('/bank/resolve')
-            ? { status: true, data: { account_name: 'SELLER ADA' } }
-            : url.includes('/transferrecipient')
-              ? { status: true, data: { recipient_code: 'RCP_test' } }
-              : url.endsWith('/transfer')
-                ? { status: true, data: { transfer_code: 'TRF_test', status: 'pending' } }
-                : { status: true, data: { status: 'success', amount: 145000 } },
-    }));
-    vi.stubGlobal('fetch', fake);
+      json: async () => ({ status: true, data }),
+    });
+    const fn = vi.fn(async (url: string, init?: any) => {
+      if (url.includes('/bank?')) return ok([{ code: '058', name: 'Guaranty Trust Bank' }]);
+      if (url.includes('/bank/resolve')) return ok({ account_name: 'SELLER ADA' });
+      if (url.includes('/transferrecipient')) return ok({ recipient_code: 'RCP_test' });
+      if (url.endsWith('/transfer')) {
+        state.transfers++;
+        return ok({
+          transfer_code: 'TRF_test',
+          status: 'pending',
+          reference: JSON.parse(init.body).reference,
+        });
+      }
+      if (url.includes('/transfer/verify/')) {
+        if (state.verifyDown) throw new TypeError('fetch failed');
+        const reference = decodeURIComponent(url.split('/transfer/verify/')[1]);
+        return ok({
+          transfer_code: 'TRF_test',
+          reference,
+          currency: 'NGN',
+          status: state.transferStatus,
+          amount: state.verifyAmount,
+        });
+      }
+      throw new Error(`unexpected provider call ${url}`);
+    });
+    vi.stubGlobal('fetch', fn);
+    return state;
+  }
+  async function providerPayout() {
+    await completedSale();
     await call('seller', 'post', '/payouts/accounts', {
       bank_code: '058',
       account_number: '0123456789',
     });
-    const payout = await call('seller', 'post', '/payouts', { amount_kobo: 150000 });
-    const approved = await call('admin', 'post', `/admin/payouts/${payout.body.id}/approve`);
+    return (await call('seller', 'post', '/payouts', { amount_kobo: 150000 })).body.id as string;
+  }
+  const payoutRow = async (id: string) =>
+    (await db.query('SELECT * FROM payouts WHERE id=$1', [id]))[0];
+  const held = async (id: string) =>
+    Number(
+      (
+        await db.query(
+          "SELECT COALESCE(SUM(amount_kobo),0)::bigint AS n FROM ledger WHERE account='payout_pending' AND owner_id=$1",
+          [id],
+        )
+      )[0].n,
+    );
+
+  it('sends provider transfers once and settles only after server-side verification', async () => {
+    const paystack = fakePaystack();
+    const id = await providerPayout();
+    const approved = await call('admin', 'post', `/admin/payouts/${id}/approve`);
     expect(approved.body.status).toBe('PROCESSING');
-    const body = JSON.stringify({ event: 'transfer.success', data: { reference: payout.body.id } });
+    expect(paystack.transfers).toBe(1);
+    const body = JSON.stringify({ event: 'transfer.success', data: { reference: id } });
     const forged = await request(app)
       .post('/v1/webhooks/paystack')
       .set('x-paystack-signature', 'bad')
       .set('Content-Type', 'application/json')
       .send(body);
     expect(forged.status).toBe(401);
+    paystack.transferStatus = 'success';
     const signature = createHmac('sha512', c.paystack).update(body).digest('hex');
     for (let i = 0; i < 2; i++)
       expect(
@@ -625,9 +670,75 @@ describe('seller payouts', () => {
             .send(body)
         ).status,
       ).toBe(200);
-    const [p] = await db.query('SELECT status FROM payouts WHERE id=$1', [payout.body.id]);
-    expect(p.status).toBe('PAID');
-    expect(fake.mock.calls.some(([url]) => String(url).includes('/transfer/verify/'))).toBe(true);
+    expect((await payoutRow(id)).status).toBe('PAID');
+    expect(paystack.transfers).toBe(1);
+    expect(await ledgerBalances()).toBe(0);
+  });
+  it('resumes an approved payout after a crash and sends it exactly once', async () => {
+    const paystack = fakePaystack();
+    const id = await providerPayout();
+    // Approval committed (READY) but the process died before sending.
+    await db.query(
+      "UPDATE payouts SET status='PROCESSING',provider='paystack',dispatch_state='READY',recovery_after=now()-interval '1 second' WHERE id=$1",
+      [id],
+    );
+    const { recoverPayouts } = await import('../src/services/payouts.service.js');
+    await Promise.all([recoverPayouts(db, c), recoverPayouts(db, c), recoverPayouts(db, c)]);
+    expect(paystack.transfers).toBe(1);
+    expect((await payoutRow(id)).dispatch_state).toBe('SUBMITTED');
+    paystack.transferStatus = 'success';
+    await db.query("UPDATE payouts SET recovery_after=now()-interval '1 second' WHERE id=$1", [id]);
+    await recoverPayouts(db, c);
+    expect((await payoutRow(id)).status).toBe('PAID');
+    expect(paystack.transfers).toBe(1);
+    expect(await ledgerBalances()).toBe(0);
+  });
+  it('never re-sends an ambiguous payout; funds stay held until staff resolve it', async () => {
+    const paystack = fakePaystack();
+    const id = await providerPayout();
+    // A dispatch whose outcome is unknown (lease expired mid-send), and the provider is unreachable.
+    await db.query(
+      "UPDATE payouts SET status='PROCESSING',provider='paystack',dispatch_state='SENDING',recovery_token='old',recovery_after=now()-interval '1 second' WHERE id=$1",
+      [id],
+    );
+    paystack.verifyDown = true;
+    const { recoverPayouts } = await import('../src/services/payouts.service.js');
+    await recoverPayouts(db, c);
+    const stuck = await payoutRow(id);
+    expect(paystack.transfers).toBe(0);
+    expect(stuck.status).toBe('PROCESSING');
+    expect(stuck.recovery_error).toMatch(/could not be verified/);
+    expect(await held(id)).toBe(150000);
+    const resolve = (actor: any, body: object) =>
+      call(actor, 'post', `/admin/payouts/${id}/resolve`, body);
+    expect(
+      (await resolve('seller', { outcome: 'FAILED', reason: 'Not found at provider' })).status,
+    ).toBe(403);
+    expect((await resolve('admin', { outcome: 'FAILED', reason: 'short' })).status).toBe(400);
+    const resolved = await resolve('admin', {
+      outcome: 'FAILED',
+      reason: 'Paystack dashboard shows no transfer with this reference',
+    });
+    expect(resolved.body.status).toBe('FAILED');
+    expect(await held(id)).toBe(0);
+    expect((await call('seller', 'get', '/payouts')).body.available_kobo).toBe(190000);
+    expect(await ledgerBalances()).toBe(0);
+  });
+  it('does not mark a payout paid when the provider reports a different amount', async () => {
+    const paystack = fakePaystack();
+    paystack.transferStatus = 'success';
+    paystack.verifyAmount = 100;
+    const id = await providerPayout();
+    const approved = await call('admin', 'post', `/admin/payouts/${id}/approve`);
+    expect(approved.body.status).toBe('PROCESSING');
+    expect(approved.body.recovery_error).toMatch(/could not be verified/);
+    expect(await held(id)).toBe(150000);
+    // Staff confirm on the provider dashboard and complete it.
+    const resolved = await call('admin', 'post', `/admin/payouts/${id}/resolve`, {
+      outcome: 'PAID',
+      reason: 'Confirmed ₦1,450 transfer in Paystack dashboard',
+    });
+    expect(resolved.body.status).toBe('PAID');
     expect(await ledgerBalances()).toBe(0);
   });
 });

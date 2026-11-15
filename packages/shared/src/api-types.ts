@@ -388,6 +388,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/admin/payouts/{id}/resolve': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['payouts.resolvePayout'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/admin/promotions': {
     parameters: {
       query?: never;
@@ -2050,6 +2066,88 @@ export interface components {
     } & {
       [key: string]: unknown;
     };
+    Driver: {
+      user_id: string;
+      vehicle_type: string;
+      plate_number: string;
+      licence_number: string;
+      city: string;
+      /** @enum {string} */
+      status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+      reason: string | null;
+      online: boolean;
+      latitude: number | null;
+      longitude: number | null;
+      location_at: string | null;
+      created_at: string;
+    } & {
+      [key: string]: unknown;
+    };
+    Promotion: {
+      id: string;
+      listing_id: string;
+      seller_id: string;
+      days: number;
+      fee_kobo: number;
+      starts_at: string;
+      ends_at: string;
+      /** @enum {string} */
+      status: 'ACTIVE' | 'CANCELLED';
+      cancel_reason: string | null;
+      refund_kobo: number;
+      created_at: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /** @enum {string} */
+    'admin.getReconciliation.FundingStatus':
+      'INITIALIZING' | 'PENDING' | 'UNCERTAIN' | 'FAILED' | 'EXPIRED' | 'SUCCESSFUL';
+    'deliveries.listDriverJobs.Delivery': {
+      id: string;
+      booking_id: string;
+      /** @enum {string} */
+      status: 'OPEN' | 'ASSIGNED' | 'PICKED_UP' | 'DELIVERED' | 'CANCELLED';
+      vehicle_type: string;
+      distance_km: number;
+      fare_kobo: number;
+      pay_on_delivery: boolean;
+      fare_paid: boolean;
+      dropoff_address?: string;
+      dropoff_latitude: number;
+      dropoff_longitude: number;
+      pickup_latitude: number;
+      pickup_longitude: number;
+      driver_latitude?: number | null;
+      driver_longitude?: number | null;
+      driver_location_at?: string | null;
+      driver_name?: string | null;
+      driver_phone?: string | null;
+      vehicle_name?: string;
+      plate_number?: string | null;
+      pickup_pin?: string;
+      delivery_pin?: string;
+      booking_paid?: boolean;
+      total_kobo?: number;
+    } & {
+      [key: string]: unknown;
+    };
+    'deliveries.listDriverJobs.Driver': {
+      user_id: string;
+      vehicle_type: string;
+      plate_number: string;
+      licence_number: string;
+      city: string;
+      /** @enum {string} */
+      status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+      reason: string | null;
+      online: boolean;
+      latitude: number | null;
+      longitude: number | null;
+      location_at: string | null;
+      created_at: string;
+    } & {
+      [key: string]: unknown;
+    };
     Error: {
       error: {
         /**
@@ -2144,7 +2242,12 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            service: string;
+            status: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2165,7 +2268,26 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            backlog: {
+              email_late: number;
+              funding_uncertain: number;
+              payouts_stuck: number;
+              push_late: number;
+            } & {
+              [key: string]: unknown;
+            };
+            status: string;
+            workers: ({
+              age_s: number;
+              last_error: string | null;
+              name: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2209,7 +2331,32 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            action: string;
+            actor_id: string;
+            actor_name: string;
+            created_at: string;
+            cursor: string;
+            entity_id: string;
+            id: string;
+            metadata: {
+              active?: boolean;
+              base_fare_kobo?: number;
+              max_km?: number;
+              min_fare_kobo?: number;
+              name?: string;
+              per_km_kobo?: number;
+              reason?: string;
+              refund_kobo?: number;
+              resolution?: string;
+              restock?: boolean;
+              status?: string;
+            } & {
+              [key: string]: unknown;
+            };
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -2230,7 +2377,36 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            business_name: string;
+            buyer_id: string;
+            buyer_name: string;
+            commission_bps: number;
+            commission_kobo: number;
+            created_at: string;
+            dispute_status: string;
+            id: string;
+            listing_id: string;
+            offer_expires_at: string | null;
+            offer_note: string | null;
+            offer_price_kobo: number | null;
+            offer_quantity: number | null;
+            paid: boolean;
+            payment_recorded: boolean;
+            preorder: boolean;
+            price_kobo: number;
+            quantity: number;
+            reserved_until: string;
+            seller_id: string;
+            status: string;
+            title: string;
+            total_kobo: number;
+            unit: string;
+            variant_id: string;
+            variant_name: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -2251,7 +2427,24 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            id: string;
+            status: string;
+            distance_km: number;
+            fare_kobo: number;
+            pay_on_delivery: boolean;
+            fare_paid: boolean;
+            created_at: string;
+            delivered_at: string | null;
+            cancel_reason: string | null;
+            title: string;
+            business_name: string;
+            buyer_name: string;
+            driver_name: string | null;
+            vehicle_name: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -2272,7 +2465,25 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            booking_id: string;
+            booking_status: string;
+            created_at: string;
+            description: string;
+            id: string;
+            opened_by: string;
+            reason_code: string;
+            refund_kobo: number;
+            reservation_remaining_ms: number | null;
+            resolution: string | null;
+            resolved_at: string | null;
+            return_status: string;
+            status: string;
+            title: string;
+            total_kobo: number;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -2306,7 +2517,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2327,7 +2542,27 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            user_id: string;
+            vehicle_type: string;
+            plate_number: string;
+            licence_number: string;
+            city: string;
+            /** @enum {string} */
+            status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+            reason: string | null;
+            online: boolean;
+            latitude: number | null;
+            longitude: number | null;
+            location_at: string | null;
+            created_at: string;
+            name: string;
+            email: string;
+            phone: string;
+            vehicle_name: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -2358,7 +2593,22 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            city: string;
+            created_at: string;
+            latitude: number | null;
+            licence_number: string;
+            location_at: string | null;
+            longitude: number | null;
+            online: boolean;
+            plate_number: string;
+            reason: string;
+            status: string;
+            user_id: string;
+            vehicle_type: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2379,7 +2629,17 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            attempts: number;
+            created_at: string;
+            id: string;
+            last_error: string | null;
+            recipient_name: string;
+            status: string;
+            title: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -2410,7 +2670,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2439,7 +2703,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['Ok'];
         };
       };
       default: components['responses']['Error'];
@@ -2460,7 +2724,18 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            account: string;
+            amount_kobo: number;
+            created_at: string;
+            cursor: string;
+            id: string;
+            owner_id: string | null;
+            reference: string;
+            txn_id: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -2481,7 +2756,30 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            area: string;
+            available_from: string | null;
+            business_name: string;
+            business_type: string;
+            category: string;
+            city: string;
+            confirmed_at: string;
+            created_at: string;
+            description: string;
+            id: string;
+            image_url: string | null;
+            image_urls: string[];
+            preorder_capacity: number;
+            price_kobo: number;
+            seller_id: string;
+            status: string;
+            stock: number;
+            thumbnail_url: string | null;
+            title: string;
+            unit: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -2512,7 +2810,25 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            available_from: string | null;
+            category: string;
+            confirmed_at: string;
+            created_at: string;
+            description: string;
+            id: string;
+            image_url: string | null;
+            image_urls: string[];
+            preorder_capacity: number;
+            price_kobo: number;
+            seller_id: string;
+            status: string;
+            stock: number;
+            title: string;
+            unit: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2541,7 +2857,18 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            area: string;
+            city: string;
+            created_at: string;
+            id: string;
+            latitude: number;
+            longitude: number;
+            name: string;
+            status: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2562,7 +2889,26 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            orders: {
+              active: number;
+              completed: number;
+              total: number;
+              volume: string;
+            } & {
+              [key: string]: unknown;
+            };
+            revenue_kobo: number;
+            sellers: {
+              approved: number;
+              pending: number;
+              total: number;
+            } & {
+              [key: string]: unknown;
+            };
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2583,7 +2929,27 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            id: string;
+            user_id: string;
+            amount_kobo: number;
+            fee_kobo: number;
+            status: string;
+            provider: string | null;
+            dispatch_state: string;
+            recovery_error: string | null;
+            recovery_after: string;
+            failure_reason: string | null;
+            created_at: string;
+            bank_name: string;
+            account_last4: string;
+            account_name: string;
+            name_match: boolean;
+            seller_name: string;
+            business_name: string | null;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -2612,7 +2978,23 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            account_id: string;
+            amount_kobo: number;
+            created_at: string;
+            failure_reason: string | null;
+            fee_kobo: number;
+            id: string;
+            provider: string;
+            provider_id: string | null;
+            reviewed_at: string;
+            reviewed_by: string;
+            status: string;
+            updated_at: string;
+            user_id: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2641,7 +3023,23 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            id: string;
+            user_id: string;
+            account_id: string;
+            amount_kobo: number;
+            fee_kobo: number;
+            status: string;
+            provider: string | null;
+            dispatch_state: string;
+            recovery_error: string | null;
+            recovery_after: string;
+            failure_reason: string | null;
+            created_at: string;
+            updated_at: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2672,7 +3070,70 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            account_id: string;
+            amount_kobo: number;
+            created_at: string;
+            failure_reason: string;
+            fee_kobo: number;
+            id: string;
+            provider: string | null;
+            provider_id: string | null;
+            reviewed_at: string;
+            reviewed_by: string;
+            status: string;
+            updated_at: string;
+            user_id: string;
+          } & {
+            [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'payouts.resolvePayout': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            user_id: string;
+            account_id: string;
+            amount_kobo: number;
+            fee_kobo: number;
+            status: string;
+            provider: string | null;
+            dispatch_state: string;
+            recovery_error: string | null;
+            recovery_after: string;
+            failure_reason: string | null;
+            created_at: string;
+            updated_at: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2693,7 +3154,25 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            id: string;
+            listing_id: string;
+            seller_id: string;
+            days: number;
+            fee_kobo: number;
+            starts_at: string;
+            ends_at: string;
+            /** @enum {string} */
+            status: 'ACTIVE' | 'CANCELLED';
+            cancel_reason: string | null;
+            refund_kobo: number;
+            created_at: string;
+            title: string;
+            running: boolean;
+            business_name: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -2724,7 +3203,21 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            cancel_reason: string;
+            created_at: string;
+            days: number;
+            ends_at: string;
+            fee_kobo: number;
+            id: string;
+            listing_id: string;
+            refund_kobo: number;
+            seller_id: string;
+            starts_at: string;
+            status: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2745,7 +3238,30 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            exceptions: ({
+              id: string;
+              funding_id: string;
+              reason: string;
+              status: string;
+              resolution: string | null;
+              created_at: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+            funding: ({
+              id: string;
+              provider: string;
+              amount_kobo: number;
+              status: components['schemas']['admin.getReconciliation.FundingStatus'];
+              created_at: string;
+              payer_name: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2766,7 +3282,19 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            created_at: string;
+            id: string;
+            reason: string;
+            reporter_id: string;
+            reporter_name: string;
+            resolution: string | null;
+            status: string;
+            subject_id: string;
+            subject_type: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -2797,7 +3325,18 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            created_at: string;
+            id: string;
+            reason: string;
+            reporter_id: string;
+            resolution: string;
+            status: string;
+            subject_id: string;
+            subject_type: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2818,7 +3357,21 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            id: string;
+            seller_id: string;
+            subject: string;
+            kind: string;
+            filename: string;
+            mime_type: string;
+            status: string;
+            review_note: string | null;
+            reviewed_at: string | null;
+            created_at: string;
+            reviewer_name: string | null;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -2841,7 +3394,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            url: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2872,7 +3429,21 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            created_at: string;
+            filename: string;
+            id: string;
+            kind: string;
+            mime_type: string;
+            review_note: string;
+            reviewed_at: string;
+            reviewed_by: string;
+            seller_id: string;
+            status: string;
+            subject: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2893,7 +3464,27 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            address: string;
+            area: string;
+            business_name: string;
+            business_type: string;
+            city: string;
+            created_at: string;
+            email: string;
+            latitude: number;
+            longitude: number;
+            market_id: string | null;
+            name: string;
+            phone: string;
+            public_latitude: number;
+            public_longitude: number;
+            reason: string | null;
+            status: string;
+            user_id: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -2924,7 +3515,24 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            address: string;
+            area: string;
+            business_name: string;
+            business_type: string;
+            city: string;
+            created_at: string;
+            latitude: number | null;
+            longitude: number | null;
+            market_id: string | null;
+            public_latitude: number | null;
+            public_longitude: number | null;
+            reason: string;
+            status: string;
+            user_id: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2953,7 +3561,19 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            commission_bps: number;
+            delivery_commission_bps: number;
+            delivery_radius_km: number;
+            id: number;
+            pay_on_delivery_enabled: boolean;
+            payout_fee_kobo: number;
+            payout_min_kobo: number;
+            promotion_daily_kobo: number;
+            reservation_hours: number;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -2974,7 +3594,15 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            email: string;
+            id: string;
+            name: string;
+            staff_role: string;
+            status: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -3003,7 +3631,15 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            email: string;
+            id: string;
+            name: string;
+            staff_role: string;
+            status: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3024,7 +3660,18 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            admin: boolean;
+            created_at: string;
+            email: string;
+            email_verified_at: string | null;
+            id: string;
+            name: string;
+            phone: string;
+            status: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -3055,7 +3702,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3076,7 +3727,18 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            active: boolean;
+            base_fare_kobo: number;
+            code: string;
+            max_km: number;
+            min_fare_kobo: number;
+            name: string;
+            per_km_kobo: number;
+            sort: number;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -3107,7 +3769,18 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            active: boolean;
+            base_fare_kobo: number;
+            code: string;
+            max_km: number;
+            min_fare_kobo: number;
+            name: string;
+            per_km_kobo: number;
+            sort: number;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3134,7 +3807,15 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            challenge_id: string;
+            delivery: string;
+            email: string;
+            expires_in: number;
+            resend_after: number;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3188,7 +3869,12 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+            resend_after: number;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3215,7 +3901,24 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            expires_in: number;
+            refresh_token: string;
+            token: string;
+            user: {
+              admin: boolean;
+              email: string;
+              email_verified_at: string;
+              id: string;
+              name: string;
+              phone: string;
+              staff_role: string | null;
+            } & {
+              [key: string]: unknown;
+            };
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3242,7 +3945,15 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            challenge_id: string;
+            delivery: string;
+            email: string;
+            expires_in: number;
+            resend_after: number;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3269,7 +3980,13 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            expires_in: number;
+            refresh_token: string;
+            token: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3296,7 +4013,15 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            challenge_id: string;
+            delivery: string;
+            email: string;
+            expires_in: number;
+            resend_after: number;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3346,7 +4071,37 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            buyer_id: string;
+            commission_bps: number;
+            commission_kobo: number;
+            created_at: string;
+            id: string;
+            listing_id: string;
+            offer_expires_at: string | null;
+            offer_note: string | null;
+            offer_price_kobo: number | null;
+            offer_quantity: number | null;
+            paid: boolean;
+            pickup_address_snapshot: string | null;
+            pickup_failures: number;
+            pickup_latitude: number | null;
+            pickup_locked_until: string | null;
+            pickup_longitude: number | null;
+            preorder: boolean;
+            price_kobo: number;
+            quantity: number;
+            reserved_until: string | null;
+            seller_id: string;
+            status: string;
+            title: string;
+            total_kobo: number;
+            unit: string;
+            variant_id: string;
+            variant_name: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3401,7 +4156,12 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            id: string;
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3455,7 +4215,36 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            assigned_at: string | null;
+            booking_id: string;
+            booking_paid: boolean;
+            buyer_id: string;
+            cancel_reason: string | null;
+            commission_bps: number;
+            created_at: string;
+            delivered_at: string | null;
+            distance_km: number;
+            driver_id: string | null;
+            driver_latitude: number | null;
+            driver_location_at: string | null;
+            driver_longitude: number | null;
+            dropoff_address: string;
+            dropoff_latitude: number;
+            dropoff_longitude: number;
+            fare_kobo: number;
+            fare_paid: boolean;
+            id: string;
+            pay_on_delivery: boolean;
+            picked_up_at: string | null;
+            pickup_latitude: number;
+            pickup_longitude: number;
+            seller_id: string;
+            status: string;
+            vehicle_type: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3484,7 +4273,16 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            distance_km: number;
+            /** @enum {string} */
+            distance_method: 'road' | 'estimate';
+            fare_kobo: number;
+            vehicle_name: string;
+            vehicle_type: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3507,7 +4305,14 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json':
+            | ({
+                id: string;
+                status: string;
+              } & {
+                [key: string]: unknown;
+              })
+            | null;
         };
       };
       default: components['responses']['Error'];
@@ -3538,7 +4343,22 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            booking_id: string;
+            created_at: string;
+            description: string;
+            id: string;
+            opened_by: string;
+            reason_code: string;
+            refund_kobo: number;
+            reservation_remaining_ms: number | null;
+            resolution: string | null;
+            resolved_at: string | null;
+            return_status: string;
+            status: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3584,7 +4404,14 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json':
+            | ({
+                score: number;
+                comment: string;
+              } & {
+                [key: string]: unknown;
+              })
+            | null;
         };
       };
       default: components['responses']['Error'];
@@ -3615,7 +4442,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3638,7 +4469,26 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            booking_id: string;
+            commission_kobo: number;
+            created_at: string;
+            currency: string;
+            payment_method: string;
+            quantity: number;
+            receipt_number: string;
+            refunded_kobo: number;
+            seller: string;
+            simulated: boolean;
+            status: string;
+            title: string;
+            total_kobo: number;
+            unit: string;
+            unit_price_kobo: number;
+            variant: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3659,7 +4509,22 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            blocked: boolean;
+            blocked_by_me: boolean;
+            business_name: string;
+            buyer_id: string;
+            buyer_name: string;
+            created_at: string;
+            id: string;
+            last_message: string;
+            listing_id: string;
+            seller_id: string;
+            title: string;
+            unread: number;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -3688,7 +4553,17 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            buyer_id: string;
+            buyer_read_at: string;
+            created_at: string;
+            id: string;
+            listing_id: string;
+            seller_id: string;
+            seller_read_at: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3711,7 +4586,20 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            has_more: boolean;
+            messages: ({
+              body: string;
+              created_at: string;
+              id: string;
+              sender_id: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+            peer_read_at: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3742,7 +4630,15 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            body: string;
+            conversation_id: string;
+            created_at: string;
+            id: string;
+            sender_id: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3773,7 +4669,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3805,7 +4705,50 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            assigned_at: string;
+            booking_id: string;
+            booking_paid: boolean;
+            business_name: string;
+            buyer_id: string;
+            buyer_name: string;
+            buyer_phone: string;
+            cancel_reason: string | null;
+            commission_bps: number;
+            created_at: string;
+            delivered_at: string | null;
+            delivery_pin?: string;
+            distance_km: number;
+            driver_id: string;
+            driver_latitude: number | null;
+            driver_location_at: string | null;
+            driver_longitude: number | null;
+            driver_name: string;
+            driver_phone: string;
+            dropoff_address: string;
+            dropoff_latitude: number;
+            dropoff_longitude: number;
+            fare_kobo: number;
+            fare_paid: boolean;
+            id: string;
+            pay_on_delivery: boolean;
+            picked_up_at: string | null;
+            pickup_address: string;
+            pickup_latitude: number;
+            pickup_longitude: number;
+            pickup_pin?: string;
+            plate_number: string;
+            quantity: number;
+            seller_id: string;
+            status: string;
+            title: string;
+            total_kobo: number;
+            unit: string;
+            vehicle_name: string;
+            vehicle_type: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3826,7 +4769,21 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            pay_on_delivery: boolean;
+            vehicle_types: ({
+              base_fare_kobo: number;
+              code: string;
+              max_km: number;
+              min_fare_kobo: number;
+              name: string;
+              per_km_kobo: number;
+            } & {
+              [key: string]: unknown;
+            })[];
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3847,7 +4804,25 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            booking_id: string;
+            buyer_id: string;
+            created_at: string;
+            description: string;
+            id: string;
+            opened_by: string;
+            reason_code: string;
+            refund_kobo: number;
+            reservation_remaining_ms: number | null;
+            resolution: string | null;
+            resolved_at: string | null;
+            return_status: string;
+            seller_id: string;
+            status: string;
+            title: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -3870,7 +4845,34 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            booking_id: string;
+            buyer_id: string;
+            created_at: string;
+            description: string;
+            evidence: ({
+              id: string;
+              filename: string;
+              mime_type: string;
+              owner_id: string;
+              created_at: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+            id: string;
+            opened_by: string;
+            reason_code: string;
+            refund_kobo: number;
+            reservation_remaining_ms: number | null;
+            resolution: string | null;
+            resolved_at: string | null;
+            return_status: string;
+            seller_id: string;
+            status: string;
+            title: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3900,7 +4902,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            id: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3931,7 +4937,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3960,7 +4970,22 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            city: string;
+            created_at: string;
+            latitude: number | null;
+            licence_number: string;
+            location_at: string | null;
+            longitude: number | null;
+            online: boolean;
+            plate_number: string;
+            reason: string | null;
+            status: string;
+            user_id: string;
+            vehicle_type: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -3981,7 +5006,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['Driver'] | null;
         };
       };
       default: components['responses']['Error'];
@@ -4002,7 +5027,54 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            active: components['schemas']['deliveries.listDriverJobs.Delivery'][];
+            driver: components['schemas']['deliveries.listDriverJobs.Driver'];
+            history: components['schemas']['deliveries.listDriverJobs.Delivery'][];
+            open: ({
+              assigned_at: string | null;
+              away_km: number;
+              booking_id: string;
+              booking_paid: boolean;
+              business_name: string;
+              buyer_id: string;
+              buyer_name: string;
+              cancel_reason: string | null;
+              commission_bps: number;
+              created_at: string;
+              delivered_at: string | null;
+              distance_km: number;
+              driver_id: string | null;
+              driver_latitude: number | null;
+              driver_location_at: string | null;
+              driver_longitude: number | null;
+              driver_name: string | null;
+              driver_phone: string | null;
+              dropoff_area: string;
+              dropoff_latitude: number;
+              dropoff_longitude: number;
+              fare_kobo: number;
+              fare_paid: boolean;
+              id: string;
+              pay_on_delivery: boolean;
+              picked_up_at: string | null;
+              pickup_latitude: number;
+              pickup_longitude: number;
+              plate_number: string | null;
+              quantity: number;
+              seller_id: string;
+              status: string;
+              title: string;
+              total_kobo: number;
+              unit: string;
+              vehicle_name: string;
+              vehicle_type: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4029,7 +5101,14 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            latitude: number;
+            location_at: string;
+            longitude: number;
+            online: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4075,7 +5154,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            url: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4096,7 +5179,14 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            area: string;
+            business_name: string;
+            city: string;
+            user_id: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -4127,7 +5217,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4152,7 +5246,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4236,7 +5334,43 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            available_from: string | null;
+            category: string;
+            confirmed_at: string;
+            created_at: string;
+            description: string;
+            id: string;
+            image_url: string | null;
+            image_urls: string[];
+            preorder_capacity: number;
+            price_kobo: number;
+            seller_id: string;
+            status: string;
+            stock: number;
+            title: string;
+            unit: string;
+            variants: ({
+              active: boolean;
+              created_at: string;
+              id: string;
+              is_primary: boolean;
+              listing_id: string;
+              min_quantity: number;
+              name: string;
+              price_kobo: number;
+              stock: number;
+              unit: string;
+              wholesale_tiers: {
+                min_quantity: number;
+                price_kobo: number;
+              }[];
+            } & {
+              [key: string]: unknown;
+            })[];
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4324,7 +5458,25 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            available_from: string | null;
+            category: string;
+            confirmed_at: string;
+            created_at: string;
+            description: string;
+            id: string;
+            image_url: string | null;
+            image_urls: string[];
+            preorder_capacity: number;
+            price_kobo: number;
+            seller_id: string;
+            status: string;
+            stock: number;
+            title: string;
+            unit: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4355,7 +5507,21 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            cancel_reason: string | null;
+            created_at: string;
+            days: number;
+            ends_at: string;
+            fee_kobo: number;
+            id: string;
+            listing_id: string;
+            refund_kobo: number;
+            seller_id: string;
+            starts_at: string;
+            status: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4386,7 +5552,12 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+            stock_alert: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4411,7 +5582,12 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+            stock_alert: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4432,7 +5608,13 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            permanent_geocoding: boolean;
+            public_pin_precision: string;
+            public_token: string | null;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4453,7 +5635,14 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            id: string;
+            label: string;
+            latitude: number;
+            longitude: number;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -4474,7 +5663,18 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            area: string;
+            city: string;
+            created_at: string;
+            id: string;
+            latitude: number;
+            longitude: number;
+            name: string;
+            status: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -4524,7 +5724,17 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            admin: boolean;
+            email: string;
+            email_verified_at: string | null;
+            id: string;
+            name: string;
+            phone: string;
+            staff_role: string | null;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4545,7 +5755,12 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            blocked_id: string;
+            name: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -4576,7 +5791,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4601,7 +5820,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4628,7 +5851,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4649,7 +5876,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4670,7 +5901,15 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            created_at: string;
+            current: boolean;
+            device_label: string;
+            id: string;
+            last_seen_at: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -4695,7 +5934,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4723,7 +5966,13 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            id: string;
+            thumbnail_url: string;
+            url: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4744,7 +5993,12 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            email_enabled: boolean;
+            push_enabled: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4773,7 +6027,12 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            email_enabled: boolean;
+            push_enabled: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4794,7 +6053,18 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            body: string;
+            booking_id: string | null;
+            created_at: string;
+            id: string;
+            kind: string;
+            read_at: string | null;
+            title: string;
+            user_id: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -4823,7 +6093,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4894,7 +6168,23 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            account_id: string;
+            amount_kobo: number;
+            created_at: string;
+            failure_reason: string | null;
+            fee_kobo: number;
+            id: string;
+            provider: string | null;
+            provider_id: string | null;
+            reviewed_at: string | null;
+            reviewed_by: string | null;
+            status: string;
+            updated_at: string;
+            user_id: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4925,7 +6215,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4954,7 +6248,18 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            account_last4: string;
+            account_name: string;
+            bank_code: string;
+            bank_name: string;
+            created_at: string;
+            id: string;
+            name_match: boolean;
+            provider: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -4981,7 +6286,14 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            account_name: string;
+            bank_name: string;
+            name_match: boolean;
+            provider: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -5002,7 +6314,17 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            banks: ({
+              code: string;
+              name: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+            provider: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -5031,7 +6353,18 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            created_at: string;
+            id: string;
+            reason: string;
+            reporter_id: string;
+            resolution: string | null;
+            status: string;
+            subject_id: string;
+            subject_type: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -5106,7 +6439,24 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            address: string;
+            area: string;
+            business_name: string;
+            business_type: string;
+            city: string;
+            created_at: string;
+            latitude: number | null;
+            longitude: number | null;
+            market_id: string | null;
+            public_latitude: number | null;
+            public_longitude: number | null;
+            reason: string | null;
+            status: string;
+            user_id: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -5129,7 +6479,25 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            area: string;
+            business_name: string;
+            business_type: string;
+            city: string;
+            rating_avg: number | null;
+            rating_count: number;
+            ratings: ({
+              score: number;
+              comment: string;
+              created_at: string;
+              buyer_name: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+            user_id: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -5173,7 +6541,55 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            acceptance_rate: number;
+            average_order_kobo: number;
+            buyers: number;
+            daily: ({
+              day: string;
+              gross_kobo: number;
+              orders: number;
+            } & {
+              [key: string]: unknown;
+            })[];
+            days: number;
+            followers: number;
+            gross_kobo: number;
+            low_stock: ({
+              id: string;
+              title: string;
+              variant: string;
+              stock: number;
+              unit: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+            net_kobo: number;
+            orders: number;
+            rating: {
+              avg: number | null;
+              count: number;
+            } & {
+              [key: string]: unknown;
+            };
+            repeat_buyers: number;
+            statuses: {
+              COMPLETED: number;
+            } & {
+              [key: string]: unknown;
+            };
+            top_listings: ({
+              gross_kobo: number;
+              listing_id: string;
+              orders: number;
+              quantity: number;
+              title: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -5194,7 +6610,21 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            created_at: string;
+            filename: string;
+            id: string;
+            kind: string;
+            mime_type: string;
+            review_note: string | null;
+            reviewed_at: string | null;
+            reviewed_by: string | null;
+            seller_id: string;
+            status: string;
+            subject: string;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -5222,7 +6652,14 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            id: string;
+            kind: string;
+            status: string;
+            subject: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -5251,7 +6688,12 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+            status: string;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -5272,7 +6714,24 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': ({
+            id: string;
+            listing_id: string;
+            seller_id: string;
+            days: number;
+            fee_kobo: number;
+            starts_at: string;
+            ends_at: string;
+            /** @enum {string} */
+            status: 'ACTIVE' | 'CANCELLED';
+            cancel_reason: string | null;
+            refund_kobo: number;
+            created_at: string;
+            title: string;
+            running: boolean;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -5343,7 +6802,12 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            ok: boolean;
+            simulated: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -5403,7 +6867,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': components['schemas']['Ok'];
         };
       };
       default: components['responses']['Error'];
@@ -5432,7 +6896,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': unknown;
+          'application/json': {
+            received: boolean;
+          } & {
+            [key: string]: unknown;
+          };
         };
       };
       default: components['responses']['Error'];

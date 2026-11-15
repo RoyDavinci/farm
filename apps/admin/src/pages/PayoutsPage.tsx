@@ -1,5 +1,5 @@
 import { money } from '@farmers-market/shared';
-import { Check, RefreshCw, X } from 'lucide-react';
+import { Check, Gavel, RefreshCw, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';
 import { request } from '../api';
@@ -9,11 +9,12 @@ interface Payout {
   id: string;
   seller_name: string;
   business_name: string | null;
-  amount_kobo: string;
-  fee_kobo: string;
+  amount_kobo: number;
+  fee_kobo: number;
   status: string;
   provider: string | null;
   failure_reason: string | null;
+  recovery_error?: string | null;
   bank_name: string;
   account_last4: string;
   account_name: string;
@@ -28,7 +29,7 @@ export default function PayoutsPage() {
     [filter, setFilter] = useState('ALL');
   const load = useCallback(
     () =>
-      (request('get', '/admin/payouts') as Promise<Payout[]>)
+      request('get', '/admin/payouts')
         .then(setRows)
         .catch((e) => setError(e.message)),
     [setError],
@@ -93,6 +94,11 @@ export default function PayoutsPage() {
                 <td>
                   <Badge status={p.status} />
                   {p.failure_reason && <small>{p.failure_reason}</small>}
+                  {p.recovery_error && (
+                    <small className="error">
+                      {p.recovery_error} Reference: {p.id}
+                    </small>
+                  )}
                 </td>
                 <td>
                   {p.status === 'REQUESTED' && (
@@ -111,7 +117,7 @@ export default function PayoutsPage() {
                                 request('post', '/admin/payouts/{id}/approve', {
                                   params: { id: p.id },
                                 }),
-                              'Payout approved and sent to the provider.',
+                              'Payout approved; dispatch and verification are tracked automatically.',
                             );
                         }}
                       >
@@ -138,21 +144,51 @@ export default function PayoutsPage() {
                     </div>
                   )}
                   {p.status === 'PROCESSING' && p.provider !== 'simulated' && (
-                    <button
-                      className="secondary compact"
-                      disabled={busy}
-                      onClick={() =>
-                        void act(
-                          () =>
-                            request('post', '/admin/payouts/{id}/recheck', {
-                              params: { id: p.id },
-                            }),
-                          'Transfer status checked with the provider.',
-                        )
-                      }
-                    >
-                      <RefreshCw size={14} /> Recheck
-                    </button>
+                    <div className="row-actions">
+                      <button
+                        className="secondary compact"
+                        disabled={busy}
+                        onClick={() =>
+                          void act(
+                            () =>
+                              request('post', '/admin/payouts/{id}/recheck', {
+                                params: { id: p.id },
+                              }),
+                            'Transfer status checked with the provider.',
+                          )
+                        }
+                      >
+                        <RefreshCw size={14} /> Recheck
+                      </button>
+                      {p.recovery_error && (
+                        <button
+                          className="secondary compact"
+                          disabled={busy}
+                          onClick={() => {
+                            const paid = window.confirm(
+                              `Reference ${p.id}\n\nOK = the provider dashboard shows this transfer was PAID.\nCancel = choose FAILED (funds go back to the seller).`,
+                            );
+                            const outcome = paid ? 'PAID' : 'FAILED';
+                            const reason = window.prompt(
+                              `Mark as ${outcome}. What did you confirm in the provider dashboard? (at least 10 characters)`,
+                            );
+                            if (reason)
+                              void act(
+                                () =>
+                                  request('post', '/admin/payouts/{id}/resolve', {
+                                    params: { id: p.id },
+                                    body: { outcome, reason },
+                                  }),
+                                outcome === 'PAID'
+                                  ? 'Payout marked as paid.'
+                                  : 'Payout marked as failed and funds returned to the seller.',
+                              );
+                          }}
+                        >
+                          <Gavel size={14} /> Resolve
+                        </button>
+                      )}
+                    </div>
                   )}
                 </td>
               </tr>

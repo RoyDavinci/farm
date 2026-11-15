@@ -49,6 +49,9 @@ const PayoutRow = z.looseObject({
   fee_kobo: z.number(),
   status: z.string(),
   provider: z.string().nullable(),
+  dispatch_state: z.string(),
+  recovery_error: z.string().nullable(),
+  recovery_after: z.string(),
   failure_reason: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -59,6 +62,7 @@ export const operationResponses: Record<string, z.ZodType> = {
   'admin.recheckFunding': Ok,
   'wallet.verifyFundingRequest': Ok,
   'payouts.recheckPayout': PayoutRow,
+  'payouts.resolvePayout': PayoutRow,
   'geography.geocode': z.array(
     z.looseObject({
       id: z.string(),
@@ -911,6 +915,9 @@ export const operationResponses: Record<string, z.ZodType> = {
       fee_kobo: z.number(),
       status: z.string(),
       provider: z.string().nullable(),
+      dispatch_state: z.string(),
+      recovery_error: z.string().nullable(),
+      recovery_after: z.string(),
       failure_reason: z.string().nullable(),
       created_at: z.string(),
       bank_name: z.string(),

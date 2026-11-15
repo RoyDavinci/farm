@@ -464,6 +464,10 @@ model Payout {
   status                           String        @default("REQUESTED")
   provider                         String?
   provider_id                      String?
+  dispatch_state                   String        @default("UNKNOWN")
+  recovery_token                   String?
+  recovery_after                   DateTime      @default(now()) @db.Timestamptz(6)
+  recovery_error                   String?
   failure_reason                   String?
   reviewed_by                      String?
   reviewed_at                      DateTime?     @db.Timestamptz(6)
@@ -475,6 +479,7 @@ model Payout {
 
   @@index([status])
   @@index([user_id, created_at], map: "payouts_user_idx")
+  @@index([status, recovery_after], map: "payouts_recovery_idx")
   @@map("payouts")
 }
 
