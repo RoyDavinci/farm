@@ -1104,6 +1104,22 @@ describe('security and configuration', () => {
     expect(problems.join(' ')).toMatch(/PAYOUT_ENCRYPTION_KEY/);
     expect(problems.join(' ')).toMatch(/https/);
     expect(() => readEnv({ PORT: 'abc' })).toThrow(/PORT/);
+    // A Render-style staging environment is accepted: URL and origins come from Render's values.
+    const render = readEnv({
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://u:p@db/x',
+      OTP_SECRET: 'x'.repeat(44),
+      PAYOUT_ENCRYPTION_KEY: 'y'.repeat(44),
+      SMTP_HOST: 'smtp.example.com',
+      MAIL_FROM: 'Farmers Market <no-reply@example.com>',
+      RENDER_EXTERNAL_URL: 'https://farmers-market-api.onrender.com',
+      RENDER_GIT_COMMIT: 'abc123',
+      CORS_ALLOWED_HOSTS_ADMIN: 'farmers-market-admin.onrender.com',
+    });
+    expect(productionProblems(render)).toEqual([]);
+    expect(render.PUBLIC_API_URL).toBe('https://farmers-market-api.onrender.com');
+    expect(render.CORS_ORIGINS).toBe('');
+    expect(render.GIT_COMMIT).toBe('abc123');
   });
 });
 

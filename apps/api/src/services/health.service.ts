@@ -2,10 +2,14 @@ import type { AppDeps } from '../types/deps.js';
 
 /** Liveness and readiness checks: database, background jobs, queue backlogs and Redis. */
 export function createHealthService(deps: AppDeps) {
-  const { db, redis } = deps;
+  const { db, redis, config } = deps;
   async function liveness() {
     await db.query('SELECT 1');
-    return { status: 'ok' as const, service: 'farmers-market-api' };
+    return {
+      status: 'ok' as const,
+      service: 'farmers-market-api',
+      version: config.gitCommit || 'dev',
+    };
   }
   async function readiness() {
     const workers = await db.query<{ name: string; age_s: number; last_error: string | null }>(

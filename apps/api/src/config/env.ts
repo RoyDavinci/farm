@@ -26,8 +26,18 @@ export const envSchema = z.object({
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(15000),
   DATABASE_URL: str(),
   DATA_DIR: str('.data/farmers-market'),
-  CORS_ORIGINS: str('http://localhost:5173,http://localhost:8081,http://localhost:8095'),
-  PUBLIC_API_URL: str('http://localhost:4000'),
+  // Local defaults; in production list only https:// origins (or use CORS_ALLOWED_HOSTS).
+  CORS_ORIGINS: z.string().optional(),
+  /** Hostnames (no scheme) allowed as https:// origins; Render injects the static sites' hosts. */
+  CORS_ALLOWED_HOSTS: str(),
+  CORS_ALLOWED_HOSTS_ADMIN: str(),
+  CORS_ALLOWED_HOSTS_WEB: str(),
+  // Render sets RENDER_EXTERNAL_URL for web services.
+  PUBLIC_API_URL: z.string().optional(),
+  RENDER_EXTERNAL_URL: str(),
+  /** Deployed commit, reported by /health (Render sets RENDER_GIT_COMMIT). */
+  GIT_COMMIT: str(),
+  RENDER_GIT_COMMIT: str(),
   UPLOAD_DIR: str('.data/uploads'),
   // Payments
   PAYMENTS_ENABLED: bool(false),
@@ -61,10 +71,18 @@ export const envSchema = z.object({
   RECORDS_S3_BUCKET: str(),
   AWS_REGION: str('us-east-1'),
   S3_PREFIX: str('farmers-market'),
+  /** S3-compatible endpoint, e.g. Cloudflare R2: https://<account>.r2.cloudflarestorage.com */
+  S3_ENDPOINT: str(),
   PUSH_ENABLED: bool(true),
   EXPO_ACCESS_TOKEN: str(),
 });
-export type Env = z.infer<typeof envSchema>;
+type ParsedEnv = z.infer<typeof envSchema>;
+/** Parsed environment with defaults that depend on other values filled in. */
+export type Env = Omit<ParsedEnv, 'CORS_ORIGINS' | 'PUBLIC_API_URL'> & {
+  CORS_ORIGINS: string;
+  PUBLIC_API_URL: string;
+};
+const LOCAL_ORIGINS = 'http://localhost:5173,http://localhost:8081,http://localhost:8095';
 
 /** Parses process.env, printing every problem at once instead of failing on the first. */
 export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
@@ -73,7 +91,15 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     const problems = parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`);
     throw new Error(`Invalid environment configuration:\n${problems.join('\n')}`);
   }
-  return parsed.data;
+  const env = parsed.data;
+  return {
+    ...env,
+    // Local browser origins only outside production; production lists its https origins.
+    CORS_ORIGINS: env.CORS_ORIGINS ?? (env.NODE_ENV === 'production' ? '' : LOCAL_ORIGINS),
+    // Render provides the service URL and deployed commit.
+    PUBLIC_API_URL: env.PUBLIC_API_URL || env.RENDER_EXTERNAL_URL || 'http://localhost:4000',
+    GIT_COMMIT: env.GIT_COMMIT || env.RENDER_GIT_COMMIT,
+  };
 }
 
 /** Settings that must be real in production. Returns human-readable problems. */
@@ -89,7 +115,11 @@ export function productionProblems(env: Env): string[] {
     problems.push('SMTP_HOST and MAIL_FROM are required; production always sends real email.');
   if (!env.PUBLIC_API_URL.startsWith('https://'))
     problems.push('PUBLIC_API_URL must be the public https:// address of the API.');
-  if (env.CORS_ORIGINS.split(',').some((o) => !o.trim().startsWith('https://')))
+  if (
+    env.CORS_ORIGINS.split(',')
+      .filter((o) => o.trim())
+      .some((o) => !o.trim().startsWith('https://'))
+  )
     problems.push('CORS_ORIGINS must list only https:// web origins.');
   return problems;
 }

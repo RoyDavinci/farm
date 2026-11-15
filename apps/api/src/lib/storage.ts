@@ -10,7 +10,11 @@ import { dirname, resolve } from 'node:path';
 import type { Config } from '../config/index.js';
 import { ensure } from './errors.js';
 export function storage(c: Config) {
-  const s3 = new S3Client({ region: c.s3Region });
+  // A custom endpoint (Cloudflare R2, MinIO…) uses path-style bucket addressing.
+  const s3 = new S3Client({
+    region: c.s3Region,
+    ...(c.s3Endpoint ? { endpoint: c.s3Endpoint, forcePathStyle: true } : {}),
+  });
   function details(key: string, records: boolean) {
     ensure(
       !key.includes('..') && /^[a-zA-Z0-9_./-]+$/.test(key),

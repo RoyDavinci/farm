@@ -1,0 +1,26 @@
+name: Staging smoke test
+# Render deploys main after CI passes (render.yaml: autoDeployTrigger: checksPass).
+# This waits for the new commit to be live on staging, then checks it end to end.
+on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  smoke:
+    if: ${{ vars.STAGING_API_URL != '' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: >-
+          node scripts/smoke.mjs
+          --api "${{ vars.STAGING_API_URL }}"
+          --admin "${{ vars.STAGING_ADMIN_URL }}"
+          --web "${{ vars.STAGING_WEB_URL }}"
+          --commit "${{ github.event.workflow_run.head_sha || github.sha }}"
+          --wait 1200

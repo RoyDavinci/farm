@@ -23,9 +23,16 @@ export const config = {
   shutdownTimeoutMs: env.SHUTDOWN_TIMEOUT_MS,
   databaseUrl: env.DATABASE_URL,
   dataDir: env.DATA_DIR,
-  origins: env.CORS_ORIGINS.split(',')
+  origins: [
+    ...env.CORS_ORIGINS.split(','),
+    ...[env.CORS_ALLOWED_HOSTS, env.CORS_ALLOWED_HOSTS_ADMIN, env.CORS_ALLOWED_HOSTS_WEB]
+      .join(',')
+      .split(',')
+      .map((h) => (h.trim() ? `https://${h.trim()}` : '')),
+  ]
     .map((o) => o.trim())
     .filter(Boolean),
+  gitCommit: env.GIT_COMMIT,
   publicApiUrl: env.PUBLIC_API_URL,
   uploadDir: env.UPLOAD_DIR,
   // Payments
@@ -59,6 +66,7 @@ export const config = {
   recordsBucket: env.RECORDS_S3_BUCKET || env.S3_BUCKET,
   s3Region: env.AWS_REGION,
   s3Prefix: env.S3_PREFIX,
+  s3Endpoint: env.S3_ENDPOINT,
   pushEnabled: env.PUSH_ENABLED,
   expoPushToken: env.EXPO_ACCESS_TOKEN,
 };

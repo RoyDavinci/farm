@@ -12,6 +12,8 @@ import {
 } from './offline';
 export const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||
+  // On Render the API's hostname arrives as EXPO_PUBLIC_API_HOST (inlined at build time).
+  (process.env.EXPO_PUBLIC_API_HOST ? `https://${process.env.EXPO_PUBLIC_API_HOST}/v1` : '') ||
   (Platform.OS === 'android' ? 'http://10.0.2.2:4000/v1' : 'http://localhost:4000/v1');
 let expiredHandler: () => void = () => {};
 export function onSessionExpired(handler: () => void) {
