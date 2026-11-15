@@ -25,7 +25,8 @@
     "backup": "node scripts/backup.mjs",
     "worker": "npm run worker -w @farmers-market/api",
     "api:contract": "npm run openapi -w @farmers-market/api && openapi-typescript apps/api/openapi.json -o packages/shared/src/api-types.ts && prettier --write packages/shared/src/api-types.ts",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "acceptance:payments": "node scripts/payment-acceptance.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
