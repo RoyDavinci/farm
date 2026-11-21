@@ -1,3 +1,4 @@
+import { discoveryEvent } from './discovery-operations.service.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Database, Query } from '../database/client.js';
@@ -74,8 +75,8 @@ export async function searchListings(db: Database, d: SearchInput) {
     offset = Number(decoded);
     ensure(offset <= 100000, 400, 'INVALID_CURSOR', 'Page limit exceeded.');
   }
-  const args: (string | number)[] = [];
-  const param = (value: string | number) => {
+  const args: (string | number | boolean)[] = [];
+  const param = (value: string | number | boolean) => {
     args.push(value);
     return `$${args.length}`;
   };
@@ -95,6 +96,14 @@ export async function searchListings(db: Database, d: SearchInput) {
   if (d.area) conditions.push(`s.area ILIKE ${param(`%${d.area}%`)}`);
   if (d.market_id) conditions.push(`s.market_id=${param(d.market_id)}`);
   if (d.category) conditions.push(`l.category=${param(d.category)}`);
+  if (d.delivery_available)
+    conditions.push(`l.delivery_available=${param(d.delivery_available === 'true')}`);
+  if (d.availability === 'preorder')
+    conditions.push('l.available_from>now() AND l.preorder_capacity>0');
+  if (d.availability === 'in_stock')
+    conditions.push(
+      'EXISTS(SELECT 1 FROM listing_variants sv WHERE sv.listing_id=l.id AND sv.active AND sv.stock>=sv.min_quantity) AND (l.available_from IS NULL OR l.available_from<=now())',
+    );
   if (d.seller_type) conditions.push(`s.business_type=${param(d.seller_type)}`);
   if (d.min_price !== undefined || d.max_price !== undefined) {
     ensure(
@@ -206,6 +215,8 @@ export function createGeographyService(deps: AppDeps) {
   async function updateSellerLocation(q: Query, u: any, input: RequestInput) {
     const d = coordinates
       .extend({
+        state: z.string().trim().max(100).optional(),
+        lga: z.string().trim().max(100).optional(),
         address: z.string().trim().min(8).max(500),
         city: z.string().trim().min(2).max(100),
         area: z.string().trim().min(2).max(100),
@@ -219,6 +230,10 @@ export function createGeographyService(deps: AppDeps) {
       "UPDATE sellers SET address=$1,city=$2,area=$3,status='PENDING',reason=NULL WHERE user_id=$4",
       [d.address, d.city, d.area, u.id],
     );
+    await q.query(
+      'UPDATE sellers SET state=COALESCE($1,state),lga=COALESCE($2,lga) WHERE user_id=$3',
+      [d.state ?? null, d.lga ?? null, u.id],
+    );
     await setLocation(q, u.id, d);
     await q.query(
       'INSERT INTO location_history(id,seller_id,actor_id,before_data,after_data,reason) VALUES($1,$2,$3,$4,$5,$6)',
@@ -228,6 +243,10 @@ export function createGeographyService(deps: AppDeps) {
         u.id,
         JSON.stringify({
           address: seller.address,
+          state: seller.state,
+          lga: seller.lga,
+          city: seller.city,
+          area: seller.area,
           latitude: seller.latitude,
           longitude: seller.longitude,
         }),
@@ -239,7 +258,9 @@ export function createGeographyService(deps: AppDeps) {
     return { ok: true, status: 'PENDING' };
   }
   async function search(user: any, input: RequestInput) {
-    return await searchListings(db, searchInput.parse(input.query));
+    const d = searchInput.parse(input.query);
+    await discoveryEvent(db, user.id, 'SEARCH', undefined, d.category);
+    return await searchListings(db, d);
   }
   async function createMarket(q: Query, u: any, input: RequestInput) {
     const d = coordinates

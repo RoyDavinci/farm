@@ -1,4 +1,4 @@
-import { statusLabel, type Seller } from '@farmers-market/shared';
+import { statusLabel, type Seller } from '@zuru/shared';
 import { ArrowUpRight } from 'lucide-react';
 import { useState } from 'react';
 import { useAdmin } from '../AdminContext';

@@ -1,0 +1,1 @@
+ALTER TABLE bookings ADD COLUMN offer_version INTEGER NOT NULL DEFAULT 0;

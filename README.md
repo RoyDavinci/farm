@@ -1,6 +1,39 @@
-# Farmers Market
+# Zuru
+
+Test environment: [AWS test server](docs/deploy-aws-test.md) — https://app.35-177-195-6.sslip.io (web app), https://admin.35-177-195-6.sslip.io (admin), https://api.35-177-195-6.sslip.io/v1 (API).
 
 Express + TypeScript API, Expo React Native buyer/seller/driver app, and React operations console. It covers the marketplace and booking loop, wallet payments, seller and driver payouts, delivery by verified drivers, sponsored listings, pre-orders, and staff roles. See [build progress](docs/build-progress.md) for the full feature list and what still needs accounts or decisions.
+
+## General marketplace revamp
+
+The app now supports general goods across Nigeria, including electronics, fashion, home goods, furniture, groceries and the existing farm categories. Individuals, shops, online stores, wholesalers and manufacturers can apply to sell. Listings support new, used or refurbished condition and units such as pieces, pairs, sets, packs and boxes. Existing listings and seller accounts remain compatible. The new public brand name is still to be chosen; package names, app identifiers and deep links retain their existing values.
+
+Buyers choose a verified nearby rider for an accepted order. The selected rider must accept; that invitation is not exposed to other riders. Nearby search uses online riders with a location updated in the last five minutes, excludes riders already on jobs, and shows approximate distance rather than precise live coordinates.
+
+The new **Riders** section also supports **buy-for-me shopping requests** for goods from a specified shop, market or other place:
+
+1. Set the delivery location, select a nearby rider, describe the goods and source location, and set a maximum **goods-only** budget. The delivery fee is separate.
+2. Send the request and discuss alternatives and the payment arrangement in its private chat. Sending a request does not take money.
+3. The rider agrees a delivery fee and either reimbursement or an app advance. The buyer reviews the current terms and funds the goods cap plus delivery fee from the wallet. Unfunded requests expire after 24 hours.
+4. With **reimbursement**, the rider pays the shop and receives the actual goods cost after delivery. With an **advance**, the goods budget is held in a request-specific advance account. The rider may request a bank payout from that account after setting up a bank account in Wallet. Existing staff approval, payout minimums, transfer fees and interrupted-payout recovery apply. Fees are shown before withdrawal and deducted from the withdrawal; the rider remains responsible for the goods budget.
+5. The rider records the actual goods cost and itemised receipt details. The server rejects costs above the buyer's cap. Pending advance payouts must finish first. Unused paid-out advance must be returned from the rider's wallet; any unwithdrawn advance is reconciled automatically.
+6. The buyer receives a private delivery PIN after purchase is recorded. The rider confirms delivery with that PIN. The unused goods budget returns to the buyer, and the rider receives the remaining reimbursement plus the delivery fee after delivery commission. Goods reimbursement is not charged the marketplace sales commission.
+
+Riders may attach up to six receipt photos (JPEG, PNG or WebP, 5 MB each) while shopping or delivering an unpaused request. Photos are re-encoded to remove metadata and stored privately using the records storage provider. Only participants and authorised shopping staff can obtain short-lived viewing links. Receipt text remains available alongside photos; photos are optional and remain accessible after delivery.
+
+Shopping requests also show the assigned rider’s live map during shopping and delivery. Riders opt in to location sharing from the request detail; updates run every 15 seconds while that screen and the app are active. Online Drive mode also updates active shopping requests. Buyers and staff refresh the request every 10 seconds, see the last update time, and are warned when it is over a minute old. Paused, cancelled and delivered requests do not expose the rider’s location. This is foreground tracking; continuous tracking while the app is closed or in the background is not included. Maps use the existing public Mapbox configuration, with a timestamp/status fallback if maps are unavailable.
+
+Before purchase, an unspent request can be cancelled. An advance already paid out cannot be refunded twice: the rider must return it before cancellation is settled. Either participant can pause an active request for support review. Staff inspect the request and chat under **Shopping** in the admin console and may pause or resume it with an audited reason. Pausing does not reverse an already submitted bank transfer.
+
+The reservation window remains one week and the normal marketplace sales commission remains 5%. Shopping delivery uses the existing configurable delivery commission. Apply pending migrations with `npm run db:migrate` before running the updated app. The local simulated walkthrough exercised both shopping payment modes and buyer-selected order delivery; automated tests for these additions are deferred. Live advances and provider transfers have not been exercised.
+
+## Local Status
+
+Market now includes seller/status circles and a paginated local photo/video feed linked to existing listings. Approved sellers publish and manage updates from Sell. Posts expire after 24 hours by default, respect product availability, and can be discovered by nearby GPS radius or a manually selected state/LGA. Seller location settings collect state/LGA with the existing re-approval/audit process. Photos use the existing compressed media upload/storage; exact pickup details are not exposed by the feed.
+
+Buyers can open products, report posts and mute sellers/categories. Sellers see aggregate story views and product clicks, split by organic/sponsored traffic. Admin **Local Status** handles reports/removal; **Settings** controls lifetime, radius and active-post limits. A linked listing with an active paid promotion is labelled Sponsored. Short videos (up to 30 seconds), reviewed Boost Status campaigns with state/LGA or state/city targeting, and server-verified booking conversion attribution are implemented. Sellers review campaign cost before funding from earnings; staff approve reach, and unused campaign time is refunded when stopped. See [status media and campaigns](docs/status-media-campaigns.md) for limits, FFmpeg setup, campaign accounting and attribution rules.
+
+Status publishing never broadcasts notifications. Optional new-product alerts from favourite sellers require the separate **Promotional notifications** account preference (off by default) and are capped at one per buyer per 24 hours. See [updated brief review](docs/updated-brief-review.md) for the implementation map and remaining scope. Apply the pending migrations before starting the updated API.
 
 ## Run locally
 
@@ -22,17 +55,17 @@ npm run dev:mobile
 
 Open the admin at http://localhost:5173. Scan Expo's QR code with a compatible Expo Go or development build, or run `npm run dev:mobile:web` and open http://localhost:8095. The API runs at http://localhost:4000.
 
-`npm run setup` creates ignored local environment files (including a random local database password in the repo-root `.env`), starts PostgreSQL with Docker Compose, applies the Prisma migrations and seeds demo accounts. If port 5432 is taken, it uses 5433. On a newly configured checkout their password is `FarmersMarket2026!`. If `.env` already exists, setup preserves it and uses its `SEED_PASSWORD`. Rerunning seed does not overwrite existing account passwords.
+`npm run setup` creates ignored local environment files (including a random local database password in the repo-root `.env`), starts PostgreSQL with Docker Compose, applies the Prisma migrations and seeds demo accounts. If port 5432 is taken, it uses 5433. On a newly configured checkout their password is `ZuruDemo2026!`. If `.env` already exists, setup preserves it and uses its `SEED_PASSWORD`. Rerunning seed does not overwrite existing account passwords.
 
-| Account | Email                 | Purpose                                            |
-| ------- | --------------------- | -------------------------------------------------- |
-| Admin   | admin@farmers.market  | Review sellers and operate the marketplace         |
-| Seller  | seller@farmers.market | Approved seller with example produce               |
-| Buyer   | buyer@farmers.market  | Browse, book, fund a simulated wallet, and collect |
+| Account | Email               | Purpose                                            |
+| ------- | ------------------- | -------------------------------------------------- |
+| Admin   | admin@zuru.example  | Review sellers and operate the marketplace         |
+| Seller  | seller@zuru.example | Approved seller with example products              |
+| Buyer   | buyer@zuru.example  | Browse, book, fund a simulated wallet, and collect |
 
-PostgreSQL runs in Docker (`docker compose up -d`; data persists in a Docker volume). The schema is managed by Prisma: `apps/api/prisma/schema.prisma` is the schema of record and `apps/api/prisma/migrations` holds the SQL migrations. `npm run dev` applies pending migrations before starting the API. To change the schema, edit `schema.prisma` and run `npm run db:migrate:dev -w @farmers-market/api -- --name <change>`. Tests use a separate `farmers_market_test` database that is rebuilt on every run.
+PostgreSQL runs in Docker (`docker compose up -d`; data persists in a Docker volume). The schema is managed by Prisma: `apps/api/prisma/schema.prisma` is the schema of record and `apps/api/prisma/migrations` holds the SQL migrations. `npm run dev` applies pending migrations before starting the API. To change the schema, edit `schema.prisma` and run `npm run db:migrate:dev -w @zuru/api -- --name <change>`. Tests use a separate `farmers_market_test` database that is rebuilt on every run.
 
-Databases created before the Prisma switch (on PostgreSQL) need a one-time `npx prisma migrate resolve --applied 0_init` in `apps/api`. Data from the old embedded PGlite database is not migrated automatically; it is left untouched in `apps/api/.data/farmers-market`.
+Databases created before the Prisma switch (on PostgreSQL) need a one-time `npx prisma migrate resolve --applied 0_init` in `apps/api`. Data from the old embedded PGlite database is not migrated automatically; it is left untouched in `apps/api/.data/zuru`.
 
 ## Try the first flow
 
@@ -46,7 +79,7 @@ Databases created before the Prisma switch (on PostgreSQL) need a one-time `npx 
 8. On collection, give that code to the seller. The seller enters it and confirms pickup. Completion credits seller proceeds less the **5% commission** to the seller payable ledger account.
 9. The admin can inspect the booking timeline, balanced ledger entries, and audit log.
 
-Buyer and seller roles share an account but a seller cannot book their own produce. The seller can never retrieve a buyer's pickup code from the API. Cancellations and expiry release reserved stock and refund held wallet payments. Invalid pickup codes are logged and five failed attempts lock confirmation for 15 minutes. A background sweep checks expiry every 30 seconds; reads and order actions also check expiry.
+Buyer and seller roles share an account but a seller cannot book their own listings. The seller can never retrieve a buyer's pickup code from the API. Cancellations and expiry release reserved stock and refund held wallet payments. Invalid pickup codes are logged and five failed attempts lock confirmation for 15 minutes. A background sweep checks expiry every 30 seconds; reads and order actions also check expiry.
 
 Use a private browser window or separate browser profile to keep buyer, seller and administrator sessions separate. Sessions are per browser tab on web; native tokens use Expo SecureStore. Pull down to refresh mobile screens; data also refreshes every 20 seconds.
 
@@ -93,7 +126,7 @@ Useful commands:
 ```sh
 npm run typecheck
 npm run build
-npm run export:web -w @farmers-market/mobile
+npm run export:web -w @zuru/mobile
 npm run db:migrate
 npm run db:seed
 npm test
@@ -113,7 +146,7 @@ For real email delivery, configure `apps/api/.env`:
 
 ```dotenv
 MAIL_MODE=smtp
-MAIL_FROM=Farmers Market <no-reply@your-domain.example>
+MAIL_FROM=Zuru <no-reply@your-domain.example>
 SMTP_HOST=smtp.your-provider.example
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -124,7 +157,7 @@ OTP_SECRET=your-random-secret-with-at-least-32-characters
 
 Port 587 uses required STARTTLS. For implicit TLS on port 465, use `SMTP_SECURE=true`. Credentials stay on the server. Use a sender your mail provider permits; configure its domain records according to that provider's instructions. See [Nodemailer SMTP documentation](https://nodemailer.com/smtp).
 
-Until SMTP is configured, local `MAIL_MODE=file` uses Nodemailer's stream transport and saves private `.eml` files in `apps/api/.data/farmers-market/mail`. Open the newest verification-code email locally to obtain the development code. These files are not served by the API; no code is returned in an HTTP response. Restart the API after changing environment settings. Production startup requires SMTP and an OTP secret and never permits file delivery. New checkout setup generates an OTP secret automatically.
+Until SMTP is configured, local `MAIL_MODE=file` uses Nodemailer's stream transport and saves private `.eml` files in `apps/api/.data/zuru/mail`. Open the newest verification-code email locally to obtain the development code. These files are not served by the API; no code is returned in an HTTP response. Restart the API after changing environment settings. Production startup requires SMTP and an OTP secret and never permits file delivery. New checkout setup generates an OTP secret automatically.
 
 Access tokens expire after 30 minutes; clients rotate refresh credentials automatically for up to 30 days. Reusing an already consumed refresh credential revokes its device session. Account settings list signed-in devices and allow revocation. Existing pre-OTP sessions are invalidated when the account migration is applied.
 

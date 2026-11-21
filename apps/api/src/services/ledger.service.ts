@@ -7,7 +7,15 @@ export interface LedgerPosting {
   owner?: string;
   amount: number;
 }
-const spendableAccounts = new Set(['wallet', 'seller_payable']);
+const spendableAccounts = new Set([
+  'wallet',
+  'seller_payable',
+  'shopping_advance',
+  'shopping_escrow',
+  'boost_escrow',
+  'return_escrow',
+  'parcel_escrow',
+]);
 
 /**
  * Account locks are independent of the acting user's row: staff refunds and a seller's

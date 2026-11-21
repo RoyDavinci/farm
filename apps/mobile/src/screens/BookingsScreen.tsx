@@ -1,16 +1,23 @@
-import { statusLabel, type Booking, type OrderEvent } from '@farmers-market/shared';
+import ReturnJourneysPanel from '../ReturnJourneysPanel';
+import PreorderInterestPanel from '../PreorderInterestPanel';
+import { statusLabel, type Booking, type OrderEvent } from '@zuru/shared';
 import { Text, View } from 'react-native';
+import { useApp } from '../AppContext';
+import { featureOn } from '../features';
 import { useI18n } from '../i18n';
 import { Back, Empty, s } from '../ui';
 import BookingCard from './BookingCard';
 
 export function BookingsScreen({ outgoing }: { outgoing: Booking[] }) {
   const { t } = useI18n();
+  const { settings } = useApp();
   return (
     <>
       <Text style={s.eyebrow}>{t('bookings.eyebrow')}</Text>
       <Text style={s.heading}>{t('bookings.heading')}</Text>
       <Text style={s.subtitle}>{t('bookings.subtitle')}</Text>
+      {featureOn(settings, 'preorders') && <PreorderInterestPanel />}
+      <ReturnJourneysPanel />
       {outgoing.length ? (
         outgoing.map((b) => <BookingCard key={b.id} booking={b} isSeller={false} />)
       ) : (

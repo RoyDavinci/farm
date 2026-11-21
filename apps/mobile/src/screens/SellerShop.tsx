@@ -1,4 +1,5 @@
-import { money, statusLabel, type Listing } from '@farmers-market/shared';
+import PublicSellerInfo from '../PublicSellerInfo';
+import { money, statusLabel, type Listing } from '@zuru/shared';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
@@ -37,13 +38,14 @@ export default function SellerShop({ sellerId, onBack }: { sellerId: string; onB
             {seller.city.toUpperCase()}
           </Text>
           <Text style={s.heading}>{seller.business_name}</Text>
+          <PublicSellerInfo sellerId={sellerId} />
           <SellerTrust sellerId={sellerId} />
           <Button
             secondary
             title="Share shop on WhatsApp"
             onPress={() => void shareOnWhatsApp(shopMessage(seller))}
           />
-          <Text style={s.sectionTitle}>Produce from this seller</Text>
+          <Text style={s.sectionTitle}>Products from this seller</Text>
           {listings.length ? (
             <View style={s.productGrid}>
               {listings.map((l) => (
@@ -75,7 +77,7 @@ export default function SellerShop({ sellerId, onBack }: { sellerId: string; onB
           ) : (
             <Empty
               title="Nothing listed right now"
-              text="Save this seller to hear about new produce."
+              text="Save this seller to hear about new products."
             />
           )}
           {sellerId === me.id && <Text style={s.fine}>This is how buyers see your shop.</Text>}

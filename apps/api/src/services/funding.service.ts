@@ -1,4 +1,8 @@
-import type { Database } from '../database/client.js';
+import type { Config } from '../config/index.js';
+import type { Database, Query } from '../database/client.js';
+import type { RequestInput } from '../lib/http.js';
+import { logger } from '../lib/logger.js';
+import type { AppDeps } from '../types/deps.js';
 import { ensure } from '../lib/errors.js';
 import { ledger } from './ledger.service.js';
 import { paymentService, type Provider } from './payment-provider.service.js';
@@ -9,6 +13,7 @@ import { paymentService, type Provider } from './payment-provider.service.js';
  */
 export async function verifyFunding(
   db: Database,
+  c: Config,
   payments: ReturnType<typeof paymentService>,
   ref: string,
   provider?: Provider,
@@ -39,12 +44,40 @@ export async function verifyFunding(
       { account: 'provider_clearing', amount: -f.amount_kobo },
       { account: 'wallet', owner: f.user_id, amount: f.amount_kobo },
     ]);
-    await q.query("UPDATE funding SET status='SUCCESSFUL',provider_id=$1 WHERE id=$2", [
-      result.id,
-      ref,
-    ]);
+    await q.query(
+      "UPDATE funding SET status='SUCCESSFUL',provider_id=$1,credited_at=now() WHERE id=$2",
+      [result.id, ref],
+    );
+    if (locked.purpose === 'booking' && locked.target_id)
+      await applyToBooking(q, c, { user_id: locked.user_id, target_id: locked.target_id });
     return { ok: true };
   });
+}
+
+/**
+ * A direct booking checkout pays that booking as soon as the money is confirmed, through the
+ * normal booking "pay" rules. If the booking can no longer be paid (expired, cancelled, already
+ * paid), the money stays as an unapplied balance, which is refunded to the card when the wallet
+ * feature is off.
+ */
+async function applyToBooking(q: Query, c: Config, f: { user_id: string; target_id: string }) {
+  const { createBookingsService } = await import('./booking.service.js');
+  const bookings = createBookingsService({ db: null, config: c } as unknown as AppDeps);
+  await q.query('SAVEPOINT apply_checkout');
+  try {
+    const result = await bookings.performBookingAction(q, { id: f.user_id }, {
+      params: { id: f.target_id, action: 'pay' },
+      body: {},
+    } as unknown as RequestInput);
+    if (result && 'error' in result) throw new Error(result.error?.code ?? 'NOT_APPLIED');
+    await q.query('RELEASE SAVEPOINT apply_checkout');
+  } catch (error) {
+    await q.query('ROLLBACK TO SAVEPOINT apply_checkout');
+    logger.warn('checkout not applied to booking; it will be refunded', {
+      booking: f.target_id,
+      reason: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 /** Hosted checkout uses short claim/finalize transactions around external I/O. */
@@ -96,8 +129,13 @@ export async function startFunding(
   c: import('../config/index.js').Config,
   actor: FundingActor,
   identity: { key: string; fingerprint: string },
-  input: import('../validators/funding.validators.js').FundingInput,
+  input: import('../validators/funding.validators.js').FundingInput & {
+    purpose?: 'wallet' | 'booking' | 'delivery';
+    target_id?: string;
+  },
 ): Promise<FundingCheckout> {
+  const purpose = input.purpose ?? 'wallet',
+    target = input.target_id ?? null;
   const payments = paymentService(c);
   const { randomUUID } = await import('node:crypto');
   const { AppError } = await import('../lib/errors.js');
@@ -163,8 +201,8 @@ export async function startFunding(
     );
     const reference = `fm-${randomUUID()}`;
     await q.query(
-      "INSERT INTO funding(id,user_id,provider,amount_kobo,status) VALUES($1,$2,$3,$4,'INITIALIZING')",
-      [reference, actor.id, input.provider, input.amount_kobo],
+      "INSERT INTO funding(id,user_id,provider,amount_kobo,status,purpose,target_id) VALUES($1,$2,$3,$4,'INITIALIZING',$5,$6)",
+      [reference, actor.id, input.provider, input.amount_kobo, purpose, target],
     );
     await q.query(
       'INSERT INTO funding_intents(actor_id,key,request_hash,requested_provider,current_reference,lease_until) VALUES($1,$2,$3,$4,$5,$6)',
@@ -226,8 +264,8 @@ export async function startFunding(
           [reference],
         );
         await q.query(
-          "INSERT INTO funding(id,user_id,provider,amount_kobo,status) VALUES($1,$2,'flutterwave',$3,'INITIALIZING')",
-          [fallbackReference, actor.id, input.amount_kobo],
+          "INSERT INTO funding(id,user_id,provider,amount_kobo,status,purpose,target_id) VALUES($1,$2,'flutterwave',$3,'INITIALIZING',$4,$5)",
+          [fallbackReference, actor.id, input.amount_kobo, purpose, target],
         );
         await q.query(
           'UPDATE funding_intents SET current_reference=$1,updated_at=now() WHERE actor_id=$2 AND key=$3 AND current_reference=$4',

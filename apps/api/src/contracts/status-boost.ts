@@ -1,0 +1,40 @@
+import { z } from 'zod';
+const target = z.object({ state: z.string(), kind: z.enum(['LGA', 'CITY']), name: z.string() });
+const campaign = z.looseObject({
+  id: z.string(),
+  status_id: z.string(),
+  seller_id: z.string(),
+  status: z.string(),
+  hours: z.number(),
+  fee_kobo: z.number(),
+  refund_kobo: z.number(),
+  targets: z.array(target),
+  created_at: z.string(),
+  starts_at: z.string().nullable(),
+  ends_at: z.string().nullable(),
+  reason: z.string().nullable(),
+  title: z.string(),
+  media_type: z.enum(['IMAGE', 'VIDEO']),
+  media_url: z.string(),
+  thumbnail_url: z.string(),
+  caption: z.string(),
+  status_expires_at: z.string(),
+  views: z.number(),
+  product_clicks: z.number(),
+  bookings: z.number(),
+  completed_bookings: z.number(),
+});
+export const statusBoostResponses: Record<string, z.ZodType> = {
+  'status-boost.quote': z.object({
+    hours: z.number(),
+    targets: z.array(target),
+    fee_kobo: z.number(),
+    hourly_kobo: z.number(),
+    status_expires_at: z.string(),
+  }),
+  'status-boost.create': z.object({ id: z.string(), status: z.string(), fee_kobo: z.number() }),
+  'status-boost.mine': z.array(campaign),
+  'status-boost.list': z.array(campaign.extend({ business_name: z.string() })),
+  'status-boost.cancel': z.object({ ok: z.boolean(), refund_kobo: z.number() }),
+  'status-boost.review': z.object({ ok: z.boolean(), refund_kobo: z.number() }),
+};

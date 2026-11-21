@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import type { RedisClient } from './redis.js';
 import { logger } from './logger.js';
 
-const CHANNEL = 'farmers-market:user-sync';
+const CHANNEL = 'zuru:user-sync';
 
 /**
  * "Something changed for this user" events that the realtime hub turns into a client refresh.

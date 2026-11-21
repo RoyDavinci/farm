@@ -32,11 +32,11 @@ npx eas-cli@latest init
 npx eas-cli@latest build --platform android --profile preview
 ```
 
-EAS creates the Android signing key the first time. When the build finishes, open its link on an Android phone and install the APK. It talks to staging (`EXPO_PUBLIC_API_URL` in the `preview` profile), so if your staging API host isn't `farmers-market-api.onrender.com`, update that URL first.
+EAS creates the Android signing key the first time. When the build finishes, open its link on an Android phone and install the APK. It talks to the AWS test environment (`EXPO_PUBLIC_API_URL` in the `preview` profile: `https://api.35-177-195-6.sslip.io/v1`, see [test environment](deploy-aws-test.md)).
 
 **Push on Android needs Firebase:**
 
-1. In the Firebase console, create a project and add an Android app with package `market.farmers.app`.
+1. In the Firebase console, create a project and add an Android app with package `ng.zuru.app`.
 2. Download `google-services.json` and upload it with `npx eas-cli@latest credentials` (Android → Google Service Account / FCM V1).
 
 Without Firebase, the app works but receives no pushes.

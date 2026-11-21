@@ -1,9 +1,10 @@
-import type { Listing, operations } from '@farmers-market/shared';
+import type { Listing, operations } from '@zuru/shared';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { uploadPhoto } from '../api';
 import { useApp } from '../AppContext';
+import { featureOn } from '../features';
 import { drafts, withRetry } from '../offline';
 import { request } from '../request';
 import { Back, Button, categories, Chip, Field, s } from '../ui';
@@ -14,10 +15,13 @@ type ListingInput =
   operations['marketplace.createListing']['requestBody']['content']['application/json'];
 
 const blankListing = {
+  pickup_available: true,
+  delivery_available: true,
   title: '',
   description: '',
-  category: 'Vegetables',
-  unit: 'kg',
+  category: 'Other',
+  condition: 'NEW',
+  unit: 'piece',
   price: '',
   stock: '',
   image_url: '',
@@ -28,9 +32,12 @@ const blankListing = {
 };
 function draftFrom(l: Listing): typeof blankListing {
   return {
+    pickup_available: l.pickup_available,
+    delivery_available: l.delivery_available,
     title: l.title,
     description: l.description,
     category: l.category,
+    condition: l.condition || 'NEW',
     unit: l.unit,
     price: String(l.price_kobo / 100),
     stock: String(l.stock),
@@ -60,7 +67,7 @@ export default function ListingEditor({
   listing: Listing | null;
   onDone: () => void;
 }) {
-  const { busy, run } = useApp();
+  const { settings, busy, run } = useApp();
   const editingId = listing?.id ?? null;
   const [draft, setDraft] = useState(() => (listing ? draftFrom(listing) : blankListing));
   // New listings are saved as a local draft so nothing is lost if the app closes or goes offline.
@@ -83,7 +90,7 @@ export default function ListingEditor({
       if (camera) {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
         if (!permission.granted)
-          throw new Error('Camera permission is needed to take a produce photo.');
+          throw new Error('Camera permission is needed to take a product photo.');
       }
       const options: ImagePicker.ImagePickerOptions = {
         mediaTypes: ['images'],
@@ -109,9 +116,9 @@ export default function ListingEditor({
   return (
     <>
       <Back onPress={onDone} />
-      <Text style={s.heading}>{editingId ? 'Update your produce' : 'Something fresh to sell'}</Text>
+      <Text style={s.heading}>{editingId ? 'Update your listing' : 'List something for sale'}</Text>
       <Text style={s.subtitle}>Prices and available stock take effect immediately.</Text>
-      {field('Produce name', draft.title, (v) => setDraft({ ...draft, title: v }))}
+      {field('Product name', draft.title, (v) => setDraft({ ...draft, title: v }))}
       {field('Description', draft.description, (v) => setDraft({ ...draft, description: v }), {
         multiline: true,
       })}
@@ -121,7 +128,19 @@ export default function ListingEditor({
         (v) => setDraft({ ...draft, image_url: v }),
         { autoCapitalize: 'none', keyboardType: 'url' },
       )}
-      <Text style={s.label}>Produce photos ({draft.image_urls.length}/6)</Text>
+      <View style={s.chipWrap}>
+        <Chip
+          title="Collection available"
+          active={draft.pickup_available}
+          onPress={() => setDraft({ ...draft, pickup_available: !draft.pickup_available })}
+        />
+        <Chip
+          title="Rider delivery available"
+          active={draft.delivery_available}
+          onPress={() => setDraft({ ...draft, delivery_available: !draft.delivery_available })}
+        />
+      </View>
+      <Text style={s.label}>Product photos ({draft.image_urls.length}/6)</Text>
       <ScrollView horizontal contentContainerStyle={{ gap: 10 }}>
         {draft.image_urls.map((url) => (
           <View key={url} style={{ gap: 6 }}>
@@ -156,7 +175,7 @@ export default function ListingEditor({
       </View>
       <Text style={s.label}>Category</Text>
       <View style={s.chipWrap}>
-        {categories.slice(1).map((c) => (
+        {(settings?.catalog?.categories || categories.slice(1)).map((c) => (
           <Chip
             key={c}
             title={c}
@@ -165,28 +184,41 @@ export default function ListingEditor({
           />
         ))}
       </View>
-      <View style={s.orderCard}>
-        <Text style={s.label}>Pre-orders (optional)</Text>
-        <Text style={s.fine}>
-          Not harvested yet? Set the date it will be ready and how many units buyers may pre-order.
-          Collection holds start from that date.
-        </Text>
-        {field(
-          'Ready from (YYYY-MM-DD)',
-          draft.harvest,
-          (v) => setDraft({ ...draft, harvest: v }),
-          {
-            placeholder: 'e.g. 2026-12-20',
-            autoCapitalize: 'none',
-          },
-        )}
-        {field(
-          'Units available for pre-order',
-          draft.preorder,
-          (v) => setDraft({ ...draft, preorder: v.replace(/\D/g, '') }),
-          { keyboardType: 'number-pad' },
-        )}
+      <Text style={s.label}>Condition</Text>
+      <View style={s.chipWrap}>
+        {['NEW', 'USED', 'REFURBISHED'].map((condition) => (
+          <Chip
+            key={condition}
+            title={condition.toLowerCase()}
+            active={draft.condition === condition}
+            onPress={() => setDraft({ ...draft, condition })}
+          />
+        ))}
       </View>
+      {featureOn(settings, 'preorders') && (
+        <View style={s.orderCard}>
+          <Text style={s.label}>Pre-orders (optional)</Text>
+          <Text style={s.fine}>
+            Not available yet? Set the ready date and the number of units buyers may pre-order.
+            Collection holds start from that date.
+          </Text>
+          {field(
+            'Ready from (YYYY-MM-DD)',
+            draft.harvest,
+            (v) => setDraft({ ...draft, harvest: v }),
+            {
+              placeholder: 'e.g. 2026-12-20',
+              autoCapitalize: 'none',
+            },
+          )}
+          {field(
+            'Units available for pre-order',
+            draft.preorder,
+            (v) => setDraft({ ...draft, preorder: v.replace(/\D/g, '') }),
+            { keyboardType: 'number-pad' },
+          )}
+        </View>
+      )}
       <VariantEditor
         value={draft.variants}
         onChange={(variants) => setDraft({ ...draft, variants })}
@@ -206,11 +238,14 @@ export default function ListingEditor({
               available_from = new Date(`${draft.harvest.trim()}T08:00:00`).toISOString();
             }
             const body: ListingInput = {
+              pickup_available: draft.pickup_available,
+              delivery_available: draft.delivery_available,
               available_from,
               preorder_capacity: available_from ? Number(draft.preorder || 0) : 0,
               title: draft.title,
               description: draft.description,
               // The chip lists offer exactly the API's categories and units.
+              condition: draft.condition as ListingInput['condition'],
               category: draft.category as ListingInput['category'],
               unit: primary.unit as ListingInput['unit'],
               price_kobo: primary.price_kobo,

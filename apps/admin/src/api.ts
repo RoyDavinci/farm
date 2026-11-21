@@ -1,4 +1,4 @@
-import { createRequest } from '@farmers-market/shared';
+import { createRequest } from '@zuru/shared';
 // VITE_API_URL wins; on Render the API's hostname arrives as VITE_API_HOST.
 const base =
   import.meta.env.VITE_API_URL ||

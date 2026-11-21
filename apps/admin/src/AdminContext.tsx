@@ -1,6 +1,15 @@
-import type { Booking, Seller } from '@farmers-market/shared';
+import type { Booking, Seller } from '@zuru/shared';
 import { createContext, useContext } from 'react';
 export type Page =
+  | 'Regional fares'
+  | 'Delivery incidents'
+  | 'Analytics'
+  | 'Returns'
+  | 'Appeals'
+  | 'Parcels'
+  | 'Regions'
+  | 'Catalogue'
+  | 'Policies'
   | 'Overview'
   | 'Sellers'
   | 'Bookings'
@@ -15,8 +24,12 @@ export type Page =
   | 'Disputes'
   | 'Reconciliation'
   | 'Payouts'
+  | 'Refunds'
   | 'Promotions'
   | 'Drivers'
+  | 'Shopping'
+  | 'Local Status'
+  | 'Status boosts'
   | 'Deliveries'
   | 'Staff';
 export interface AdminState {

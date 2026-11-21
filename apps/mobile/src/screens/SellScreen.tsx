@@ -1,13 +1,10 @@
-import {
-  money,
-  statusLabel,
-  type Booking,
-  type Listing,
-  type Seller,
-} from '@farmers-market/shared';
+import ProfileDetailsPanel from '../ProfileDetailsPanel';
+import LocalStatusPublisher from '../LocalStatusPublisher';
+import { money, statusLabel, type Booking, type Listing, type Seller } from '@zuru/shared';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useApp } from '../AppContext';
+import { featureOn } from '../features';
 import { useI18n } from '../i18n';
 import { LocationPicker, SellerLocationPanel } from '../LocationEditor';
 import { request } from '../request';
@@ -30,7 +27,9 @@ export default function SellScreen({
   const { t } = useI18n();
   const [profile, setProfile] = useState({
     business_name: '',
-    business_type: 'farm' as Seller['business_type'],
+    state: '',
+    lga: '',
+    business_type: 'individual' as Seller['business_type'],
     city: '',
     area: '',
     address: '',
@@ -46,6 +45,7 @@ export default function SellScreen({
       <Text style={s.eyebrow}>{t('sell.eyebrow')}</Text>
       <Text style={s.heading}>{seller ? seller.business_name : 'Meet your next customer.'}</Text>
       {seller && <SellerLocationPanel seller={seller} onSaved={refresh} />}
+      {seller && <ProfileDetailsPanel subject="seller" />}
       {seller && seller.status !== 'REJECTED' && <VerificationDocuments />}
       {!seller || seller.status === 'REJECTED' ? (
         <>
@@ -54,12 +54,18 @@ export default function SellScreen({
               ? `Application feedback: ${seller.reason}`
               : 'Tell us about your business. An administrator will review your application before you can publish.'}
           </Text>
-          {field('Business name', profile.business_name, (v) =>
+          {field('Shop or seller name', profile.business_name, (v) =>
             setProfile({ ...profile, business_name: v }),
           )}
-          <Text style={s.label}>Business type</Text>
+          <Text style={s.label}>Seller type</Text>
           <View style={s.chipWrap}>
-            {(['farm', 'shop', 'market_stall', 'home_based'] as const).map((type) => (
+            {(
+              (settings?.catalog?.seller_types || [
+                'individual',
+                'shop',
+                'farm',
+              ]) as Seller['business_type'][]
+            ).map((type) => (
               <Chip
                 key={type}
                 title={statusLabel(type)}
@@ -68,6 +74,10 @@ export default function SellScreen({
               />
             ))}
           </View>
+          {field('State', profile.state, (v) => setProfile({ ...profile, state: v }))}
+          {field('Local Government Area (LGA)', profile.lga, (v) =>
+            setProfile({ ...profile, lga: v }),
+          )}
           {field('City', profile.city, (v) => setProfile({ ...profile, city: v }))}
           {field('Area / community', profile.area, (v) => setProfile({ ...profile, area: v }))}
           {field(
@@ -106,7 +116,7 @@ export default function SellScreen({
           <Badge status={seller.status} />
           <Text style={s.sectionTitle}>
             {seller.status === 'PENDING'
-              ? 'Your growing journey starts here'
+              ? 'Your selling journey starts here'
               : 'Your seller account is suspended'}
           </Text>
           <Text style={s.body}>
@@ -135,15 +145,22 @@ export default function SellScreen({
               onPress={() => void shareOnWhatsApp(shopMessage(seller))}
             />
           </View>
+          {featureOn(settings, 'local_status') && <LocalStatusPublisher listings={mine} />}
           <SellerAnalytics refreshVersion={incoming.length + mine.length} />
           <Button title={t('sell.addProduce')} onPress={() => onEditListing(null)} />
           <Text style={s.sectionTitle}>{t('sell.listings')}</Text>
+          <Text style={s.fine}>
+            Archived listings stay in your history. Restore them, then edit and publish when ready.
+          </Text>
           {mine.length ? (
             mine.map((l) => (
               <View key={l.id} style={s.orderCard}>
                 <View style={s.rowBetween}>
                   <Text style={s.cardTitle}>{l.title}</Text>
                   <Badge status={l.status} />
+                  <Text style={s.fine}>
+                    Stock checked {new Date(l.confirmed_at).toLocaleDateString()}
+                  </Text>
                 </View>
                 <Text style={s.body}>
                   {money(l.price_kobo)} / {l.unit} · {l.stock} available
@@ -168,13 +185,55 @@ export default function SellScreen({
                     }
                   />
                 </View>
-                <PromoteListing listing={l} />
+                <Button
+                  secondary
+                  title="Reconfirm current stock"
+                  disabled={busy}
+                  onPress={() =>
+                    void run(async () => {
+                      await request('post', '/listings/{id}/confirm-stock', {
+                        params: { id: l.id },
+                      });
+                    }, 'Stock reconfirmed.')
+                  }
+                />
+                <Button
+                  secondary
+                  title={l.archived_at ? 'Restore archived listing' : 'Archive listing'}
+                  disabled={busy}
+                  onPress={() =>
+                    void run(async () => {
+                      await request('post', '/listings/{id}/archive', {
+                        params: { id: l.id },
+                        body: { archived: !l.archived_at },
+                      });
+                    }, 'Catalogue entry updated; restored items stay paused until published.')
+                  }
+                />
+                <Button
+                  secondary
+                  title={
+                    l.preorder_advance_allowed
+                      ? 'Disable pre-order advance payments'
+                      : 'Preview accepting pre-order advances'
+                  }
+                  disabled={busy}
+                  onPress={() =>
+                    void run(async () => {
+                      await request('put', '/listings/{id}/advance-preference', {
+                        params: { id: l.id },
+                        body: { allowed: !l.preorder_advance_allowed },
+                      });
+                    }, 'Pre-order payment preference updated; enabling advances is simulation-only until provider approval.')
+                  }
+                />
+                {featureOn(settings, 'promotions') && <PromoteListing listing={l} />}
               </View>
             ))
           ) : (
             <Empty
-              title="Make your first listing"
-              text="Add your produce, price and stock to start reaching local buyers."
+              title="Create your first listing"
+              text="Add your products, prices and stock to start reaching local buyers."
             />
           )}
           <Text style={s.sectionTitle}>{t('sell.incoming')}</Text>

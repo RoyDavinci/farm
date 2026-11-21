@@ -1,4 +1,4 @@
-import { money } from '@farmers-market/shared';
+import { money } from '@zuru/shared';
 import { Check, Gavel, RefreshCw, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';
@@ -13,6 +13,8 @@ interface Payout {
   fee_kobo: number;
   status: string;
   provider: string | null;
+  source_account?: string;
+  shopping_request_id?: string | null;
   failure_reason: string | null;
   recovery_error?: string | null;
   bank_name: string;
@@ -93,6 +95,9 @@ export default function PayoutsPage() {
                 </td>
                 <td>
                   <Badge status={p.status} />
+                  {p.source_account === 'shopping_advance' && (
+                    <small>Shopping goods advance · {p.shopping_request_id?.slice(0, 8)}</small>
+                  )}
                   {p.failure_reason && <small>{p.failure_reason}</small>}
                   {p.recovery_error && (
                     <small className="error">

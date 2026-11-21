@@ -4,7 +4,7 @@ import {
   type Booking,
   type Settings as MarketSettings,
   type Seller,
-} from '@farmers-market/shared';
+} from '@zuru/shared';
 import {
   ArrowUpRight,
   ChevronRight,
@@ -98,7 +98,7 @@ export default function OverviewPage({
           <span className="eyebrow">THE MARKETPLACE PROMISE</span>
           <Sprout size={42} />
           <h2>
-            From fresh harvest
+            From a great find
             <br />
             to happy handover.
           </h2>

@@ -1,3 +1,6 @@
+import VoiceCallPanel from './VoiceCallPanel';
+import { useApp } from './AppContext';
+import { featureOn } from './features';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { liveUpdates } from './api';
@@ -6,11 +9,14 @@ export default function CommunityScreen({
   user,
   initialConversation,
   onBooking,
+  onShopping,
 }: {
   user: any;
   initialConversation?: string | null;
   onBooking: () => void;
+  onShopping: () => void;
 }) {
+  const { settings } = useApp();
   const [section, setSection] = useState<'messages' | 'updates'>('messages'),
     [conversations, setConversations] = useState<any[]>([]),
     [notifications, setNotifications] = useState<any[]>([]),
@@ -124,7 +130,8 @@ export default function CommunityScreen({
               onPress={() =>
                 void run(async () => {
                   await request('post', '/notifications/read', { body: { id: n.id } });
-                  if (n.booking_id) onBooking();
+                  if (n.kind === 'shopping') onShopping();
+                  else if (n.booking_id) onBooking();
                   else setSection('messages');
                 })
               }
@@ -178,6 +185,9 @@ export default function CommunityScreen({
               </View>
             ))}
           </ScrollView>
+          {!c?.blocked && selected && featureOn(settings, 'voice') && (
+            <VoiceCallPanel conversationId={selected} userId={user.id} />
+          )}
           {c?.blocked ? (
             <Text style={s.body}>
               Messaging is unavailable while a participant has a block in place.
@@ -272,7 +282,7 @@ export default function CommunityScreen({
             <View style={s.card}>
               <Text style={s.bold}>Start a local conversation</Text>
               <Text style={s.body}>
-                Open a listing and tap “Message seller” to ask about produce before booking.
+                Open a listing and tap “Message seller” to ask about products before booking.
               </Text>
             </View>
           )}

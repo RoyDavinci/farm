@@ -1,3 +1,4 @@
+import { discoveryEvent } from './discovery-operations.service.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Config } from '../config/index.js';
@@ -34,6 +35,8 @@ interface DeliveryJob {
   job_id: string;
   attempts: number;
   email_enabled: boolean | null;
+  marketing_enabled: boolean | null;
+  kind: string;
   email_verified_at: Date | null;
   email: string;
   title: string;
@@ -44,7 +47,7 @@ export async function deliverNotifications(db: Database, c: Config) {
   for (let i = 0; i < 10; i++) {
     const job = await db.transaction(async (q) => {
       const [job] =
-        await q.query<DeliveryJob>(`SELECT o.id AS job_id,o.attempts,n.title,n.body,u.email,u.email_verified_at,p.email_enabled
+        await q.query<DeliveryJob>(`SELECT o.id AS job_id,o.attempts,n.title,n.body,n.kind,u.email,u.email_verified_at,p.email_enabled,(p.marketing_enabled AND (n.kind<>'local_digest' OR EXISTS(SELECT 1 FROM discovery_preferences dp WHERE dp.user_id=n.user_id AND dp.digest_enabled))) AS marketing_enabled
     FROM notification_outbox o JOIN notifications n ON n.id=o.notification_id JOIN users u ON u.id=n.user_id
     LEFT JOIN notification_preferences p ON p.user_id=n.user_id
     WHERE o.status='PENDING' AND o.available_at<=now() AND (o.locked_until IS NULL OR o.locked_until<now())
@@ -58,11 +61,15 @@ export async function deliverNotifications(db: Database, c: Config) {
     });
     if (!job) break;
     try {
-      if (job.email_enabled !== false && job.email_verified_at)
+      if (
+        job.email_enabled !== false &&
+        job.email_verified_at &&
+        (!['marketing', 'local_digest'].includes(job.kind) || job.marketing_enabled === true)
+      )
         await mail.send(
           job.email,
-          `Farmers Market: ${job.title}`,
-          `${job.body}\n\nOpen the Farmers Market app for details.\nManage email alerts in Account → Notifications.`,
+          `Zuru: ${job.title}`,
+          `${job.body}\n\nOpen the Zuru app for details.\nManage email alerts in Account → Notifications.`,
         );
       await db.query(
         "UPDATE notification_outbox SET status='SENT',locked_until=NULL,last_error=NULL WHERE id=$1",
@@ -109,13 +116,17 @@ export function createCommunicationsService(deps: AppDeps) {
   async function getNotificationPreferences(user: any, input: RequestInput) {
     const p = await db.prisma.notificationPreference.findUnique({
       where: { user_id: user.id },
-      select: { email_enabled: true, push_enabled: true },
+      select: { email_enabled: true, push_enabled: true, marketing_enabled: true },
     });
-    return p ?? { email_enabled: true, push_enabled: true };
+    return p ?? { email_enabled: true, push_enabled: true, marketing_enabled: false };
   }
   async function updateNotificationPreferences(q: Query, u: any, input: RequestInput) {
     const d = z
-      .object({ email_enabled: z.boolean(), push_enabled: z.boolean().optional() })
+      .object({
+        email_enabled: z.boolean(),
+        push_enabled: z.boolean().optional(),
+        marketing_enabled: z.boolean().optional(),
+      })
       .parse(input.body);
     return q.prisma.notificationPreference.upsert({
       where: { user_id: u.id },
@@ -123,9 +134,14 @@ export function createCommunicationsService(deps: AppDeps) {
         user_id: u.id,
         email_enabled: d.email_enabled,
         push_enabled: d.push_enabled ?? true,
+        marketing_enabled: d.marketing_enabled ?? false,
       },
-      update: { email_enabled: d.email_enabled, push_enabled: d.push_enabled },
-      select: { email_enabled: true, push_enabled: true },
+      update: {
+        email_enabled: d.email_enabled,
+        push_enabled: d.push_enabled,
+        marketing_enabled: d.marketing_enabled,
+      },
+      select: { email_enabled: true, push_enabled: true, marketing_enabled: true },
     });
   }
   async function listConversations(user: any, input: RequestInput) {
@@ -183,6 +199,13 @@ export function createCommunicationsService(deps: AppDeps) {
   async function sendMessage(q: Query, u: any, input: RequestInput) {
     const d = z.object({ body: z.string().trim().min(1).max(2000) }).parse(input.body);
     const c = await conversation(q, input.params.id as string, u.id);
+    if (u.id === c.buyer_id) {
+      await discoveryEvent(q, u.id, 'CONTACT', c.listing_id);
+      await q.query(
+        'UPDATE status_clicks SET conversation_id=$1 WHERE id=(SELECT id FROM status_clicks WHERE buyer_id=$2 AND listing_id=$3 AND expires_at>now() AND conversation_id IS NULL AND NOT EXISTS(SELECT 1 FROM status_clicks WHERE conversation_id=$1) ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE)',
+        [c.id, u.id, c.listing_id],
+      );
+    }
     const peer = c.buyer_id === u.id ? c.seller_id : c.buyer_id;
     const [blocked] = await q.query(
       'SELECT 1 FROM user_blocks WHERE (blocker_id=$1 AND blocked_id=$2) OR (blocker_id=$2 AND blocked_id=$1)',
@@ -203,7 +226,7 @@ export function createCommunicationsService(deps: AppDeps) {
       peer,
       'message',
       'New market message',
-      `You have a new message about ${c.title || 'a produce listing'}. Open Farmers Market to read it.`,
+      `You have a new message about ${c.title || 'a listing'}. Open Zuru to read it.`,
     );
     return message;
   }

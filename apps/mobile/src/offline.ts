@@ -28,6 +28,10 @@ const privateFields = new Set([
   'longitude',
   'account_cipher',
   'password_hash',
+  'profile_details',
+  'return_pin',
+  'permit_number',
+  'insurance_reference',
 ]);
 export interface CacheScope {
   readonly accountId: string;

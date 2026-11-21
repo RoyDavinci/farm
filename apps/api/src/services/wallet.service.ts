@@ -19,7 +19,7 @@ export function createWalletService(deps: AppDeps) {
   const { db, config: c } = deps;
   const payments = paymentService(c);
   const verifyFunding = (ref: string, provider?: Provider) =>
-    verifyFundingWith(db, payments, ref, provider);
+    verifyFundingWith(db, c, payments, ref, provider);
   const id = () => randomUUID();
   async function getWallet(user: any, input: RequestInput) {
     const uid = user.id;
@@ -32,6 +32,10 @@ export function createWalletService(deps: AppDeps) {
       ),
       funding: await db.query(
         'SELECT * FROM funding WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20',
+        [uid],
+      ),
+      refunds: await db.query(
+        'SELECT id,amount_kobo,status,provider,created_at FROM card_refunds WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20',
         [uid],
       ),
     };
@@ -53,19 +57,19 @@ export function createWalletService(deps: AppDeps) {
     if (typeof value !== 'string' || !/^fm-[a-f0-9-]{36}$/.test(value))
       return {
         verified: false,
-        message: 'Return to Farmers Market and verify your payment in Wallet.',
+        message: 'Return to Zuru to check your payment.',
       };
     try {
       await verifyFunding(value);
       return {
         verified: true,
-        message: 'Your payment was verified and your Farmers Market wallet was credited.',
+        message: 'Your payment was verified.',
       };
     } catch {
       return {
         verified: false,
         message:
-          'Your payment has not been verified yet. Return to Wallet and choose Verify completed payment.',
+          'Your payment has not been confirmed yet. Return to the app; it is checked again automatically.',
       };
     }
   }

@@ -15,6 +15,7 @@ interface PushJob {
   body: string;
   booking_id: string | null;
   push_enabled: boolean | null;
+  marketing_enabled: boolean | null;
 }
 
 /**
@@ -26,7 +27,7 @@ export async function deliverPush(db: Database, c: Config, send: typeof fetch = 
   for (let round = 0; round < 5; round++) {
     const jobs = await db.transaction(async (q) => {
       const rows =
-        await q.query<PushJob>(`SELECT o.id AS job_id,o.attempts,n.user_id,n.kind,n.title,n.body,n.booking_id,p.push_enabled
+        await q.query<PushJob>(`SELECT o.id AS job_id,o.attempts,n.user_id,n.kind,n.title,n.body,n.booking_id,p.push_enabled,(p.marketing_enabled AND (n.kind<>'local_digest' OR EXISTS(SELECT 1 FROM discovery_preferences dp WHERE dp.user_id=n.user_id AND dp.digest_enabled))) AS marketing_enabled
         FROM push_outbox o JOIN notifications n ON n.id=o.notification_id
         LEFT JOIN notification_preferences p ON p.user_id=n.user_id
         WHERE o.status='PENDING' AND o.available_at<=now() AND (o.locked_until IS NULL OR o.locked_until<now())
@@ -42,7 +43,10 @@ export async function deliverPush(db: Database, c: Config, send: typeof fetch = 
     const messages: { job: PushJob; token: string }[] = [];
     const skipped: string[] = [];
     for (const job of jobs) {
-      if (job.push_enabled === false) {
+      if (
+        job.push_enabled === false ||
+        (['marketing', 'local_digest'].includes(job.kind) && job.marketing_enabled !== true)
+      ) {
         skipped.push(job.job_id);
         continue;
       }

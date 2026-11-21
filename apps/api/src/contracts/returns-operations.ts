@@ -1,0 +1,47 @@
+import { z } from 'zod';
+const ok = z.object({ ok: z.boolean() });
+const journey = z.object({
+  id: z.string(),
+  dispute_id: z.string(),
+  buyer_id: z.string(),
+  seller_id: z.string(),
+  driver_id: z.string().nullable(),
+  status: z.enum(['ASSIGNED', 'ACCEPTED', 'PICKED_UP', 'RETURNED', 'CANCELLED']),
+  pickup_address: z.string(),
+  pickup_latitude: z.number(),
+  pickup_longitude: z.number(),
+  dropoff_address: z.string(),
+  dropoff_latitude: z.number(),
+  dropoff_longitude: z.number(),
+  fee_kobo: z.number(),
+  driver_kobo: z.number(),
+  payer_account: z.string(),
+  payer_id: z.string().nullable(),
+  reason: z.string(),
+  reviewed_by: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  pickup_pin: z.string().optional(),
+  return_pin: z.string().optional(),
+  title: z.string().optional(),
+});
+const appeal = z.object({
+  id: z.string(),
+  dispute_id: z.string(),
+  appellant_id: z.string(),
+  reason: z.string(),
+  status: z.enum(['OPEN', 'UPHELD', 'DENIED']),
+  resolution: z.string().nullable(),
+  reviewer_id: z.string().nullable(),
+  created_at: z.string(),
+});
+export const returnsOperationsResponses: Record<string, z.ZodType> = {
+  'returns-operations.mine': z.array(journey),
+  'returns-operations.list': z.array(journey.omit({ pickup_pin: true, return_pin: true })),
+  'returns-operations.create': z.object({ id: z.string() }),
+  'returns-operations.action': ok,
+  'returns-operations.appeals': z.array(appeal),
+  'returns-operations.appeal': z.object({ id: z.string() }),
+  'returns-operations.listAppeals': z.array(appeal),
+  'returns-operations.reviewAppeal': ok,
+};

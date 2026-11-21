@@ -58,7 +58,7 @@ export async function recoverFunding(db: Database, c: Config) {
       await db.query('UPDATE funding SET checked_at=now() WHERE id=$1', [f.id]);
       if (!payments.enabled(f.provider)) continue;
       try {
-        await verifyFunding(db, payments, f.id);
+        await verifyFunding(db, c, payments, f.id);
         credited++;
       } catch {
         // Not paid yet, or the provider never created it: try again later.

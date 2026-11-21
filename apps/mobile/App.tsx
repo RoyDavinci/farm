@@ -1,10 +1,13 @@
+import { featureOn } from './src/features';
+import BottomNavigation from './src/BottomNavigation';
+import RidersScreen from './src/screens/RidersScreen';
 import {
   type Booking,
   type Listing,
   type OrderEvent,
   type Seller,
   type Settings,
-} from '@farmers-market/shared';
+} from '@zuru/shared';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -37,9 +40,6 @@ import SellScreen from './src/screens/SellScreen';
 import WalletScreen, { type WalletData } from './src/screens/WalletScreen';
 import { sellerFromUrl } from './src/share';
 import { Alert, s } from './src/ui';
-
-const tabs: Tab[] = ['Market', 'Bookings', 'Sell', 'Drive', 'Wallet', 'Inbox', 'Account'];
-const tabIcons = ['❋', '▤', '♧', '➤', '▣', '✉', '◉'];
 
 export default function App() {
   return (
@@ -76,6 +76,7 @@ function Main() {
       listing: Listing;
       variantId?: string;
       quantity?: number;
+      attributionToken?: string;
     } | null>(null),
     [shop, setShop] = useState<string | null>(null),
     [editing, setEditing] = useState<{ listing: Listing | null } | null>(null),
@@ -127,7 +128,7 @@ function Main() {
       })
       .finally(() => setInitializing(false));
   }, [refresh]);
-  // Shared shop links: https://…/?seller=ID (web) or farmersmarket://seller/ID (app).
+  // Shared shop links: https://…/?seller=ID (web) or zuru://seller/ID (app).
   const [linkedSeller, setLinkedSeller] = useState<string | null>(null);
   useEffect(() => {
     if (Platform.OS === 'web') setLinkedSeller(sellerFromUrl(window.location.href));
@@ -148,7 +149,8 @@ function Main() {
       setSelected(null);
       setEditing(null);
       setHistory(null);
-      if (data.kind === 'message') setTab('Inbox');
+      if (data.kind === 'shopping') setTab('Riders');
+      else if (data.kind === 'message') setTab('Inbox');
       else if (data.kind === 'payout') setTab('Wallet');
       else if (data.booking_id) setTab('Bookings');
       void refresh();
@@ -252,6 +254,7 @@ function Main() {
         listing={selected.listing}
         initialVariantId={selected.variantId}
         initialQuantity={selected.quantity}
+        attributionToken={selected.attributionToken}
         onBack={() => setSelected(null)}
       />
     );
@@ -264,6 +267,7 @@ function Main() {
         user={me}
         initialConversation={conversationId}
         onBooking={() => changeTab('Bookings')}
+        onShopping={() => changeTab('Riders')}
       />
     );
   else if (tab === 'Market')
@@ -280,6 +284,12 @@ function Main() {
       />
     );
   else if (tab === 'Wallet') screen = <WalletScreen wallet={wallet} />;
+  else if (tab === 'Riders')
+    screen = featureOn(settings, 'shopping') ? (
+      <RidersScreen />
+    ) : (
+      <BookingsScreen outgoing={outgoing} />
+    );
   else if (tab === 'Drive') screen = <DriveScreen />;
   else
     screen = (
@@ -297,7 +307,7 @@ function Main() {
         <View style={s.topbar}>
           <View style={s.wordmark}>
             <Text style={s.logo}>❋</Text>
-            <Text style={s.brand}>farmers market</Text>
+            <Text style={s.brand}>zuru</Text>
           </View>
           <Pressable accessibilityLabel="Open account" onPress={() => changeTab('Account')}>
             <View style={s.avatar}>
@@ -329,21 +339,12 @@ function Main() {
           {screen}
           <Text style={s.bottomNote}>{t('footer.note')}</Text>
         </ScrollView>
-        <View style={s.tabbar}>
-          {tabs.map((name, i) => (
-            <Pressable
-              key={name}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: tab === name }}
-              onPress={() => changeTab(name)}
-              style={s.tab}
-            >
-              <Text style={[s.tabIcon, tab === name && s.tabActive]}>{tabIcons[i]}</Text>
-              <Text style={[s.tabLabel, tab === name && s.tabActive]}>{t(`tab.${name}`)}</Text>
-              {tab === name && <View style={s.tabDot} />}
-            </Pressable>
-          ))}
-        </View>
+        <BottomNavigation
+          tab={tab}
+          onNavigate={changeTab}
+          hidden={featureOn(settings, 'shopping') ? [] : ['Riders']}
+          payments={!featureOn(settings, 'wallet')}
+        />
       </SafeAreaView>
     </AppContext.Provider>
   );

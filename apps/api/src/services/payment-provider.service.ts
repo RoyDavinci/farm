@@ -74,7 +74,7 @@ export function paymentService(c: Config) {
               currency: 'NGN',
               redirect_url: c.flutterwaveReturnUrl,
               customer: { email, name },
-              customizations: { title: 'Farmers Market wallet funding' },
+              customizations: { title: 'Zuru payment' },
             });
       const url = provider === 'paystack' ? d.authorization_url : d.link;
       ensure(
@@ -102,6 +102,29 @@ export function paymentService(c: Config) {
         amount: provider === 'paystack' ? Number(d.amount) : Math.round(Number(d.amount) * 100),
         currency: d.currency,
         id: String(d.id),
+      };
+    },
+    /**
+     * Refunds part or all of a verified payment to the original payment method. A rejection
+     * throws PROVIDER_REJECTED; an unreachable provider throws PROVIDER_UNAVAILABLE (the
+     * outcome is then unknown and must not be retried blindly).
+     */
+    async refund(provider: Provider, reference: string, providerId: string, amountKobo: number) {
+      const d =
+        provider === 'paystack'
+          ? await request('https://api.paystack.co/refund', c.paystack, {
+              transaction: reference,
+              amount: amountKobo,
+            })
+          : await request(
+              `https://api.flutterwave.com/v3/transactions/${encodeURIComponent(providerId)}/refund`,
+              c.flutterwave,
+              { amount: amountKobo / 100 },
+            );
+      const id = d?.id ?? d?.refund_id;
+      return {
+        id: id === undefined || id === null ? null : String(id),
+        status: String(d?.status ?? ''),
       };
     },
     /** Nigerian banks supported for transfers by the provider. */

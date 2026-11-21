@@ -1,3 +1,4 @@
+import { useApp } from './AppContext';
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 export interface VariantDraft {
   id?: string;
@@ -11,7 +12,7 @@ export interface VariantDraft {
 }
 export const newVariant = (): VariantDraft => ({
   name: 'Standard',
-  unit: 'kg',
+  unit: 'piece',
   price: '',
   stock: '',
   minimum: '1',
@@ -55,6 +56,7 @@ export default function VariantEditor({
   value: VariantDraft[];
   onChange: (v: VariantDraft[]) => void;
 }) {
+  const { settings } = useApp();
   const update = (i: number, patch: Partial<VariantDraft>) =>
     onChange(value.map((v, n) => (n === i ? { ...v, ...patch } : v)));
   return (
@@ -79,11 +81,13 @@ export default function VariantEditor({
             placeholder="e.g. Small basket / 50kg bag"
           />
           <View style={s.wrap}>
-            {['kg', 'crate', 'bag', 'basket', 'piece', 'carton'].map((unit) => (
-              <Pressable key={unit} onPress={() => update(i, { unit })}>
-                <Text style={[s.chip, v.unit === unit && s.active]}>{unit}</Text>
-              </Pressable>
-            ))}
+            {(settings?.catalog?.units || ['piece', 'kg', 'pack', 'pair', 'set', 'box']).map(
+              (unit) => (
+                <Pressable key={unit} onPress={() => update(i, { unit })}>
+                  <Text style={[s.chip, v.unit === unit && s.active]}>{unit}</Text>
+                </Pressable>
+              ),
+            )}
           </View>
           <Text style={s.small}>Price per unit (₦) / available stock / minimum quantity</Text>
           <View style={s.row}>

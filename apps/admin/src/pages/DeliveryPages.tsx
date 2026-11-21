@@ -1,4 +1,5 @@
-import { money, statusLabel } from '@farmers-market/shared';
+import { VerificationProfileDetails } from './Modals';
+import { money, statusLabel } from '@zuru/shared';
 import { ArrowUpRight, Check } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';
@@ -90,6 +91,7 @@ export function DriversPage() {
             <dt>City</dt>
             <dd>{review.city}</dd>
           </dl>
+          <VerificationProfileDetails details={review.profile_details} />
           <SellerDocuments sellerId={review.user_id} subject="driver" />
           <label>
             Decision reason

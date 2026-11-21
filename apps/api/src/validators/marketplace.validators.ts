@@ -1,9 +1,12 @@
 import { z } from 'zod';
+import { productUnits, productConditions, sellerTypes } from '../config/marketplace.js';
 import { variantSchema } from '../services/catalog.service.js';
 
 export const sellerSchema = z.object({
+  state: z.string().trim().max(100).default(''),
+  lga: z.string().trim().max(100).default(''),
   business_name: z.string().trim().min(2).max(100),
-  business_type: z.enum(['farm', 'shop', 'market_stall', 'home_based']),
+  business_type: z.enum(sellerTypes),
   city: z.string().trim().min(2).max(100),
   area: z.string().trim().min(2).max(100),
   address: z.string().trim().min(8).max(500),
@@ -13,11 +16,14 @@ export const sellerSchema = z.object({
 });
 
 export const listingSchema = z.object({
+  pickup_available: z.boolean().optional(),
+  delivery_available: z.boolean().optional(),
   title: z.string().trim().min(3).max(120),
   description: z.string().trim().min(5).max(2000),
-  category: z.enum(['Vegetables', 'Fruit', 'Grains', 'Tubers', 'Livestock', 'Other']),
-  unit: z.enum(['kg', 'crate', 'bag', 'basket', 'piece', 'carton']),
+  category: z.string().trim().min(2).max(50),
+  unit: z.enum(productUnits),
   price_kobo: z.number().int().min(100).max(100000000),
+  condition: z.enum(productConditions).default('NEW'),
   stock: z.number().int().min(0).max(100000),
   status: z.enum(['ACTIVE', 'PAUSED']).default('ACTIVE'),
   image_url: z.url().max(2000).nullable().optional(),

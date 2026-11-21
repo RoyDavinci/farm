@@ -1,7 +1,14 @@
-import { money } from '@farmers-market/shared';
+import ParcelPanel from '../ParcelPanel';
+import BackgroundTrackingControl from '../BackgroundTrackingControl';
+import { stopBackgroundTracking } from '../backgroundTracking';
+import ReturnJourneysPanel from '../ReturnJourneysPanel';
+import DeliveryProgressPanel from '../DeliveryProgressPanel';
+import ProfileDetailsPanel from '../ProfileDetailsPanel';
+import { money } from '@zuru/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, Switch, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
+import { featureOn } from '../features';
 import { currentPosition, directions } from '../DeliveryPanel';
 import { request } from '../request';
 import { VerificationDocuments } from '../SellerTools';
@@ -12,7 +19,7 @@ const earnings = (d: any) => Math.round((Number(d.fare_kobo) * (10000 - d.commis
 
 /** Driver mode: apply, go online, take nearby jobs and confirm deliveries with PINs. */
 export default function DriveScreen() {
-  const { busy, run, setTab } = useApp();
+  const { busy, run, setTab, settings } = useApp();
   const [driver, setDriver] = useState<any>(undefined),
     [jobs, setJobs] = useState<any>(null),
     [vehicles, setVehicles] = useState<any[]>([]),
@@ -59,7 +66,7 @@ export default function DriveScreen() {
   const header = (
     <>
       <Text style={s.eyebrow}>EARN BY DELIVERING LOCALLY</Text>
-      <Text style={s.heading}>Drive with Farmers Market</Text>
+      <Text style={s.heading}>Drive with Zuru</Text>
     </>
   );
   if (!driver || driver.status === 'REJECTED')
@@ -123,6 +130,8 @@ export default function DriveScreen() {
               : driver.reason || 'Your driver account is suspended.'}
           </Text>
         </View>
+        <ReturnJourneysPanel />
+        <ProfileDetailsPanel subject="driver" />
         <VerificationDocuments subject="driver" />
       </>
     );
@@ -130,6 +139,9 @@ export default function DriveScreen() {
   return (
     <>
       {header}
+      <ReturnJourneysPanel />
+      <ProfileDetailsPanel subject="driver" />
+      <VerificationDocuments subject="driver" />
       <View style={s.orderCard}>
         <View style={s.rowBetween}>
           <View style={s.flex}>
@@ -146,6 +158,7 @@ export default function DriveScreen() {
             disabled={busy}
             onValueChange={(value) =>
               void run(async () => {
+                if (!value) await stopBackgroundTracking();
                 setDriver({
                   ...driver,
                   ...(await request('put', '/drivers/me/status', {
@@ -164,6 +177,8 @@ export default function DriveScreen() {
           <Text style={s.link}>Earnings and bank payouts are in Wallet →</Text>
         </Pressable>
       </View>
+      <BackgroundTrackingControl online={online} />
+      {featureOn(settings, 'parcels') && <ParcelPanel driverMode />}
       {active.map((d: any) => (
         <View key={d.id} style={s.orderCard}>
           <View style={s.rowBetween}>
@@ -173,6 +188,7 @@ export default function DriveScreen() {
           <Text style={s.body}>
             {d.quantity} {d.unit} · you earn {money(earnings(d))}
           </Text>
+          <DeliveryProgressPanel delivery={d} isDriver />
           {d.status === 'ASSIGNED' ? (
             <>
               <Text style={s.bold}>Collect from {d.business_name}</Text>
@@ -289,6 +305,8 @@ export default function DriveScreen() {
           <Text style={s.bold}>+{money(earnings(d))}</Text>
         </View>
       ))}
+      <ReturnJourneysPanel />
+      <ProfileDetailsPanel subject="driver" />
       <VerificationDocuments subject="driver" />
     </>
   );

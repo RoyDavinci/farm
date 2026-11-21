@@ -1,4 +1,5 @@
 import { productionProblems, readEnv } from './env.js';
+import { readFeatures } from './features.js';
 
 const env = readEnv();
 const production = env.NODE_ENV === 'production';
@@ -12,6 +13,11 @@ const returnUrl =
 /** Typed application configuration, built once from the validated environment. */
 export const config = {
   env: env.NODE_ENV,
+  features: readFeatures(process.env),
+  voiceEnabled: env.VOICE_CALLS_ENABLED,
+  voiceStunUrl: env.VOICE_STUN_URL,
+  voiceTurnUrl: env.VOICE_TURN_URL,
+  voiceTurnSecret: env.VOICE_TURN_SECRET,
   production,
   port: env.PORT,
   host: env.HOST,

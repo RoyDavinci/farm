@@ -2,6 +2,43 @@
 
 Status of the features from the requirements brief and roadmap. Reservations stay one week, stock updates stay immediate and the default commission stays 5%. Every rate, fee and fare below is a setting, not a hard-coded value.
 
+## Pilot mode
+
+- `PILOT_MODE=true` runs the brief's first release: core marketplace, booking and delivery. The wallet, Local Status, promotions, shopping errands, parcels, voice, pre-orders and indoor market maps are switched off; each has its own `FEATURE_<NAME>` override. Details: [pilot mode](pilot-mode.md).
+- Without a wallet, buyers pay each booking and delivery fare directly at Paystack or Flutterwave, and refunds go back to the card automatically, with a finance Refunds page for exceptions.
+
+## General marketplace revamp
+
+- Broader product categories, individual and business seller types, new/used/refurbished condition, and general retail units. Catalog choices come from `/settings` and are validated by the API.
+- Buyer-selected nearby riders for order delivery. Only the selected rider receives the invitation; acceptance and availability are checked on the server.
+- Shopping requests for goods from a specified location, with a buyer-set goods cap and a separate delivery fee. A private request chat supports agreement on reimbursement or app advance before buyer funding.
+- Request-linked advances and bank-payout tracking. Bank payouts keep existing approval and fee rules; unused advances must be recovered before refund or delivery settlement.
+- Itemised purchase records, cap enforcement, PIN-confirmed delivery, unused-budget refunds, support pauses and an admin Shopping workspace.
+- Local simulated walkthrough: both shopping modes and selected-rider delivery completed, with zero remaining request escrow/advance balances. API/client builds and typechecks are checked separately; automated tests remain deferred for the new flows.
+- Private shopping receipt photos: up to six images of 5 MB each, re-encoded without metadata, participant/staff access through expiring links, with previews in the mobile app and admin console.
+- Shopping-request live maps: rider opt-in foreground sharing every 15 seconds, buyer/staff polling every 10 seconds, stale-location notices, and location hidden once paused or closed. Online Drive mode also updates active shopping requests.
+- Receipt/tracking verification: the local migration is applied; typechecks, API/admin builds, mobile web export and API contract consistency pass. A local simulated walkthrough confirmed private receipt storage/signed viewing, unrelated-account denial, rider location updates and location hiding on paused/closed requests. Automated tests remain deferred; physical-device GPS/background behaviour has not been exercised. S3 private-record upload, signed read, anonymous-access denial (403) and temporary-object cleanup were verified against the configured bucket. The ignored local backend environment now selects S3 for private records; existing local records retain their stored provider.
+- Still needed: the new brand name, native-speaker review of the new screens, live payment/advance acceptance and device/location verification. Continuous background tracking is not included.
+- The API contract has been regenerated and its consistency check passes, including receipt uploads, shopping tracking and nearby-rider query parameters.
+
+## Updated local brief
+
+- Photo and short-video Local Status: seller circles plus a paginated photo/video feed on Market; seller publishing/preview/delete; 24-hour default expiry; linked-product availability; nearby or state/LGA/city discovery; reports, mute/unmute and staff moderation.
+- Aggregate story views/unique viewers/product clicks with no viewer identities exposed to sellers. Active paid listing promotions and approved matching Boost Status campaigns are labelled Sponsored. Status campaigns support selected LGA/city targets and their own budget/refund lifecycle.
+- Separate promotional notification opt-in, default off, and one favourite-seller new-product alert per buyer per 24 hours. No status-publication broadcasts.
+- State/LGA seller location fields and admin-configurable status lifetime, radius and active-post limits. Full comparison and later-phase scope: [updated brief review](updated-brief-review.md).
+
+## Status video campaigns and conversions
+
+- Short-video upload, server duration/container validation, H.264/AAC compression, WebP posters, byte-range playback and tap-to-play mobile/admin viewers. FFmpeg is included in the Dockerfile; native clients need rebuilding for `expo-video`.
+- Boost Status quotes, distinct state/LGA or state/city targeting, per-hour/area configurable pricing, earnings holds, staff approval, full pending refunds, prorated active refunds and expiry/unavailability recovery.
+- Buyer/product-bound 24-hour click references and last-click booking attribution, with one booking per reference. Organic/sponsored funnels and per-campaign booking/completion metrics do not expose buyer identities.
+- A local simulated journey completed video processing, targeted paid discovery, an attributed booking through pickup completion, and campaign cancellation/refund checks. Automated tests and deployment remain deferred. Details: [media campaigns and attribution](status-media-campaigns.md).
+
+## Mobile navigation
+
+- Four bottom controls: Market, Bookings, Wallet and More. More opens a scrollable sheet for Sell, Riders, Drive, Inbox and Account. The sheet highlights the current secondary section, animates in/out, supports backdrop/close/Escape dismissal and respects reduced-motion preferences.
+
 ## Built
 
 ### Marketplace and booking
@@ -25,7 +62,7 @@ Status of the features from the requirements brief and roadmap. Reservations sta
 
 - Drivers apply for free inside the app (**Drive** tab), upload licence and vehicle documents, and are approved by staff.
 - Vehicle types and fares (base, per km, minimum, maximum distance) and the delivery commission are configurable in **Settings**.
-- Buyers get a quote and request delivery on an accepted booking. Online drivers within the configured radius are notified, and the first matching driver to claim a job gets it.
+- Buyers get a quote and request delivery on an accepted booking. Buyers can select an online nearby rider, who receives an invitation and must accept. The original unassigned matching path remains compatible with older clients.
 - The seller confirms handover with the driver's PIN. The driver confirms delivery with the buyer's PIN. Each PIN is also shown as a QR code that the other person can scan with the phone camera. The booking then completes and earnings are split.
 - Live tracking: the driver's phone shares its location every 15 seconds while online, and the buyer sees it on the map.
 - **Digital Pay on Delivery** (off by default): the buyer pays in the app at the door before revealing the PIN. Cash is never accepted.
@@ -36,7 +73,7 @@ Status of the features from the requirements brief and roadmap. Reservations sta
 - Push notifications (Expo) for every alert, with a per-user switch. Taps open the relevant screen.
 - Back-in-stock alerts per listing, and "new listing" alerts for followers of a seller.
 - **Book again** on past bookings.
-- Seller shop pages and WhatsApp sharing with deep links (`/?seller=ID` on web, `farmersmarket://seller/ID` in the app).
+- Seller shop pages and WhatsApp sharing with deep links (`/?seller=ID` on web, `zuru://seller/ID` in the app).
 - Seller sales analytics: sales, earnings, average order, repeat buyers, a daily chart, best sellers, low stock and acceptance rate.
 - Languages: English, Naijá (Pidgin), Yorùbá, Hausa and Igbo for navigation and the core buy/sell/wallet actions.
 
@@ -71,8 +108,8 @@ Status of the features from the requirements brief and roadmap. Reservations sta
 ## Known limitations / possible next work
 
 - Driving is a mode inside the main app, not a separate store app.
-- Road distance needs a Mapbox token; without one, fares use the straight-line estimate. Drivers aren't auto-assigned (it's first to claim), and there are no batched or multi-stop trips.
+- Road distance needs a Mapbox token; without one, fares use the straight-line estimate. Riders must accept invitations; they are not automatically assigned, and there are no batched or multi-stop trips.
 - QR scanning works in the phone apps only; the web preview falls back to typing the 6 digits.
-- Uploads retry but are not resumable mid-file (files are capped at 5–8 MB).
+- Uploads retry but are not resumable mid-file (images are capped at 5–8 MB and status videos at 20 MB).
 - Search still uses SQL distance maths rather than PostGIS. That's fine at current scale, but worth revisiting for large catalogues.
 - Only the audit log and ledger have "load older" paging. Other admin lists show the latest 100–200 rows.

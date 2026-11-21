@@ -1,4 +1,4 @@
-import { money, statusLabel } from '@farmers-market/shared';
+import { money, statusLabel } from '@zuru/shared';
 import { useState } from 'react';
 import { useAdmin } from '../AdminContext';
 import { request } from '../api';

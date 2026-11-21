@@ -1,0 +1,2 @@
+CREATE TABLE market_regions(code text PRIMARY KEY,country text NOT NULL,currency text NOT NULL,locale text NOT NULL,enabled boolean NOT NULL DEFAULT false,cities jsonb NOT NULL DEFAULT '[]',notes text NOT NULL DEFAULT '',updated_at timestamptz NOT NULL DEFAULT now());
+INSERT INTO market_regions(code,country,currency,locale,enabled,notes) VALUES('NG','Nigeria','NGN','en-NG',true,'Nigeria-first. Additional countries and currencies require provider and operating approval.');

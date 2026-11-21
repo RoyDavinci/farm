@@ -1,4 +1,4 @@
-import { money, statusLabel, type Listing } from '@farmers-market/shared';
+import { money, statusLabel, type Listing } from '@zuru/shared';
 import * as DocumentPicker from 'expo-document-picker';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -14,6 +14,10 @@ const documentKinds = [
   ['other', 'Other supporting document'],
 ] as const;
 const driverKinds = [
+  ['profile_photo', 'Driver profile photo'],
+  ['vehicle_photo', 'Vehicle photo'],
+  ['operating_permit', 'Operating permit'],
+  ['insurance', 'Insurance evidence'],
   ['drivers_licence', 'Driver’s licence'],
   ['vehicle_registration', 'Vehicle registration / papers'],
   ['government_id', 'Government ID (NIN, passport)'],

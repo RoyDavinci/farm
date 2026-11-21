@@ -43,7 +43,7 @@ for (const folder of ['apps/api', 'apps/mobile', 'apps/admin']) {
   }
 }
 let api = readFileSync('apps/api/.env', 'utf8');
-if (!/^SEED_PASSWORD=.+$/m.test(api)) api = setVar(api, 'SEED_PASSWORD', 'FarmersMarket2026!');
+if (!/^SEED_PASSWORD=.+$/m.test(api)) api = setVar(api, 'SEED_PASSWORD', 'ZuruDemo2026!');
 if (!/^OTP_SECRET=.{32,}$/m.test(api))
   api = setVar(api, 'OTP_SECRET', randomBytes(32).toString('hex'));
 if (!/^PAYOUT_ENCRYPTION_KEY=.{32,}$/m.test(api))

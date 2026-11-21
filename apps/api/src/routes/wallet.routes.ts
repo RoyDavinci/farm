@@ -9,6 +9,7 @@ export function walletRoutes(deps: AppDeps) {
   r.get('/wallet', c.getWallet);
   r.post('/wallet/demo-fund', c.addDemoFunds);
   r.post('/wallet/fund', c.startFunding);
+  r.post('/payments/checkout', c.startCheckout);
   r.post('/wallet/funding/:id/verify', c.verifyFundingRequest);
   r.post('/webhooks/:provider', c.providerWebhook);
   return r;

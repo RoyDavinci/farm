@@ -14,6 +14,7 @@ export default function AccountPanel({
     [blocks, setBlocks] = useState<any[]>([]),
     [email, setEmail] = useState(true),
     [push, setPush] = useState(true),
+    [marketing, setMarketing] = useState(false),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [busy, setBusy] = useState(false);
@@ -27,6 +28,7 @@ export default function AccountPanel({
     setBlocks(b);
     setEmail(p.email_enabled);
     setPush(p.push_enabled !== false);
+    setMarketing(p.marketing_enabled === true);
   }
   useEffect(() => {
     void load().catch((e) => setError(e.message));
@@ -90,6 +92,27 @@ export default function AccountPanel({
       </View>
       <View style={s.card}>
         <Text style={s.title}>Notifications</Text>
+        <View style={s.row}>
+          <Text style={s.body}>Optional product updates from favourite sellers</Text>
+          <Switch
+            accessibilityLabel="Promotional notifications"
+            value={marketing}
+            disabled={busy}
+            onValueChange={(value) =>
+              void run(async () => {
+                await request('put', '/notification-preferences', {
+                  body: { email_enabled: email, push_enabled: push, marketing_enabled: value },
+                });
+                setMarketing(value);
+              }, 'Promotional preference saved.')
+            }
+          />
+        </View>
+        <Text style={s.small}>
+          Off by default. At most one new-product alert per 24 hours. Muted sellers/categories are
+          excluded. Local Status uploads never broadcast notifications; booking, payment and
+          delivery updates stay separate.
+        </Text>
         <View style={s.row}>
           <Text style={s.body}>Email alerts for bookings and messages</Text>
           <Switch

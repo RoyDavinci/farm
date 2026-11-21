@@ -14,6 +14,10 @@ const str = (fallback = '') =>
 
 /** Every environment variable the API reads, with types and defaults. */
 export const envSchema = z.object({
+  VOICE_CALLS_ENABLED: bool(false),
+  VOICE_STUN_URL: str(),
+  VOICE_TURN_URL: str(),
+  VOICE_TURN_SECRET: str(),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   HOST: str('0.0.0.0'),
@@ -25,7 +29,7 @@ export const envSchema = z.object({
   AUTH_RATE_LIMIT: z.coerce.number().int().min(1).default(25),
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(15000),
   DATABASE_URL: str(),
-  DATA_DIR: str('.data/farmers-market'),
+  DATA_DIR: str('.data/zuru'),
   // Local defaults; in production list only https:// origins (or use CORS_ALLOWED_HOSTS).
   CORS_ORIGINS: z.string().optional(),
   /** Hostnames (no scheme) allowed as https:// origins; Render injects the static sites' hosts. */
@@ -40,6 +44,9 @@ export const envSchema = z.object({
   RENDER_GIT_COMMIT: str(),
   UPLOAD_DIR: str('.data/uploads'),
   // Payments
+  // Launch preset: core marketplace, booking and delivery only. FEATURE_<NAME> overrides one switch
+  // (names in config/features.ts).
+  PILOT_MODE: bool(false),
   PAYMENTS_ENABLED: bool(false),
   ALLOW_DEMO_FUNDING: bool(false),
   PAYSTACK_SECRET_KEY: str(),
@@ -70,7 +77,7 @@ export const envSchema = z.object({
   S3_BUCKET: str(),
   RECORDS_S3_BUCKET: str(),
   AWS_REGION: str('us-east-1'),
-  S3_PREFIX: str('farmers-market'),
+  S3_PREFIX: str('zuru'),
   /** S3-compatible endpoint, e.g. Cloudflare R2: https://<account>.r2.cloudflarestorage.com */
   S3_ENDPOINT: str(),
   PUSH_ENABLED: bool(true),

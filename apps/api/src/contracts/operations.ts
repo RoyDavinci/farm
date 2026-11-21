@@ -377,6 +377,7 @@ export const operationResponses: Record<string, z.ZodType> = {
     subject_type: z.string(),
   }),
   'communications.getNotificationPreferences': z.looseObject({
+    marketing_enabled: z.boolean(),
     email_enabled: z.boolean(),
     push_enabled: z.boolean(),
   }),
@@ -536,6 +537,7 @@ export const operationResponses: Record<string, z.ZodType> = {
     ok: z.boolean(),
   }),
   'communications.updateNotificationPreferences': z.looseObject({
+    marketing_enabled: z.boolean(),
     email_enabled: z.boolean(),
     push_enabled: z.boolean(),
   }),
@@ -875,6 +877,13 @@ export const operationResponses: Record<string, z.ZodType> = {
     title: z.string(),
     unit: z.string(),
   }),
+  'media.uploadVideo': z.object({
+    id: z.string(),
+    url: z.string(),
+    thumbnail_url: z.string(),
+    media_type: z.literal('VIDEO'),
+    duration_seconds: z.number(),
+  }),
   'media.uploadPhoto': z.looseObject({
     id: z.string(),
     thumbnail_url: z.string(),
@@ -914,6 +923,8 @@ export const operationResponses: Record<string, z.ZodType> = {
       amount_kobo: z.number(),
       fee_kobo: z.number(),
       status: z.string(),
+      source_account: z.string(),
+      shopping_request_id: z.string().nullable(),
       provider: z.string().nullable(),
       dispatch_state: z.string(),
       recovery_error: z.string().nullable(),

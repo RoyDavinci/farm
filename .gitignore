@@ -10,3 +10,9 @@ coverage/
 .DS_Store
 backups/
 apps/api/src/generated/
+# Local walkthrough recordings and screenshots (large; not source).
+artifacts/
+
+
+# Deployment build output
+deploy/.build/

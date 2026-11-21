@@ -1,4 +1,4 @@
-import { money, type Listing } from '@farmers-market/shared';
+import { money, type Listing } from '@zuru/shared';
 import { useState } from 'react';
 import { useAdmin } from '../AdminContext';
 import { request } from '../api';
@@ -9,7 +9,7 @@ export default function ListingsPage({ listings }: { listings: Listing[] }) {
     [filter, setFilter] = useState('ALL');
   return (
     <section className="card">
-      <Toolbar search={search} setSearch={setSearch} placeholder="Search produce or sellers" />
+      <Toolbar search={search} setSearch={setSearch} placeholder="Search products or sellers" />
       <div className="table-scroll">
         <table>
           <thead>
@@ -74,7 +74,7 @@ export default function ListingsPage({ listings }: { listings: Listing[] }) {
       {!listings.length && (
         <Empty
           title="The market is getting ready"
-          text="Approved sellers can add their first produce listings from the mobile app."
+          text="Approved sellers can add their first product listings from the mobile app."
         />
       )}
     </section>

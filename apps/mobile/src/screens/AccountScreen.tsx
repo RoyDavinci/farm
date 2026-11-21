@@ -1,3 +1,4 @@
+import DiscoveryPreferencesPanel from '../DiscoveryPreferencesPanel';
 import { Text, View } from 'react-native';
 import AccountPanel from '../AccountPanel';
 import { saveToken } from '../api';
@@ -26,6 +27,7 @@ export default function AccountScreen({ onSignedOut }: { onSignedOut: () => void
           ))}
         </View>
       </View>
+      <DiscoveryPreferencesPanel />
       <AccountPanel user={me} onUpdate={refresh} />
       <View style={s.orderCard}>
         <Text style={s.sectionTitle}>{me.name}</Text>
@@ -36,8 +38,10 @@ export default function AccountScreen({ onSignedOut }: { onSignedOut: () => void
         </Text>
       </View>
       <View style={s.orderCard}>
-        <Text style={s.bold}>Farmers Market</Text>
-        <Text style={s.body}>A fresh connection between local growers and their communities.</Text>
+        <Text style={s.bold}>Zuru</Text>
+        <Text style={s.body}>
+          A marketplace connecting buyers, sellers and riders across Nigeria.
+        </Text>
         <Text style={s.small}>
           Reservations: {settings?.reservation_hours || 168} hours · Stock updates: immediate
         </Text>

@@ -15,6 +15,10 @@ export const kinds = [
   'proof_of_address',
   'drivers_licence',
   'vehicle_registration',
+  'profile_photo',
+  'vehicle_photo',
+  'operating_permit',
+  'insurance',
   'other',
 ] as const;
 export const subjects = ['seller', 'driver'] as const;
@@ -131,7 +135,7 @@ export function createVerificationService(deps: AppDeps) {
       "SELECT COUNT(*)::int AS n FROM seller_documents WHERE seller_id=$1 AND subject=$2 AND status<>'REJECTED'",
       [u.id, subject],
     );
-    ensure(count.n < 10, 400, 'DOCUMENT_LIMIT', 'Remove a rejected document before adding more.');
+    ensure(count.n < 20, 400, 'DOCUMENT_LIMIT', 'Remove a rejected document before adding more.');
     const { bytes, mime, ext } = await normalizeDocument(input.file);
     const id = randomUUID(),
       key = `seller-documents/${u.id}/${id}.${ext}`;

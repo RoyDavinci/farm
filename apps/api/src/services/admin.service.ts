@@ -17,7 +17,7 @@ export function createAdminService(deps: AppDeps) {
   const { db, config: c } = deps;
   const payments = paymentService(c);
   const verifyFunding = (ref: string, provider?: Provider) =>
-    verifyFundingWith(db, payments, ref, provider);
+    verifyFundingWith(db, c, payments, ref, provider);
   const readBookings = (u: any, bookingId?: string) => readBookingsFor(db, u, bookingId);
   const page = parsePage;
   const id = () => randomUUID();
@@ -136,8 +136,18 @@ export function createAdminService(deps: AppDeps) {
         delivery_commission_bps: z.number().int().min(0).max(5000).optional(),
         delivery_radius_km: z.number().int().min(1).max(200).optional(),
         pay_on_delivery_enabled: z.boolean().optional(),
+        status_lifetime_hours: z.number().int().min(1).max(72).optional(),
+        status_radius_km: z.number().int().min(1).max(100).optional(),
+        status_boost_hourly_kobo: z.number().int().min(0).max(10000000).optional(),
+        status_max_active: z.number().int().min(1).max(30).optional(),
       })
       .parse(input.body);
+    ensure(
+      !d.pay_on_delivery_enabled || c.features.wallet,
+      409,
+      'WALLET_REQUIRED',
+      'Pay on Delivery needs the wallet feature, which is off in this deployment.',
+    );
     const [s] = await q.query(
       'UPDATE settings SET reservation_hours=$1,commission_bps=$2,payout_min_kobo=COALESCE($3,payout_min_kobo),payout_fee_kobo=COALESCE($4,payout_fee_kobo) WHERE id=1 RETURNING *',
       [d.reservation_hours, d.commission_bps, d.payout_min_kobo ?? null, d.payout_fee_kobo ?? null],
@@ -151,7 +161,15 @@ export function createAdminService(deps: AppDeps) {
         d.pay_on_delivery_enabled ?? null,
       ],
     );
-    Object.assign(s, extra);
+    const [localStatus] = await q.query(
+      'UPDATE settings SET status_lifetime_hours=COALESCE($1,status_lifetime_hours),status_radius_km=COALESCE($2,status_radius_km),status_max_active=COALESCE($3,status_max_active) WHERE id=1 RETURNING *',
+      [d.status_lifetime_hours ?? null, d.status_radius_km ?? null, d.status_max_active ?? null],
+    );
+    const [boostRate] = await q.query(
+      'UPDATE settings SET status_boost_hourly_kobo=COALESCE($1,status_boost_hourly_kobo) WHERE id=1 RETURNING status_boost_hourly_kobo',
+      [d.status_boost_hourly_kobo ?? null],
+    );
+    Object.assign(s, extra, localStatus, boostRate);
     await audit(q, u.id, 'settings.update', '1', d);
     return s;
   }

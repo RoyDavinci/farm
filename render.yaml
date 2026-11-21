@@ -1,11 +1,11 @@
-# Render Blueprint for the Farmers Market STAGING environment.
+# Render Blueprint for the Zuru STAGING environment.
 # Create it in Render: New → Blueprint → pick this repository. Values marked `sync: false` are asked
 # for once during creation (see docs/deploy-staging.md for where each one comes from).
 # Services redeploy automatically after GitHub checks (CI) pass on the main branch.
 
 envVarGroups:
   # Shared by the API and the worker. Secrets generated once by Render; identical in both.
-  - name: farmers-market-staging
+  - name: zuru-staging
     envVars:
       - key: NODE_ENV
         value: production
@@ -13,6 +13,10 @@ envVarGroups:
         generateValue: true
       - key: PAYOUT_ENCRYPTION_KEY
         generateValue: true
+      # Launch scope from the brief: core marketplace, booking and delivery; wallet and later-phase
+      # features off. Override one switch with FEATURE_<NAME> (see apps/api/src/config/features.ts).
+      - key: PILOT_MODE
+        value: 'true'
       - key: PAYMENTS_ENABLED
         value: 'true'
       - key: ALLOW_DEMO_FUNDING
@@ -46,7 +50,7 @@ envVarGroups:
 
 services:
   - type: web
-    name: farmers-market-api
+    name: zuru-api
     runtime: docker
     region: frankfurt
     dockerfilePath: ./apps/api/Dockerfile
@@ -57,28 +61,28 @@ services:
     autoDeployTrigger: checksPass
     maxShutdownDelaySeconds: 30
     envVars:
-      - fromGroup: farmers-market-staging
+      - fromGroup: zuru-staging
       - key: RUN_WORKERS
         value: 'false'
       - key: DATABASE_URL
         fromDatabase:
-          name: farmers-market-db
+          name: zuru-db
           property: connectionString
       - key: REDIS_URL
         fromService:
           type: keyvalue
-          name: farmers-market-redis
+          name: zuru-redis
           property: connectionString
       # Browser origins allowed by CORS: the two static sites below.
       - key: CORS_ALLOWED_HOSTS_ADMIN
         fromService:
           type: web
-          name: farmers-market-admin
+          name: zuru-admin
           envVarKey: RENDER_EXTERNAL_HOSTNAME
       - key: CORS_ALLOWED_HOSTS_WEB
         fromService:
           type: web
-          name: farmers-market-web
+          name: zuru-web
           envVarKey: RENDER_EXTERNAL_HOSTNAME
       - key: MAIL_FROM
         sync: false
@@ -110,7 +114,7 @@ services:
         sync: false
 
   - type: worker
-    name: farmers-market-worker
+    name: zuru-worker
     runtime: docker
     region: frankfurt
     dockerfilePath: ./apps/api/Dockerfile
@@ -121,22 +125,22 @@ services:
       - key: EXPO_PUBLIC_WEB_URL
         fromService:
           type: web
-          name: farmers-market-web
+          name: zuru-web
           envVarKey: RENDER_EXTERNAL_URL
-      - fromGroup: farmers-market-staging
+      - fromGroup: zuru-staging
       - key: PUBLIC_API_URL
         fromService:
           type: web
-          name: farmers-market-api
+          name: zuru-api
           envVarKey: RENDER_EXTERNAL_URL
       - key: DATABASE_URL
         fromDatabase:
-          name: farmers-market-db
+          name: zuru-db
           property: connectionString
       - key: REDIS_URL
         fromService:
           type: keyvalue
-          name: farmers-market-redis
+          name: zuru-redis
           property: connectionString
       - key: MAIL_FROM
         sync: false
@@ -167,10 +171,10 @@ services:
 
   # Operations console (static).
   - type: web
-    name: farmers-market-admin
+    name: zuru-admin
     runtime: static
     autoDeployTrigger: checksPass
-    buildCommand: npm ci --ignore-scripts && npm run build -w @farmers-market/admin
+    buildCommand: npm ci --ignore-scripts && npm run build -w @zuru/admin
     staticPublishPath: ./apps/admin/dist
     routes:
       - type: rewrite
@@ -180,15 +184,15 @@ services:
       - key: VITE_API_HOST
         fromService:
           type: web
-          name: farmers-market-api
+          name: zuru-api
           envVarKey: RENDER_EXTERNAL_HOSTNAME
 
   # Mobile app as a website, for testing on any phone browser.
   - type: web
-    name: farmers-market-web
+    name: zuru-web
     runtime: static
     autoDeployTrigger: checksPass
-    buildCommand: npm ci --ignore-scripts && npm run export:web -w @farmers-market/mobile
+    buildCommand: npm ci --ignore-scripts && npm run export:web -w @zuru/mobile
     staticPublishPath: ./apps/mobile/dist
     routes:
       - type: rewrite
@@ -198,18 +202,18 @@ services:
       - key: EXPO_PUBLIC_API_HOST
         fromService:
           type: web
-          name: farmers-market-api
+          name: zuru-api
           envVarKey: RENDER_EXTERNAL_HOSTNAME
 
   - type: keyvalue
-    name: farmers-market-redis
+    name: zuru-redis
     region: frankfurt
     # Internal only: no access from outside Render's private network.
     ipAllowList: []
     maxmemoryPolicy: noeviction
 
 databases:
-  - name: farmers-market-db
+  - name: zuru-db
     region: frankfurt
     postgresMajorVersion: '17'
     databaseName: farmers_market

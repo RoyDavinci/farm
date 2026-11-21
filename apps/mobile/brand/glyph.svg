@@ -1,0 +1,29 @@
+<!-- Zuru mark: a courier running with a shopping bag. White on transparent, 1024×1024. -->
+<g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round">
+  <!-- speed lines -->
+  <path d="M150 400 H330" stroke-width="34"/>
+  <path d="M110 480 H300" stroke-width="34"/>
+  <path d="M170 560 H300" stroke-width="34"/>
+  <!-- torso, leaning forward -->
+  <path d="M470 360 L400 560" stroke-width="78"/>
+  <!-- back leg -->
+  <path d="M400 560 L300 640 L250 760" stroke-width="66"/>
+  <!-- front leg -->
+  <path d="M400 560 L520 650 L470 800" stroke-width="66"/>
+  <!-- back arm -->
+  <path d="M455 400 L360 440 L310 400" stroke-width="54"/>
+  <!-- front arm reaching to the bag -->
+  <path d="M465 400 L570 470 L640 500" stroke-width="54"/>
+</g>
+<circle cx="535" cy="265" r="62" fill="#fff"/>
+<!-- shopping bag -->
+<g transform="rotate(-8 740 620)">
+  <path d="M680 540 C680 470 800 470 800 540" fill="none" stroke="#fff" stroke-width="26" stroke-linecap="round"/>
+  <rect x="620" y="540" width="240" height="250" rx="26" fill="#fff"/>
+  <!-- cart on the bag -->
+  <g fill="none" stroke="#F0954E" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M668 612 H694 L716 696 H800 L816 636 H704"/>
+  </g>
+  <circle cx="728" cy="728" r="12" fill="#F0954E"/>
+  <circle cx="790" cy="728" r="12" fill="#F0954E"/>
+</g>

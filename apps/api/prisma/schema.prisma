@@ -23,7 +23,13 @@ model AuditEntry {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model Booking {
-  id                      String          @id
+  pickup_available        Boolean              @default(true)
+  delivery_available      Boolean              @default(true)
+  pickup_market_id        String?
+  pickup_market           Market?              @relation("booking_pickup_market", fields: [pickup_market_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  preorder_interests      preorder_interests[]
+  status_click            StatusClick?
+  id                      String               @id
   buyer_id                String
   seller_id               String
   listing_id              String
@@ -34,27 +40,28 @@ model Booking {
   total_kobo              Int
   commission_bps          Int
   commission_kobo         Int
-  status                  String          @default("REQUESTED")
-  paid                    Boolean         @default(false)
+  status                  String               @default("REQUESTED")
+  paid                    Boolean              @default(false)
   pickup_code             String
-  pickup_failures         Int             @default(0)
-  pickup_locked_until     DateTime?       @db.Timestamptz(6)
-  reserved_until          DateTime?       @db.Timestamptz(6)
-  created_at              DateTime        @default(now()) @db.Timestamptz(6)
+  pickup_failures         Int                  @default(0)
+  pickup_locked_until     DateTime?            @db.Timestamptz(6)
+  reserved_until          DateTime?            @db.Timestamptz(6)
+  created_at              DateTime             @default(now()) @db.Timestamptz(6)
   variant_id              String?
-  variant_name            String          @default("Standard")
+  variant_name            String               @default("Standard")
   offer_quantity          Int?
   offer_price_kobo        Int?
   offer_note              String?
-  offer_expires_at        DateTime?       @db.Timestamptz(6)
+  offer_expires_at        DateTime?            @db.Timestamptz(6)
+  offer_version           Int                  @default(0)
   pickup_address_snapshot String?
   pickup_latitude         Float?
   pickup_longitude        Float?
-  preorder                Boolean         @default(false)
-  users                   User            @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  listings                Listing         @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  sellers                 Seller          @relation(fields: [seller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
-  listing_variants        ListingVariant? @relation(fields: [variant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  preorder                Boolean              @default(false)
+  users                   User                 @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  listings                Listing              @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sellers                 Seller               @relation(fields: [seller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  listing_variants        ListingVariant?      @relation(fields: [variant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   deliveries              Delivery?
   disputes                Dispute?
   events                  BookingEvent[]
@@ -77,17 +84,19 @@ model ConsumedRefreshToken {
 }
 
 model Conversation {
-  id             String    @id
-  buyer_id       String
-  seller_id      String
-  listing_id     String
-  buyer_read_at  DateTime  @default(now()) @db.Timestamptz(6)
-  seller_read_at DateTime  @default(now()) @db.Timestamptz(6)
-  created_at     DateTime  @default(now()) @db.Timestamptz(6)
-  users          User      @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  listings       Listing   @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  sellers        Seller    @relation(fields: [seller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
-  messages       Message[]
+  voice_calls      VoiceCall[]
+  status_enquiries StatusClick[]
+  id               String        @id
+  buyer_id         String
+  seller_id        String
+  listing_id       String
+  buyer_read_at    DateTime      @default(now()) @db.Timestamptz(6)
+  seller_read_at   DateTime      @default(now()) @db.Timestamptz(6)
+  created_at       DateTime      @default(now()) @db.Timestamptz(6)
+  users            User          @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  listings         Listing       @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sellers          Seller        @relation(fields: [seller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  messages         Message[]
 
   @@unique([buyer_id, seller_id, listing_id])
   @@map("conversations")
@@ -95,13 +104,23 @@ model Conversation {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model Delivery {
-  id                                String      @id
-  booking_id                        String      @unique(map: "deliveries_active_idx", where: raw("(status = ANY (ARRAY['OPEN'::text, 'ASSIGNED'::text, 'PICKED_UP'::text, 'DELIVERED'::text]))"))
+  pricing                           Json                  @default("{}")
+  delivery_incidents                delivery_incidents[]
+  delivery_milestones               delivery_milestones[]
+  driver_ratings                    driver_ratings?
+  progress_stage                    String?
+  inspection_started_at             DateTime?             @db.Timestamptz(6)
+  inspection_accepted_at            DateTime?             @db.Timestamptz(6)
+  scheduled_at                      DateTime?             @db.Timestamptz(6)
+  requested_rider                   User?                 @relation("delivery_requested_rider", fields: [requested_driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requested_driver_id               String?
+  id                                String                @id
+  booking_id                        String                @unique(map: "deliveries_active_idx", where: raw("(status = ANY (ARRAY['OPEN'::text, 'ASSIGNED'::text, 'PICKED_UP'::text, 'DELIVERED'::text]))"))
   buyer_id                          String
   seller_id                         String
   driver_id                         String?
   vehicle_type                      String
-  status                            String      @default("OPEN")
+  status                            String                @default("OPEN")
   pickup_latitude                   Float
   pickup_longitude                  Float
   dropoff_address                   String
@@ -110,28 +129,29 @@ model Delivery {
   distance_km                       Float
   fare_kobo                         BigInt
   commission_bps                    Int
-  pay_on_delivery                   Boolean     @default(false)
-  fare_paid                         Boolean     @default(false)
+  pay_on_delivery                   Boolean               @default(false)
+  fare_paid                         Boolean               @default(false)
   pickup_pin                        String
   delivery_pin                      String
-  pin_failures                      Int         @default(0)
-  pin_locked_until                  DateTime?   @db.Timestamptz(6)
+  pin_failures                      Int                   @default(0)
+  pin_locked_until                  DateTime?             @db.Timestamptz(6)
   driver_latitude                   Float?
   driver_longitude                  Float?
-  driver_location_at                DateTime?   @db.Timestamptz(6)
+  driver_location_at                DateTime?             @db.Timestamptz(6)
   cancel_reason                     String?
-  created_at                        DateTime    @default(now()) @db.Timestamptz(6)
-  assigned_at                       DateTime?   @db.Timestamptz(6)
-  picked_up_at                      DateTime?   @db.Timestamptz(6)
-  delivered_at                      DateTime?   @db.Timestamptz(6)
-  bookings                          Booking     @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_deliveries_buyer_idTousers  User        @relation("deliveries_buyer_idTousers", fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_deliveries_driver_idTousers User?       @relation("deliveries_driver_idTousers", fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_deliveries_seller_idTousers User        @relation("deliveries_seller_idTousers", fields: [seller_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  vehicle_types                     VehicleType @relation(fields: [vehicle_type], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  created_at                        DateTime              @default(now()) @db.Timestamptz(6)
+  assigned_at                       DateTime?             @db.Timestamptz(6)
+  picked_up_at                      DateTime?             @db.Timestamptz(6)
+  delivered_at                      DateTime?             @db.Timestamptz(6)
+  bookings                          Booking               @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_deliveries_buyer_idTousers  User                  @relation("deliveries_buyer_idTousers", fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_deliveries_driver_idTousers User?                 @relation("deliveries_driver_idTousers", fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_deliveries_seller_idTousers User                  @relation("deliveries_seller_idTousers", fields: [seller_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicle_types                     VehicleType           @relation(fields: [vehicle_type], references: [code], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([driver_id, created_at], map: "deliveries_driver_idx")
   @@index([status], map: "deliveries_open_idx", where: raw("(status = 'OPEN'::text)"))
+  @@index([requested_driver_id, status], map: "deliveries_requested_driver_idx")
   @@map("deliveries")
 }
 
@@ -151,6 +171,8 @@ model DisputeEvidence {
 }
 
 model Dispute {
+  return_journeys          return_journeys?
+  dispute_appeals          dispute_appeals[]
   id                       String            @id
   booking_id               String            @unique
   opened_by                String
@@ -172,20 +194,22 @@ model Dispute {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model Driver {
-  user_id        String      @id
-  vehicle_type   String
-  plate_number   String
-  licence_number String
-  city           String
-  status         String      @default("PENDING")
-  reason         String?
-  online         Boolean     @default(false)
-  latitude       Float?
-  longitude      Float?
-  location_at    DateTime?   @db.Timestamptz(6)
-  created_at     DateTime    @default(now()) @db.Timestamptz(6)
-  users          User        @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  vehicle_types  VehicleType @relation(fields: [vehicle_type], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  background_tracking Boolean     @default(false)
+  profile_details     Json        @default("{}")
+  user_id             String      @id
+  vehicle_type        String
+  plate_number        String
+  licence_number      String
+  city                String
+  status              String      @default("PENDING")
+  reason              String?
+  online              Boolean     @default(false)
+  latitude            Float?
+  longitude           Float?
+  location_at         DateTime?   @db.Timestamptz(6)
+  created_at          DateTime    @default(now()) @db.Timestamptz(6)
+  users               User        @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicle_types       VehicleType @relation(fields: [vehicle_type], references: [code], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("drivers")
 }
@@ -231,11 +255,42 @@ model Funding {
   /// Last automatic provider check (funding recovery job).
   checked_at                DateTime?                @db.Timestamptz(6)
   created_at                DateTime                 @default(now()) @db.Timestamptz(6)
+  /// wallet (open top-up), booking or delivery (direct checkout for one purchase).
+  purpose                   String                   @default("wallet")
+  target_id                 String?
+  /// Already refunded to the card against this payment.
+  refunded_kobo             Int                      @default(0)
+  credited_at               DateTime?                @db.Timestamptz(6)
   users                     User                     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   reconciliation_exceptions ReconciliationException?
+  card_refunds              CardRefund[]
 
   @@index([status, checked_at], map: "funding_recovery_idx")
+  @@index([user_id, credited_at(sort: Desc)], map: "funding_refundable_idx", where: raw("(status = 'SUCCESSFUL'::text)"))
   @@map("funding")
+}
+
+/// Refunds to the original payment method (used when the wallet feature is off).
+model CardRefund {
+  id                 String   @id
+  funding_id         String
+  user_id            String
+  provider           String
+  amount_kobo        Int
+  /// PENDING, SENDING (request in flight; never re-sent automatically), REFUNDED or FAILED.
+  status             String   @default("PENDING")
+  provider_refund_id String?
+  error              String?
+  resolved_by        String?
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @default(now()) @db.Timestamptz(6)
+  funding            Funding  @relation(fields: [funding_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user               User     @relation("card_refund_user", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  resolver           User?    @relation("card_refund_resolver", fields: [resolved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([status, created_at], map: "card_refunds_status_idx")
+  @@index([user_id, created_at(sort: Desc)], map: "card_refunds_user_idx")
+  @@map("card_refunds")
 }
 
 model IdempotencyKey {
@@ -284,27 +339,37 @@ model ListingVariant {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model Listing {
-  id                String          @id
-  seller_id         String
-  title             String
-  description       String
-  category          String
-  unit              String
-  price_kobo        Int
-  stock             Int
-  status            String          @default("ACTIVE")
-  image_url         String?
-  confirmed_at      DateTime        @default(now()) @db.Timestamptz(6)
-  created_at        DateTime        @default(now()) @db.Timestamptz(6)
-  image_urls        Json            @default("[]")
-  available_from    DateTime?       @db.Timestamptz(6)
-  preorder_capacity Int             @default(0)
-  bookings          Booking[]
-  conversations     Conversation[]
-  listing_variants  ListingVariant?
-  sellers           Seller          @relation(fields: [seller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
-  promotions        Promotion[]
-  stock_alerts      StockAlert[]
+  pickup_available         Boolean              @default(true)
+  delivery_available       Boolean              @default(true)
+  marketplace_events       marketplace_events[]
+  preorder_interests       preorder_interests[]
+  archived_at              DateTime?            @db.Timestamptz(6)
+  stock_reminded_at        DateTime?            @db.Timestamptz(6)
+  preorder_advance_allowed Boolean              @default(false)
+  status_clicks            StatusClick[]
+  local_statuses           LocalStatus[]
+  condition                String               @default("NEW")
+  id                       String               @id
+  seller_id                String
+  title                    String
+  description              String
+  category                 String
+  unit                     String
+  price_kobo               Int
+  stock                    Int
+  status                   String               @default("ACTIVE")
+  image_url                String?
+  confirmed_at             DateTime             @default(now()) @db.Timestamptz(6)
+  created_at               DateTime             @default(now()) @db.Timestamptz(6)
+  image_urls               Json                 @default("[]")
+  available_from           DateTime?            @db.Timestamptz(6)
+  preorder_capacity        Int                  @default(0)
+  bookings                 Booking[]
+  conversations            Conversation[]
+  listing_variants         ListingVariant?
+  sellers                  Seller               @relation(fields: [seller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  promotions               Promotion[]
+  stock_alerts             StockAlert[]
 
   @@index([seller_id], map: "listings_seller_idx")
   @@map("listings")
@@ -325,20 +390,25 @@ model LocationHistory {
 }
 
 model Market {
-  id         String   @id
-  name       String
-  city       String
-  area       String
-  latitude   Float?
-  longitude  Float?
-  status     String   @default("ACTIVE")
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  sellers    Seller[]
+  pickup_bookings  Booking[]          @relation("booking_pickup_market")
+  market_paths     market_paths[]
+  market_waypoints market_waypoints[]
+  id               String             @id
+  name             String
+  city             String
+  area             String
+  latitude         Float?
+  longitude        Float?
+  status           String             @default("ACTIVE")
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  sellers          Seller[]
 
   @@map("markets")
 }
 
 model Media {
+  media_type       String   @default("IMAGE")
+  duration_seconds Float?
   id               String   @id
   owner_id         String
   url              String   @unique
@@ -380,10 +450,12 @@ model NotificationOutbox {
 }
 
 model NotificationPreference {
-  user_id       String  @id
-  email_enabled Boolean @default(true)
-  push_enabled  Boolean @default(true)
-  user          User    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  marketing_enabled Boolean   @default(false)
+  last_marketing_at DateTime? @db.Timestamptz(6)
+  user_id           String    @id
+  email_enabled     Boolean   @default(true)
+  push_enabled      Boolean   @default(true)
+  user              User      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("notification_preferences")
 }
@@ -456,26 +528,30 @@ model PayoutAccount {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model Payout {
-  id                               String        @id
+  shopping_request                 ShoppingRequest? @relation(fields: [shopping_request_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  source_account                   String           @default("seller_payable")
+  source_owner                     String?
+  shopping_request_id              String?
+  id                               String           @id
   user_id                          String
   account_id                       String
   amount_kobo                      BigInt
-  fee_kobo                         BigInt        @default(0)
-  status                           String        @default("REQUESTED")
+  fee_kobo                         BigInt           @default(0)
+  status                           String           @default("REQUESTED")
   provider                         String?
   provider_id                      String?
-  dispatch_state                   String        @default("UNKNOWN")
+  dispatch_state                   String           @default("UNKNOWN")
   recovery_token                   String?
-  recovery_after                   DateTime      @default(now()) @db.Timestamptz(6)
+  recovery_after                   DateTime         @default(now()) @db.Timestamptz(6)
   recovery_error                   String?
   failure_reason                   String?
   reviewed_by                      String?
-  reviewed_at                      DateTime?     @db.Timestamptz(6)
-  created_at                       DateTime      @default(now()) @db.Timestamptz(6)
-  updated_at                       DateTime      @default(now()) @db.Timestamptz(6)
-  payout_accounts                  PayoutAccount @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_payouts_reviewed_byTousers User?         @relation("payouts_reviewed_byTousers", fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_payouts_user_idTousers     User          @relation("payouts_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reviewed_at                      DateTime?        @db.Timestamptz(6)
+  created_at                       DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime         @default(now()) @db.Timestamptz(6)
+  payout_accounts                  PayoutAccount    @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_payouts_reviewed_byTousers User?            @relation("payouts_reviewed_byTousers", fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_payouts_user_idTousers     User             @relation("payouts_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([status])
   @@index([user_id, created_at], map: "payouts_user_idx")
@@ -598,6 +674,11 @@ model VerificationDocument {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model Seller {
+  profile_details  Json              @default("{}")
+  status_boosts    StatusBoost[]
+  local_statuses   LocalStatus[]
+  state            String            @default("")
+  lga              String            @default("")
   user_id          String            @id
   business_name    String
   business_type    String
@@ -642,15 +723,19 @@ model Session {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model Setting {
-  id                      Int     @id
-  reservation_hours       Int
-  commission_bps          Int
-  payout_min_kobo         Int     @default(100000)
-  payout_fee_kobo         Int     @default(5000)
-  promotion_daily_kobo    Int     @default(50000)
-  delivery_commission_bps Int     @default(1000)
-  delivery_radius_km      Int     @default(15)
-  pay_on_delivery_enabled Boolean @default(false)
+  status_boost_hourly_kobo Int     @default(2500)
+  status_lifetime_hours    Int     @default(24)
+  status_radius_km         Int     @default(25)
+  status_max_active        Int     @default(10)
+  id                       Int     @id
+  reservation_hours        Int
+  commission_bps           Int
+  payout_min_kobo          Int     @default(100000)
+  payout_fee_kobo          Int     @default(5000)
+  promotion_daily_kobo     Int     @default(50000)
+  delivery_commission_bps  Int     @default(1000)
+  delivery_radius_km       Int     @default(15)
+  pay_on_delivery_enabled  Boolean @default(false)
 
   @@map("settings")
 }
@@ -681,6 +766,35 @@ model UserBlock {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model User {
+  card_refunds                                        CardRefund[]           @relation("card_refund_user")
+  card_refunds_resolved                               CardRefund[]           @relation("card_refund_resolver")
+  parcel_buyer                                        ParcelJob[]            @relation("parcel_buyer")
+  parcel_driver                                       ParcelJob[]            @relation("parcel_driver")
+  voice_caller                                        VoiceCall[]            @relation("voice_caller")
+  voice_callee                                        VoiceCall[]            @relation("voice_callee")
+  voice_signals                                       VoiceSignal[]
+  return_journeys_return_journeys_buyer_idTousers     return_journeys[]      @relation("return_journeys_buyer_idTousers")
+  return_journeys_return_journeys_driver_idTousers    return_journeys[]      @relation("return_journeys_driver_idTousers")
+  return_journeys_return_journeys_reviewed_byTousers  return_journeys[]      @relation("return_journeys_reviewed_byTousers")
+  return_journeys_return_journeys_seller_idTousers    return_journeys[]      @relation("return_journeys_seller_idTousers")
+  delivery_incidents                                  delivery_incidents[]
+  delivery_milestones                                 delivery_milestones[]
+  discovery_preferences                               discovery_preferences?
+  dispute_appeals_dispute_appeals_appellant_idTousers dispute_appeals[]      @relation("dispute_appeals_appellant_idTousers")
+  dispute_appeals_dispute_appeals_reviewer_idTousers  dispute_appeals[]      @relation("dispute_appeals_reviewer_idTousers")
+  driver_ratings_driver_ratings_buyer_idTousers       driver_ratings[]       @relation("driver_ratings_buyer_idTousers")
+  driver_ratings_driver_ratings_driver_idTousers      driver_ratings[]       @relation("driver_ratings_driver_idTousers")
+  marketplace_events                                  marketplace_events[]
+  preorder_interests                                  preorder_interests[]
+  status_boost_reviews                                StatusBoost[]
+  status_clicks                                       StatusClick[]
+  local_status_mutes                                  LocalStatusMute[]
+  local_status_reports                                LocalStatusReport[]
+  shopping_buyer                                      ShoppingRequest[]      @relation("shopping_buyer")
+  shopping_rider                                      ShoppingRequest[]      @relation("shopping_rider")
+  shopping_messages                                   ShoppingMessage[]
+  requested_deliveries                                Delivery[]             @relation("delivery_requested_rider")
+
   funding_intents                                      FundingIntent[]
   id                                                   String                  @id
   name                                                 String
@@ -729,16 +843,18 @@ model User {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model VehicleType {
-  code           String     @id
-  name           String
-  base_fare_kobo Int
-  per_km_kobo    Int
-  min_fare_kobo  Int
-  max_km         Int        @default(30)
-  active         Boolean    @default(true)
-  sort           Int        @default(0)
-  deliveries     Delivery[]
-  drivers        Driver[]
+  parcels          ParcelJob[]
+  delivery_tariffs delivery_tariffs[]
+  code             String             @id
+  name             String
+  base_fare_kobo   Int
+  per_km_kobo      Int
+  min_fare_kobo    Int
+  max_km           Int                @default(30)
+  active           Boolean            @default(true)
+  sort             Int                @default(0)
+  deliveries       Delivery[]
+  drivers          Driver[]
 
   @@map("vehicle_types")
 }
@@ -769,4 +885,457 @@ model FundingIntent {
   @@id([actor_id, key])
   @@index([status, lease_until], map: "funding_intents_recovery_idx")
   @@map("funding_intents")
+}
+
+model ShoppingRequest {
+  id                 String            @id
+  buyer_id           String
+  rider_id           String
+  status             String            @default("REQUESTED")
+  items              String
+  source_name        String
+  source_address     String
+  source_latitude    Float
+  source_longitude   Float
+  dropoff_address    String
+  dropoff_latitude   Float
+  dropoff_longitude  Float
+  goods_budget_kobo  Int
+  delivery_fee_kobo  Int
+  commission_bps     Int
+  payment_mode       String
+  quote_version      Int               @default(1)
+  actual_goods_kobo  Int?
+  reimbursement_kobo Int?
+  receipt_photos     Json              @default("[]")
+  rider_latitude     Float?
+  rider_longitude    Float?
+  rider_location_at  DateTime?
+  receipt_note       String?
+  delivery_pin       String
+  pin_failures       Int               @default(0)
+  pin_locked_until   DateTime?         @db.Timestamptz(6)
+  review_open        Boolean           @default(false)
+  review_note        String?
+  created_at         DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime          @default(now()) @db.Timestamptz(6)
+  funded_at          DateTime?         @db.Timestamptz(6)
+  purchased_at       DateTime?         @db.Timestamptz(6)
+  delivered_at       DateTime?         @db.Timestamptz(6)
+  buyer              User              @relation("shopping_buyer", fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rider              User              @relation("shopping_rider", fields: [rider_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  messages           ShoppingMessage[]
+  payouts            Payout[]
+
+  @@index([buyer_id, created_at])
+  @@index([rider_id, status])
+  @@map("shopping_requests")
+}
+
+model ShoppingMessage {
+  id         String          @id
+  request_id String
+  sender_id  String
+  body       String
+  created_at DateTime        @default(now()) @db.Timestamptz(6)
+  request    ShoppingRequest @relation(fields: [request_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sender     User            @relation(fields: [sender_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([request_id, created_at])
+  @@map("shopping_messages")
+}
+
+model LocalStatus {
+  status_boosts     StatusBoost[]
+  status_clicks     StatusClick[]
+  media_type        String              @default("IMAGE")
+  duration_seconds  Float?
+  seller            Seller              @relation(fields: [seller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  listing           Listing             @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  events            LocalStatusEvent[]
+  reports           LocalStatusReport[]
+  id                String              @id
+  seller_id         String
+  listing_id        String
+  caption           String              @default("")
+  media_url         String
+  thumbnail_url     String
+  status            String              @default("ACTIVE")
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  expires_at        DateTime            @db.Timestamptz(6)
+  moderation_reason String?
+
+  @@index([status, expires_at, created_at(sort: Desc), id], map: "local_status_active_idx")
+  @@index([seller_id, created_at(sort: Desc)], map: "local_status_seller_idx")
+  @@map("local_statuses")
+}
+
+model LocalStatusEvent {
+  campaign_key  String      @default("organic")
+  local_status  LocalStatus @relation(fields: [status_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status_id     String
+  viewer_key    String
+  views         Int         @default(0)
+  clicks        Int         @default(0)
+  last_view_at  DateTime?   @db.Timestamptz(6)
+  last_click_at DateTime?   @db.Timestamptz(6)
+  sponsored     Boolean
+
+  @@id([status_id, viewer_key, sponsored, campaign_key])
+  @@index([campaign_key], map: "status_event_campaign_idx")
+  @@map("local_status_events")
+}
+
+model LocalStatusMute {
+  user       User     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_id    String
+  kind       String
+  target     String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([user_id, kind, target])
+  @@map("local_status_mutes")
+}
+
+model LocalStatusReport {
+  local_status LocalStatus @relation(fields: [status_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reporter     User        @relation(fields: [reporter_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id           String      @id
+  status_id    String
+  reporter_id  String
+  reason       String
+  created_at   DateTime    @default(now()) @db.Timestamptz(6)
+
+  @@unique([status_id, reporter_id])
+  @@map("local_status_reports")
+}
+
+model StatusBoost {
+  id           String        @id
+  status_id    String
+  seller_id    String
+  status       String        @default("PENDING")
+  hours        Int
+  fee_kobo     Int
+  refund_kobo  Int           @default(0)
+  targets      Json
+  created_at   DateTime      @default(now()) @db.Timestamptz(6)
+  starts_at    DateTime?     @db.Timestamptz(6)
+  ends_at      DateTime?     @db.Timestamptz(6)
+  reason       String?
+  reviewed_by  String?
+  local_status LocalStatus   @relation(fields: [status_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  seller       Seller        @relation(fields: [seller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  reviewer     User?         @relation(fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  clicks       StatusClick[]
+
+  @@unique([status_id], map: "status_boost_running_idx", where: raw("(status = ANY (ARRAY['PENDING'::text, 'ACTIVE'::text]))"))
+  @@index([seller_id, created_at(sort: Desc)], map: "status_boost_seller_idx")
+  @@map("status_boosts")
+}
+
+model StatusClick {
+  conversation_id String?
+  conversation    Conversation? @relation(fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id              String        @id
+  buyer_id        String
+  status_id       String
+  listing_id      String
+  campaign_id     String?
+  sponsored       Boolean
+  created_at      DateTime      @default(now()) @db.Timestamptz(6)
+  expires_at      DateTime      @db.Timestamptz(6)
+  booking_id      String?       @unique
+  buyer           User          @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  local_status    LocalStatus   @relation(fields: [status_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  listing         Listing       @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  campaign        StatusBoost?  @relation(fields: [campaign_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  booking         Booking?      @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([conversation_id], map: "status_clicks_conversation_idx", where: raw("(conversation_id IS NOT NULL)"))
+  @@index([status_id, campaign_id, booking_id], map: "status_click_attribution_idx")
+  @@index([buyer_id, created_at(sort: Desc)], map: "status_click_buyer_idx")
+  @@index([campaign_id], map: "status_click_campaign_idx")
+  @@index([expires_at], map: "status_click_cleanup_idx", where: raw("(booking_id IS NULL)"))
+  @@map("status_clicks")
+}
+
+model catalogue_categories {
+  name             String   @id
+  active           Boolean  @default(true)
+  rules            String   @default("")
+  prohibited_terms Json     @default("[]")
+  updated_at       DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model delivery_incidents {
+  id          String   @id
+  delivery_id String
+  reporter_id String
+  kind        String
+  description String
+  status      String   @default("OPEN")
+  resolution  String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  deliveries  Delivery @relation(fields: [delivery_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users       User     @relation(fields: [reporter_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model delivery_milestones {
+  id          String   @id
+  delivery_id String
+  actor_id    String
+  stage       String
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  users       User     @relation(fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  deliveries  Delivery @relation(fields: [delivery_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([delivery_id, stage])
+}
+
+model delivery_tariffs {
+  id                      String      @id
+  state                   String
+  city                    String
+  vehicle_type            String
+  active                  Boolean     @default(true)
+  base_kobo               Int
+  per_km_kobo             Int
+  per_kg_kobo             Int         @default(0)
+  max_weight_kg           Float       @default(25)
+  waiting_per_minute_kobo Int         @default(0)
+  demand_bps              Int         @default(10000)
+  surcharge_kobo          Int         @default(0)
+  reason                  String
+  vehicle_types           VehicleType @relation(fields: [vehicle_type], references: [code], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([state, city, vehicle_type])
+}
+
+model discovery_preferences {
+  user_id          String    @id
+  categories       Json      @default("[]")
+  digest_enabled   Boolean   @default(false)
+  digest_frequency String    @default("WEEKLY")
+  state            String    @default("")
+  lga              String    @default("")
+  last_digest_at   DateTime? @db.Timestamptz(6)
+  users            User      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model dispute_appeals {
+  id                                        String   @id
+  dispute_id                                String
+  appellant_id                              String
+  reason                                    String
+  status                                    String   @default("OPEN")
+  resolution                                String?
+  reviewer_id                               String?
+  created_at                                DateTime @default(now()) @db.Timestamptz(6)
+  users_dispute_appeals_appellant_idTousers User     @relation("dispute_appeals_appellant_idTousers", fields: [appellant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  disputes                                  Dispute  @relation(fields: [dispute_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_dispute_appeals_reviewer_idTousers  User?    @relation("dispute_appeals_reviewer_idTousers", fields: [reviewer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([dispute_id, appellant_id])
+}
+
+model driver_ratings {
+  id                                    String   @id
+  delivery_id                           String   @unique
+  buyer_id                              String
+  driver_id                             String
+  punctuality                           Int
+  care                                  Int
+  professionalism                       Int
+  comment                               String   @default("")
+  created_at                            DateTime @default(now()) @db.Timestamptz(6)
+  users_driver_ratings_buyer_idTousers  User     @relation("driver_ratings_buyer_idTousers", fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  deliveries                            Delivery @relation(fields: [delivery_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_driver_ratings_driver_idTousers User     @relation("driver_ratings_driver_idTousers", fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([driver_id], map: "driver_ratings_driver_idx")
+}
+
+model market_paths {
+  id                                                      String           @id
+  market_id                                               String
+  from_id                                                 String
+  to_id                                                   String
+  metres                                                  Float
+  instructions                                            String           @default("")
+  accessible                                              Boolean          @default(true)
+  active                                                  Boolean          @default(true)
+  market_waypoints_market_paths_from_idTomarket_waypoints market_waypoints @relation("market_paths_from_idTomarket_waypoints", fields: [from_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  markets                                                 Market           @relation(fields: [market_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  market_waypoints_market_paths_to_idTomarket_waypoints   market_waypoints @relation("market_paths_to_idTomarket_waypoints", fields: [to_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([from_id, to_id])
+}
+
+model market_waypoints {
+  id                                                  String         @id
+  market_id                                           String
+  label                                               String
+  kind                                                String
+  latitude                                            Float
+  longitude                                           Float
+  verified                                            Boolean        @default(false)
+  active                                              Boolean        @default(true)
+  updated_at                                          DateTime       @default(now()) @db.Timestamptz(6)
+  market_paths_market_paths_from_idTomarket_waypoints market_paths[] @relation("market_paths_from_idTomarket_waypoints")
+  market_paths_market_paths_to_idTomarket_waypoints   market_paths[] @relation("market_paths_to_idTomarket_waypoints")
+  markets                                             Market         @relation(fields: [market_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([market_id], map: "market_waypoints_market_idx")
+}
+
+model marketplace_events {
+  id         String   @id
+  user_id    String
+  kind       String
+  listing_id String?
+  category   String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  listings   Listing? @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users      User     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([created_at], map: "marketplace_events_created_idx")
+  @@index([user_id, created_at], map: "marketplace_events_user_idx")
+}
+
+model marketplace_policies {
+  id         Int      @id
+  draft      Json     @default("{}")
+  approved   Json     @default("{}")
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model preorder_interests {
+  id          String    @id
+  buyer_id    String
+  listing_id  String
+  quantity    Int
+  status      String    @default("WAITING")
+  booking_id  String?
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  notified_at DateTime? @db.Timestamptz(6)
+  bookings    Booking?  @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users       User      @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  listings    Listing   @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([buyer_id, listing_id])
+}
+
+model return_journeys {
+  id                                       String    @id
+  dispute_id                               String    @unique(map: "return_journeys_open_case_idx", where: raw("(status <> 'CANCELLED'::text)"))
+  buyer_id                                 String
+  seller_id                                String
+  driver_id                                String?
+  status                                   String    @default("ASSIGNED")
+  pickup_address                           String
+  pickup_latitude                          Float
+  pickup_longitude                         Float
+  dropoff_address                          String
+  dropoff_latitude                         Float
+  dropoff_longitude                        Float
+  fee_kobo                                 Int
+  driver_kobo                              Int
+  payer_account                            String
+  payer_id                                 String?
+  pickup_pin                               String
+  return_pin                               String
+  pin_failures                             Int       @default(0)
+  pin_locked_until                         DateTime? @db.Timestamptz(6)
+  reason                                   String
+  reviewed_by                              String
+  created_at                               DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at                               DateTime  @default(now()) @db.Timestamptz(6)
+  users_return_journeys_buyer_idTousers    User      @relation("return_journeys_buyer_idTousers", fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  disputes                                 Dispute   @relation(fields: [dispute_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_return_journeys_driver_idTousers   User?     @relation("return_journeys_driver_idTousers", fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_return_journeys_reviewed_byTousers User      @relation("return_journeys_reviewed_byTousers", fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_return_journeys_seller_idTousers   User      @relation("return_journeys_seller_idTousers", fields: [seller_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([driver_id, status], map: "return_journeys_driver_idx")
+}
+
+model ParcelJob {
+  id                String      @id
+  buyer_id          String
+  driver_id         String
+  vehicle_type      String
+  description       String
+  status            String      @default("REQUESTED")
+  pickup_address    String
+  pickup_latitude   Float
+  pickup_longitude  Float
+  dropoff_address   String
+  dropoff_latitude  Float
+  dropoff_longitude Float
+  fare_kobo         Int
+  commission_bps    Int
+  distance_km       Float
+  pricing           Json
+  pickup_pin        String
+  delivery_pin      String
+  pin_failures      Int         @default(0)
+  pin_locked_until  DateTime?   @db.Timestamptz(6)
+  driver_latitude   Float?
+  driver_longitude  Float?
+  location_at       DateTime?   @db.Timestamptz(6)
+  review_open       Boolean     @default(false)
+  review_note       String?
+  created_at        DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime    @default(now()) @db.Timestamptz(6)
+  buyer             User        @relation("parcel_buyer", fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  driver            User        @relation("parcel_driver", fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicle           VehicleType @relation(fields: [vehicle_type], references: [code], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([driver_id, status], map: "parcel_jobs_driver_idx")
+  @@index([buyer_id, created_at], map: "parcel_jobs_buyer_idx")
+  @@map("parcel_jobs")
+}
+
+model VoiceCall {
+  id              String        @id
+  conversation_id String        @unique(map: "voice_calls_active_conversation_idx", where: raw("(status = ANY (ARRAY['RINGING'::text, 'ACCEPTED'::text]))"))
+  caller_id       String
+  callee_id       String
+  status          String        @default("RINGING")
+  created_at      DateTime      @default(now()) @db.Timestamptz(6)
+  expires_at      DateTime      @default(dbgenerated("(now() + '00:02:00'::interval)")) @db.Timestamptz(6)
+  conversation    Conversation  @relation(fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  caller          User          @relation("voice_caller", fields: [caller_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  callee          User          @relation("voice_callee", fields: [callee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  signals         VoiceSignal[]
+
+  @@map("voice_calls")
+}
+
+model VoiceSignal {
+  id         String    @id
+  call_id    String
+  sender_id  String
+  kind       String
+  payload    Json
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  call       VoiceCall @relation(fields: [call_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sender     User      @relation(fields: [sender_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([call_id, created_at], map: "voice_signals_call_idx")
+  @@map("voice_signals")
+}
+
+model MarketRegion {
+  code       String   @id
+  country    String
+  currency   String
+  locale     String
+  enabled    Boolean  @default(false)
+  cities     Json     @default("[]")
+  notes      String   @default("")
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("market_regions")
 }

@@ -1,4 +1,4 @@
-import { type Settings as MarketSettings } from '@farmers-market/shared';
+import { type Settings as MarketSettings } from '@zuru/shared';
 import { Check } from 'lucide-react';
 import { useState } from 'react';
 import { useAdmin } from '../AdminContext';
@@ -31,12 +31,61 @@ export default function SettingsPage({ settings }: { settings: MarketSettings })
                     delivery_commission_bps: Math.round(Number(f.get('deliveryCommission')) * 100),
                     delivery_radius_km: Number(f.get('deliveryRadius')),
                     pay_on_delivery_enabled: f.get('pod') === 'on',
+                    status_boost_hourly_kobo: Math.round(Number(f.get('boostHourly')) * 100),
+                    status_lifetime_hours: Number(f.get('statusHours')),
+                    status_radius_km: Number(f.get('statusRadius')),
+                    status_max_active: Number(f.get('statusMax')),
                   },
                 }),
               'Marketplace rules saved.',
             );
           }}
         >
+          <label>
+            Boost Status price per hour per target area (₦)
+            <input
+              name="boostHourly"
+              type="number"
+              min="0"
+              max="100000"
+              step="0.01"
+              defaultValue={(s.status_boost_hourly_kobo ?? 2500) / 100}
+              required
+            />
+          </label>
+          <label>
+            Local Status lifetime (hours)
+            <input
+              name="statusHours"
+              type="number"
+              min="1"
+              max="72"
+              defaultValue={s.status_lifetime_hours ?? 24}
+              required
+            />
+          </label>
+          <label>
+            Local Status nearby radius (km)
+            <input
+              name="statusRadius"
+              type="number"
+              min="1"
+              max="100"
+              defaultValue={s.status_radius_km ?? 25}
+              required
+            />
+          </label>
+          <label>
+            Active statuses per seller
+            <input
+              name="statusMax"
+              type="number"
+              min="1"
+              max="30"
+              defaultValue={s.status_max_active ?? 10}
+              required
+            />
+          </label>
           <label>
             Reservation duration (hours)
             <input

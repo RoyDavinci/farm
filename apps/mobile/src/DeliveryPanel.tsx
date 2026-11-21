@@ -1,19 +1,18 @@
-import { money, statusLabel, type Booking } from '@farmers-market/shared';
-import * as Location from 'expo-location';
+import DeliveryProgressPanel from './DeliveryProgressPanel';
+import { money, statusLabel, type Booking, type NearbyRider } from '@zuru/shared';
+import { currentPosition } from './location';
+export { currentPosition } from './location';
+import RiderPicker, { PointFields } from './RiderPicker';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 import { useApp } from './AppContext';
 import MapPanel from './MapPanel';
+import DirectPay from './DirectPay';
+import { featureOn } from './features';
 import { request } from './request';
 import { Badge, Button, Chip, Field, s } from './ui';
 import { PinQr, PinScanner } from './PinCode';
 
-export async function currentPosition() {
-  const permission = await Location.requestForegroundPermissionsAsync();
-  if (!permission.granted) throw new Error('Location permission is needed for delivery.');
-  const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-  return { latitude: p.coords.latitude, longitude: p.coords.longitude };
-}
 export const directions = (lat: number, lng: number) =>
   void Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`);
 
@@ -37,7 +36,27 @@ export default function DeliveryPanel({
   booking: Booking;
   isSeller: boolean;
 }) {
-  const { busy, run } = useApp();
+  const { busy, run, settings } = useApp();
+  const wallet = featureOn(settings, 'wallet');
+  async function submitDelivery() {
+    if (!quote || !drop) return;
+    setDelivery(
+      await request('post', '/bookings/{id}/{action}', {
+        params: { id: b.id, action: 'delivery' },
+        body: {
+          vehicle_type: vehicle,
+          dropoff: drop,
+          dropoff_address: address,
+          pay_on_delivery: pod,
+          expected_fare_kobo: quote.fare_kobo,
+          weight_kg: Number(weight),
+          waiting_minutes: Number(waiting),
+          requested_driver_id: rider?.id,
+        },
+      }),
+    );
+    setForm(false);
+  }
   const token = useMapToken();
   const [delivery, setDelivery] = useState<any>(undefined),
     [options, setOptions] = useState<any>(null),
@@ -45,7 +64,10 @@ export default function DeliveryPanel({
     [vehicle, setVehicle] = useState('motorcycle'),
     [address, setAddress] = useState(''),
     [drop, setDrop] = useState<{ latitude: number; longitude: number } | null>(null),
+    [weight, setWeight] = useState('1'),
+    [waiting, setWaiting] = useState('0'),
     [quote, setQuote] = useState<any>(null),
+    [rider, setRider] = useState<NearbyRider | null>(null),
     [pod, setPod] = useState(false),
     [pin, setPin] = useState('');
   const load = useCallback(
@@ -76,6 +98,8 @@ export default function DeliveryPanel({
       message,
     );
 
+  if (!b.delivery_available)
+    return <Text style={s.fine}>This booking offers collection only.</Text>;
   if (delivery === undefined) return null;
   if (!delivery) {
     if (isSeller || !['ACCEPTED', 'READY_FOR_PICKUP'].includes(b.status) || b.dispute_status)
@@ -109,6 +133,7 @@ export default function DeliveryPanel({
               onPress={() => {
                 setVehicle(v.code);
                 setQuote(null);
+                setRider(null);
               }}
             />
           ))}
@@ -120,18 +145,39 @@ export default function DeliveryPanel({
           multiline
           placeholder="House number, street, landmark, area"
         />
-        <Button
-          secondary
-          title={
-            drop ? '✓ Drop-off pin set to your location' : 'Use my current location as drop-off'
-          }
-          disabled={busy}
-          onPress={() =>
-            void run(async () => {
-              setDrop(await currentPosition());
-              setQuote(null);
-            })
-          }
+        <PointFields
+          title="Delivery map pin"
+          value={drop}
+          onChange={(p) => {
+            setDrop(p);
+            setQuote(null);
+            setRider(null);
+          }}
+        />
+        <RiderPicker
+          point={drop}
+          vehicle={vehicle}
+          selected={rider}
+          onSelect={setRider}
+          bookingId={b.id}
+        />
+        <Field
+          label="Package weight (kg)"
+          value={weight}
+          keyboardType="decimal-pad"
+          onChangeText={(v: string) => {
+            setWeight(v);
+            setQuote(null);
+          }}
+        />
+        <Field
+          label="Agreed waiting time (minutes)"
+          value={waiting}
+          keyboardType="number-pad"
+          onChangeText={(v: string) => {
+            setWaiting(v);
+            setQuote(null);
+          }}
         />
         {quote ? (
           <>
@@ -141,6 +187,15 @@ export default function DeliveryPanel({
               </Text>
               <Text style={s.price}>{money(quote.fare_kobo)}</Text>
             </View>
+            {quote.pricing?.source === 'regional' && (
+              <Text style={s.small}>
+                Base {money(quote.pricing.base_kobo)} · distance{' '}
+                {money(quote.pricing.distance_kobo)} · load {money(quote.pricing.load_kobo)} ·
+                waiting {money(quote.pricing.waiting_kobo)} · demand{' '}
+                {quote.pricing.demand_bps / 10000}× · surcharge{' '}
+                {money(quote.pricing.surcharge_kobo)}. {quote.pricing.reason}
+              </Text>
+            )}
             {options?.pay_on_delivery && (
               <Pressable onPress={() => setPod(!pod)}>
                 <Text style={s.link}>
@@ -151,31 +206,37 @@ export default function DeliveryPanel({
             {!b.paid && !pod && (
               <Text style={s.fine}>Pay for the booking first, or choose Pay on Delivery.</Text>
             )}
-            <Button
-              title={
-                pod
-                  ? 'Request delivery · pay on arrival'
-                  : `Pay ${money(quote.fare_kobo)} and request`
-              }
-              disabled={busy || address.trim().length < 8 || (!b.paid && !pod)}
-              onPress={() =>
-                void run(async () => {
-                  setDelivery(
-                    await request('post', '/bookings/{id}/{action}', {
-                      params: { id: b.id, action: 'delivery' },
-                      body: {
-                        vehicle_type: vehicle,
-                        dropoff: drop,
-                        dropoff_address: address,
-                        pay_on_delivery: pod,
-                        expected_fare_kobo: quote.fare_kobo,
-                      },
-                    }),
-                  );
-                  setForm(false);
-                }, 'Delivery requested. We are finding a driver near the seller.')
-              }
-            />
+            {!wallet && !pod ? (
+              <DirectPay
+                amountKobo={quote.fare_kobo}
+                disabled={!rider || address.trim().length < 8 || !b.paid}
+                checkout={{
+                  purpose: 'delivery',
+                  booking_id: b.id,
+                  quote: {
+                    vehicle_type: vehicle,
+                    weight_kg: Number(weight),
+                    waiting_minutes: Number(waiting),
+                    dropoff: drop,
+                  },
+                  expected_fare_kobo: quote.fare_kobo,
+                }}
+                onPaid={submitDelivery}
+                paidMessage="Fare paid. Delivery sent to your selected rider for acceptance."
+              />
+            ) : (
+              <Button
+                title={
+                  pod
+                    ? 'Request delivery · pay on arrival'
+                    : `Pay ${money(quote.fare_kobo)} and request`
+                }
+                disabled={busy || !rider || address.trim().length < 8 || (!b.paid && !pod)}
+                onPress={() =>
+                  void run(submitDelivery, 'Delivery sent to your selected rider for acceptance.')
+                }
+              />
+            )}
           </>
         ) : (
           <Button
@@ -188,6 +249,8 @@ export default function DeliveryPanel({
                     params: { id: b.id },
                     body: {
                       vehicle_type: vehicle,
+                      weight_kg: Number(weight),
+                      waiting_minutes: Number(waiting),
                       dropoff: drop,
                     },
                   }),
@@ -207,13 +270,16 @@ export default function DeliveryPanel({
   const unpaid = !delivery.fare_paid || !delivery.booking_paid;
   return (
     <View style={s.locationBox}>
+      <DeliveryProgressPanel delivery={delivery} />
       <View style={s.rowBetween}>
         <Text style={s.bold}>Delivery</Text>
         <Badge status={delivery.status === 'DELIVERED' ? 'COMPLETED' : delivery.status} />
       </View>
       <Text style={s.small}>
         {delivery.status === 'OPEN'
-          ? 'Looking for a nearby driver…'
+          ? delivery.requested_driver_id
+            ? 'Waiting for your selected rider to accept…'
+            : 'Looking for a nearby rider…'
           : delivery.driver_name
             ? `${delivery.driver_name} · ${delivery.vehicle_name} · ${delivery.plate_number}`
             : statusLabel(delivery.status)}

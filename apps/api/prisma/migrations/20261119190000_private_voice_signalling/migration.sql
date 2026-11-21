@@ -1,0 +1,4 @@
+CREATE TABLE voice_calls(id text PRIMARY KEY,conversation_id text NOT NULL REFERENCES conversations(id),caller_id text NOT NULL REFERENCES users(id),callee_id text NOT NULL REFERENCES users(id),status text NOT NULL DEFAULT 'RINGING' CHECK(status IN ('RINGING','ACCEPTED','ENDED','DECLINED')),created_at timestamptz NOT NULL DEFAULT now(),expires_at timestamptz NOT NULL DEFAULT now()+interval '2 minutes');
+CREATE UNIQUE INDEX voice_calls_active_conversation_idx ON voice_calls(conversation_id) WHERE status IN ('RINGING','ACCEPTED');
+CREATE TABLE voice_signals(id text PRIMARY KEY,call_id text NOT NULL REFERENCES voice_calls(id) ON DELETE CASCADE,sender_id text NOT NULL REFERENCES users(id),kind text NOT NULL CHECK(kind IN ('offer','answer','ice')),payload jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX voice_signals_call_idx ON voice_signals(call_id,created_at);

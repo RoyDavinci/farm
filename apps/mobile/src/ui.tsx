@@ -1,4 +1,4 @@
-import { statusLabel } from '@farmers-market/shared';
+import { statusLabel } from '@zuru/shared';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 export const categories = ['All', 'Vegetables', 'Fruit', 'Grains', 'Tubers', 'Livestock', 'Other'];
 export const produceIcon = (category: string) =>
@@ -8,8 +8,14 @@ export const produceIcon = (category: string) =>
     Grains: '🌽',
     Tubers: '🥔',
     Livestock: '🥚',
-    Other: '🌱',
-  })[category] || '🌱';
+    'Phones & electronics': '📱',
+    'Fashion & accessories': '👕',
+    'Home & kitchen': '🏠',
+    Furniture: '🪑',
+    'Beauty & personal care': '🧴',
+    'Books & stationery': '📚',
+    Other: '📦',
+  })[category] || '📦';
 export function Field({ label, ...props }: any) {
   return (
     <View style={s.field}>
@@ -452,25 +458,6 @@ export const s = StyleSheet.create({
     gap: 10,
   },
   emptyIcon: { fontSize: 35, color: '#9aab83' },
-  tabbar: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderColor: '#e7ecdd',
-    paddingTop: 11,
-    paddingBottom: Platform.OS === 'ios' ? 4 : 12,
-  },
-  tab: { flex: 1, alignItems: 'center', gap: 5 },
-  tabIcon: { fontSize: 23, color: '#a6ae9a' },
-  tabLabel: { fontSize: 9, color: '#9ba78c' },
-  tabActive: { color: '#3f6439', fontWeight: '700' },
-  tabDot: {
-    height: 3,
-    width: 12,
-    borderRadius: 3,
-    backgroundColor: '#698952',
-    marginTop: 1,
-  },
   bottomNote: {
     fontSize: 9,
     color: '#a3ad95',

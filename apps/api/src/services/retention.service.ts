@@ -8,13 +8,13 @@ import { notify } from './communications.service.js';
 
 /** SQL: listing alias is bookable now from stock, or open for pre-orders before its harvest date. */
 export const bookableSql = (a = 'l') =>
-  `(EXISTS(SELECT 1 FROM listing_variants av WHERE av.listing_id=${a}.id AND av.active AND av.stock>=av.min_quantity) OR (${a}.available_from>now() AND ${a}.preorder_capacity>0 AND EXISTS(SELECT 1 FROM listing_variants pv WHERE pv.listing_id=${a}.id AND pv.active)))`;
+  `(${a}.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM catalogue_categories cc WHERE cc.name=${a}.category AND (NOT cc.active OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(cc.prohibited_terms) term WHERE strpos(lower(${a}.title || ' ' || ${a}.description),lower(term))>0))) AND (COALESCE((SELECT (approved->>'stock_stale_days')::int FROM marketplace_policies WHERE id=1),0)=0 OR ${a}.confirmed_at>now()-COALESCE((SELECT (approved->>'stock_stale_days')::int FROM marketplace_policies WHERE id=1),0)*interval '1 day') AND (EXISTS(SELECT 1 FROM listing_variants av WHERE av.listing_id=${a}.id AND av.active AND av.stock>=av.min_quantity) OR (${a}.available_from>now() AND ${a}.preorder_capacity>0 AND EXISTS(SELECT 1 FROM listing_variants pv WHERE pv.listing_id=${a}.id AND pv.active))))`;
 
 export const visibleListing = `SELECT l.*,(SELECT m.thumbnail_url FROM media m WHERE m.url=l.image_url) AS thumbnail_url,
   s.business_name,s.city,s.area,s.business_type,
   ${bookableSql('l')} AS in_stock
   FROM listings l JOIN sellers s ON s.user_id=l.seller_id
-  WHERE s.status='APPROVED' AND l.status='ACTIVE' AND EXISTS(SELECT 1 FROM users su WHERE su.id=s.user_id AND su.status='ACTIVE')`;
+  WHERE s.status='APPROVED' AND l.status='ACTIVE' AND NOT EXISTS(SELECT 1 FROM catalogue_categories cc WHERE cc.name=l.category AND (NOT cc.active OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(cc.prohibited_terms) term WHERE strpos(lower(l.title || ' ' || l.description),lower(term))>0))) AND EXISTS(SELECT 1 FROM users su WHERE su.id=s.user_id AND su.status='ACTIVE')`;
 
 /** A listing is bookable when it is active and at least one active option has its minimum in stock. */
 export async function listingAvailable(q: Query, listingId: string) {
@@ -29,7 +29,7 @@ export async function listingAvailable(q: Query, listingId: string) {
 export async function notifyIfRestocked(q: Query, listingId: string, wasAvailable: boolean) {
   if (wasAvailable || !(await listingAvailable(q, listingId))) return;
   const [l] = await q.query(
-    'SELECT l.title,s.business_name FROM listings l JOIN sellers s ON s.user_id=l.seller_id WHERE l.id=$1',
+    'SELECT l.title,l.category,s.business_name FROM listings l JOIN sellers s ON s.user_id=l.seller_id WHERE l.id=$1',
     [listingId],
   );
   const waiting = await q.query<{ buyer_id: string }>(
@@ -50,18 +50,23 @@ export async function notifyIfRestocked(q: Query, listingId: string, wasAvailabl
 export async function announceNewListing(q: Query, listing: Record<string, any>) {
   if (!(await listingAvailable(q, listing.id))) return;
   const [l] = await q.query(
-    'SELECT l.title,s.business_name FROM listings l JOIN sellers s ON s.user_id=l.seller_id WHERE l.id=$1',
+    'SELECT l.title,l.category,s.business_name FROM listings l JOIN sellers s ON s.user_id=l.seller_id WHERE l.id=$1',
     [listing.id],
   );
   const fans = await q.query<{ buyer_id: string }>(
-    'SELECT buyer_id FROM favourites WHERE seller_id=$1',
-    [listing.seller_id],
+    `UPDATE notification_preferences p SET last_marketing_at=now()
+     WHERE p.marketing_enabled AND (p.last_marketing_at IS NULL OR p.last_marketing_at<now()-interval '24 hours')
+       AND EXISTS(SELECT 1 FROM favourites f WHERE f.buyer_id=p.user_id AND f.seller_id=$1)
+       AND NOT EXISTS(SELECT 1 FROM user_blocks WHERE (blocker_id=p.user_id AND blocked_id=$1) OR (blocked_id=p.user_id AND blocker_id=$1))
+       AND NOT EXISTS(SELECT 1 FROM local_status_mutes m WHERE m.user_id=p.user_id AND ((m.kind='SELLER' AND m.target=$1) OR (m.kind='CATEGORY' AND m.target=$2)))
+     RETURNING p.user_id AS buyer_id`,
+    [listing.seller_id, l.category],
   );
   for (const f of fans)
     await notify(
       q,
       f.buyer_id,
-      'stock',
+      'marketing',
       `New from ${l.business_name}`,
       `${l.title} is now available from a seller you follow.`,
     );

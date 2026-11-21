@@ -1,4 +1,4 @@
-import { statusLabel } from '@farmers-market/shared';
+import { statusLabel } from '@zuru/shared';
 import { Check } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';
@@ -75,7 +75,7 @@ export default function StaffPage() {
       </section>
       <section className="card settings-card">
         <h2>Add or change a role</h2>
-        <p>The person must already have a Farmers Market account.</p>
+        <p>The person must already have a Zuru account.</p>
         <form
           onSubmit={(e) => {
             e.preventDefault();

@@ -143,6 +143,8 @@ export function SellerLocationPanel({
   const [open, setOpen] = useState(false),
     [address, setAddress] = useState(seller.address),
     [city, setCity] = useState(seller.city),
+    [state, setState] = useState(seller.state || ''),
+    [lga, setLga] = useState(seller.lga || ''),
     [area, setArea] = useState(seller.area),
     [pin, setPin] = useState<Pin>({
       latitude: seller.latitude ?? undefined,
@@ -186,6 +188,20 @@ export function SellerLocationPanel({
               onChangeText={setArea}
             />
           </View>
+          <TextInput
+            style={s.input}
+            accessibilityLabel="Seller state"
+            placeholder="State"
+            value={state}
+            onChangeText={setState}
+          />
+          <TextInput
+            style={s.input}
+            accessibilityLabel="Seller LGA"
+            placeholder="Local Government Area"
+            value={lga}
+            onChangeText={setLga}
+          />
           <LocationPicker value={pin} onChange={setPin} />
           <TextInput
             style={s.input}
@@ -207,7 +223,7 @@ export function SellerLocationPanel({
               setError('');
               try {
                 await request('patch', '/sellers/me/location', {
-                  body: { ...pin, address, city, area, reason },
+                  body: { ...pin, address, city, area, state, lga, reason },
                 });
                 await onSaved();
                 setOpen(false);

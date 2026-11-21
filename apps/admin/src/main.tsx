@@ -1,4 +1,15 @@
-import type { ApiPath } from '@farmers-market/shared';
+import RegionsPage from './pages/RegionsPage';
+import ParcelsPage from './pages/ParcelsPage';
+import ReturnsPage from './pages/ReturnsPage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import DeliveryOperationsPage from './pages/DeliveryOperationsPage';
+import MarketMappingPanel from './pages/MarketMappingPanel';
+import CataloguePage from './pages/CataloguePage';
+import PoliciesPage from './pages/PoliciesPage';
+import StatusBoostsPage from './pages/StatusBoostsPage';
+import LocalStatusPage from './pages/LocalStatusPage';
+import ShoppingPage from './pages/ShoppingPage';
+import type { ApiPath } from '@zuru/shared';
 import {
   statusLabel,
   type Booking,
@@ -6,7 +17,7 @@ import {
   type Settings as MarketSettings,
   type OrderEvent,
   type Seller,
-} from '@farmers-market/shared';
+} from '@zuru/shared';
 import {
   ArrowUpRight,
   Check,
@@ -40,6 +51,7 @@ import ListingsPage from './pages/ListingsPage';
 import { SellerReviewModal, TimelineModal } from './pages/Modals';
 import OverviewPage from './pages/OverviewPage';
 import PayoutsPage from './pages/PayoutsPage';
+import RefundsPage from './pages/RefundsPage';
 import PromotionsPage from './pages/PromotionsPage';
 import SellersPage from './pages/SellersPage';
 import SettingsPage from './pages/SettingsPage';
@@ -58,6 +70,15 @@ type GetPath = Extract<
 >;
 // Maps each console page to the API area its staff role must have.
 const pageArea: Record<Page, string> = {
+  'Regional fares': 'tariffs',
+  'Delivery incidents': 'incidents',
+  Analytics: 'analytics',
+  Returns: 'returns',
+  Appeals: 'appeals',
+  Parcels: 'parcels',
+  Regions: 'regions',
+  Catalogue: 'catalogue',
+  Policies: 'policies',
   Overview: 'overview',
   Sellers: 'sellers',
   Bookings: 'bookings',
@@ -72,12 +93,34 @@ const pageArea: Record<Page, string> = {
   Disputes: 'disputes',
   Reconciliation: 'reconciliation',
   Payouts: 'payouts',
+  Refunds: 'refunds',
   Promotions: 'promotions',
   Drivers: 'drivers',
   Deliveries: 'deliveries',
+  Shopping: 'shopping',
+  'Local Status': 'local-status',
+  'Status boosts': 'status-boosts',
   Staff: 'staff',
 };
+// Pages that belong to a switchable feature (see the API's config/features.ts).
+const pageFeature: Partial<Record<Page, keyof NonNullable<MarketSettings['features']>>> = {
+  Parcels: 'parcels',
+  Shopping: 'shopping',
+  'Local Status': 'local_status',
+  'Status boosts': 'local_status',
+  Promotions: 'promotions',
+  Markets: 'market_maps',
+};
 const navigation = [
+  ['Regional fares', Wallet],
+  ['Delivery incidents', ShieldCheck],
+  ['Analytics', LayoutDashboard],
+  ['Returns', Package],
+  ['Appeals', ShieldCheck],
+  ['Parcels', Package],
+  ['Regions', Store],
+  ['Catalogue', Package],
+  ['Policies', Settings],
   ['Overview', LayoutDashboard],
   ['Sellers', Store],
   ['Bookings', ShoppingBag],
@@ -92,9 +135,13 @@ const navigation = [
   ['Disputes', ShieldCheck],
   ['Reconciliation', Wallet],
   ['Payouts', Wallet],
+  ['Refunds', Wallet],
   ['Promotions', ArrowUpRight],
   ['Drivers', ShieldCheck],
   ['Deliveries', Package],
+  ['Shopping', Package],
+  ['Local Status', Store],
+  ['Status boosts', ArrowUpRight],
   ['Staff', ShieldCheck],
 ] as const;
 function App() {
@@ -192,19 +239,19 @@ function App() {
       setBusy(false);
     }
   }
-  if (checking) return <div className="initial">Opening Farmers Market…</div>;
+  if (checking) return <div className="initial">Opening Zuru…</div>;
   if (!user)
     return (
       <div className="login">
         <div className="login-story">
           <div className="brand">
             <Sprout size={32} />
-            farmers market<span>OPERATIONS</span>
+            zuru<span>OPERATIONS</span>
           </div>
           <div>
             <span className="eyebrow">GROWING LOCAL CONNECTIONS</span>
             <h1>
-              Good food.
+              Great goods.
               <br />
               Closer communities.
             </h1>
@@ -214,7 +261,7 @@ function App() {
               Your market’s everyday operations, in one place.
             </p>
           </div>
-          <small>Farmers Market · Nigeria</small>
+          <small>Zuru · Nigeria</small>
         </div>
         <AuthPanel onSignedIn={setUser} />
       </div>
@@ -248,7 +295,7 @@ function App() {
               <Sprout />
             </span>
             <div>
-              farmers market<small>OPERATIONS CONSOLE</small>
+              zuru<small>OPERATIONS CONSOLE</small>
             </div>
           </div>
           <div className="workspace">
@@ -264,6 +311,12 @@ function App() {
           <nav>
             {navigation
               .filter(([name]) => !staffAreas || staffAreas.includes(pageArea[name]))
+              .filter(([name]) => {
+                const feature = pageFeature[name];
+                if (feature) return settings?.features?.[feature] ?? true;
+                // Card refunds only exist when the wallet feature is off.
+                return name !== 'Refunds' || settings?.features?.wallet === false;
+              })
               .map(([name, Icon]) => (
                 <button
                   key={name}
@@ -327,13 +380,14 @@ function App() {
           <main className="content">
             <div className="page-title">
               <div>
-                <span className="eyebrow">FARMERS MARKET / {page.toUpperCase()}</span>
+                <span className="eyebrow">ZURU / {page.toUpperCase()}</span>
                 <h1>{page === 'Overview' ? 'A fresh look at your market.' : page}</h1>
                 <p>
                   {
                     {
-                      Overview: 'The people, produce and pickups keeping your marketplace moving.',
-                      Sellers: 'Meet your growers. Verify their details. Help them get started.',
+                      Overview:
+                        'The people, products and deliveries keeping your marketplace moving.',
+                      Sellers: 'Meet your sellers. Verify their details. Help them get started.',
                       Bookings: 'Follow every request from reservation to confirmed pickup.',
                       Listings: 'Keep the marketplace fresh, accurate and ready to shop.',
                       Ledger: 'An auditable record of wallet funds, held payments and earnings.',
@@ -347,9 +401,25 @@ function App() {
                       Disputes: 'Review evidence, returns and wallet refunds.',
                       Reconciliation: 'Verify provider funding and review exceptions.',
                       Payouts: 'Review seller withdrawals and send bank transfers.',
+                      Refunds: 'Refunds sent back to buyers’ cards, and any that need a check.',
                       Promotions: 'Sponsored listings, clearly labelled for buyers.',
+                      'Status boosts': 'Review paid status campaigns and targeting.',
+                      'Regional fares':
+                        'Set area-specific vehicle availability and delivery prices.',
+                      'Delivery incidents': 'Review delivery and safety reports.',
+                      Analytics: 'Understand marketplace discovery, fulfilment and retention.',
+                      Returns: 'Arrange reviewed return transport and compensation.',
+                      Appeals: 'Review challenges to dispute outcomes.',
+                      Parcels: 'Monitor independent parcel delivery and support pauses.',
+                      Regions: 'Plan operating countries, currencies and pilot cities.',
+                      Catalogue: 'Manage product categories and selling rules.',
+                      Policies: 'Review operating policy proposals.',
+                      'Local Status':
+                        'Review temporary local product updates and reported content.',
                       Drivers: 'Verify independent drivers before they take deliveries.',
                       Deliveries: 'Follow every delivery from request to PIN confirmation.',
+                      Shopping:
+                        'Buyer budgets, rider shopping requests, advances and delivery confirmation.',
                       Staff: 'Choose who can use each part of the console.',
                     }[page]
                   }
@@ -392,18 +462,32 @@ function App() {
             {page === 'Audit log' && <AuditPage audit={audit} />}
             {page === 'Ledger' && <LedgerPage ledger={ledger} />}
             {page === 'Payouts' && <PayoutsPage />}
+            {page === 'Refunds' && <RefundsPage />}
             {page === 'Promotions' && <PromotionsPage />}
             {page === 'Staff' && <StaffPage />}
+            {page === 'Catalogue' && <CataloguePage />}
+            {page === 'Regions' && <RegionsPage />}
+            {page === 'Parcels' && <ParcelsPage />}
+            {page === 'Returns' && <ReturnsPage />}
+            {page === 'Appeals' && <ReturnsPage appeals />}
+            {page === 'Analytics' && <AnalyticsPage />}
+            {page === 'Regional fares' && <DeliveryOperationsPage mode="tariffs" />}
+            {page === 'Delivery incidents' && <DeliveryOperationsPage mode="incidents" />}
+            {page === 'Policies' && <PoliciesPage />}
+            {page === 'Markets' && <MarketMappingPanel />}
             {page === 'Drivers' && <DriversPage />}
             {page === 'Deliveries' && <DeliveriesPage />}
+            {page === 'Shopping' && <ShoppingPage />}
+            {page === 'Local Status' && <LocalStatusPage />}
+            {page === 'Status boosts' && <StatusBoostsPage />}
             {(page === 'Users' || page === 'Reports' || page === 'Email queue') && (
-              <OperationsPanel page={page} />
+              <OperationsPanel key={page} page={page} />
             )}
             {(page === 'Markets' || page === 'Disputes' || page === 'Reconciliation') && (
-              <CommercePanel page={page} />
+              <CommercePanel key={page} page={page} />
             )}
             <footer>
-              Farmers Market <span>Made for the people who keep our markets growing.</span>
+              Zuru <span>Made for the people who keep our markets growing.</span>
             </footer>
           </main>
         </div>

@@ -1,0 +1,47 @@
+/** Public catalogue choices shared with clients through /settings. Keep legacy values searchable. */
+export const productCategories = [
+  'Food & groceries',
+  'Fashion & accessories',
+  'Phones & electronics',
+  'Home & kitchen',
+  'Furniture',
+  'Beauty & personal care',
+  'Baby & kids',
+  'Books & stationery',
+  'Sports & hobbies',
+  'Auto & spare parts',
+  'Tools & building materials',
+  'Vegetables',
+  'Fruit',
+  'Grains',
+  'Tubers',
+  'Livestock',
+  'Other',
+] as const;
+export const sellerTypes = [
+  'individual',
+  'shop',
+  'online_store',
+  'wholesaler',
+  'manufacturer',
+  'market_stall',
+  'home_based',
+  'farm',
+] as const;
+export const productUnits = [
+  'piece',
+  'pair',
+  'set',
+  'pack',
+  'box',
+  'bottle',
+  'litre',
+  'metre',
+  'roll',
+  'kg',
+  'crate',
+  'bag',
+  'basket',
+  'carton',
+] as const;
+export const productConditions = ['NEW', 'USED', 'REFURBISHED'] as const;

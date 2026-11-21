@@ -10,6 +10,7 @@ import sharp from 'sharp';
 import bcrypt from 'bcryptjs';
 import { writeFileSync } from 'node:fs';
 import { createApp as buildApp } from '../src/app.js';
+import { readFeatures } from '../src/config/features.js';
 import { config } from '../src/config/index.js';
 import { connect, type Database } from '../src/database/client.js';
 import { expireReservations } from '../src/services/booking.service.js';
@@ -47,8 +48,10 @@ const c = {
   ...config,
   dataDir: mailDir,
   mailMode: 'file' as const,
-  // Tests never call real map services.
+  // Tests never call real map or storage services.
   mapboxToken: '',
+  storageProvider: 'local' as const,
+  recordsStorageProvider: 'local' as const,
   rateLimitPerMinute: 100000,
   authRateLimit: 100000,
   production: false,
@@ -79,7 +82,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   await db.transaction(async (q) => {
     const tables = await q.query<{ tablename: string }>(
-      "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename NOT IN ('_prisma_migrations','settings','vehicle_types')",
+      "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename NOT IN ('_prisma_migrations','settings','vehicle_types','catalogue_categories','market_regions','marketplace_policies')",
     );
     await q.query(`TRUNCATE ${tables.map((t) => `"${t.tablename}"`).join(',')} CASCADE`);
     await q.query(
@@ -811,6 +814,15 @@ describe('retention', () => {
     );
     expect(alerts).toHaveLength(1);
     expect((await call('buyer', 'get', `/listings/${listing}`)).body.stock_alert).toBe(false);
+    // New-listing alerts to followers are promotional: opt-in only (default off).
+    expect(
+      (
+        await call('buyer', 'put', '/notification-preferences', {
+          email_enabled: true,
+          marketing_enabled: true,
+        })
+      ).status,
+    ).toBe(200);
     await call('seller', 'post', '/listings', {
       title: 'Sweet pineapples',
       description: 'Juicy and ripe pineapples',
@@ -1167,12 +1179,422 @@ describe('operations', () => {
   });
   it('reports readiness from worker heartbeats', async () => {
     expect((await request(app).get('/health/ready')).status).toBe(503);
-    await db.query(
-      "INSERT INTO worker_heartbeats(name,beat_at) VALUES('reservation-expiry',now())",
-    );
+    // Every job the readiness check requires must have reported recently.
+    for (const name of [
+      'reservation-expiry',
+      'voice-expiry',
+      'discovery-maintenance',
+      'stock-freshness',
+      'local-status-expiry',
+      'status-boost-recovery',
+    ])
+      await db.query('INSERT INTO worker_heartbeats(name,beat_at) VALUES($1,now())', [name]);
     const ready = await request(app).get('/health/ready');
     expect(ready.status).toBe(200);
     expect(ready.body.backlog.email_late).toBe(0);
+  });
+});
+describe('pilot mode', () => {
+  const pilotFeatures = () => readFeatures({ PILOT_MODE: 'true' });
+  const pilot = (extra: object = {}) =>
+    createApp(db, { ...c, demo: false, payments: true, features: pilotFeatures(), ...extra });
+  const as = (
+    target: ReturnType<typeof createApp>,
+    actor: string,
+    method: 'get' | 'post' | 'put',
+    path: string,
+    body?: object,
+  ) => {
+    const r = request(target)
+      [method](`/v1${path}`)
+      .set('Authorization', `Bearer token-${actor}`)
+      .set('Idempotency-Key', randomUUID());
+    return body === undefined ? r : r.send(body);
+  };
+  /** Fake Paystack: checkout, verify (paid when `paid`), refunds (configurable outcome). */
+  function fakeProvider() {
+    const state = {
+      paid: new Set<string>(),
+      amounts: new Map<string, number>(),
+      refund: 'ok' as 'ok' | 'reject' | 'down',
+      refunds: [] as { transaction: string; amount: number }[],
+    };
+    const ok = (data: unknown) => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: true, data }),
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: any) => {
+        if (url.endsWith('/transaction/initialize')) {
+          const b = JSON.parse(init.body);
+          state.amounts.set(b.reference, b.amount);
+          return ok({ authorization_url: `https://checkout.paystack.test/${b.reference}` });
+        }
+        if (url.includes('/transaction/verify/')) {
+          const ref = decodeURIComponent(url.split('/transaction/verify/')[1]);
+          return ok({
+            id: 9000 + state.amounts.size,
+            reference: ref,
+            currency: 'NGN',
+            amount: state.amounts.get(ref),
+            status: state.paid.has(ref) ? 'success' : 'abandoned',
+          });
+        }
+        if (url.endsWith('/refund')) {
+          if (state.refund === 'down') throw new TypeError('fetch failed');
+          if (state.refund === 'reject')
+            return {
+              ok: false,
+              status: 400,
+              json: async () => ({ status: false, message: 'Refund not allowed' }),
+            };
+          state.refunds.push(JSON.parse(init.body));
+          return ok({ id: 7000 + state.refunds.length, status: 'pending' });
+        }
+        throw new Error(`unexpected provider call ${url}`);
+      }),
+    );
+    return state;
+  }
+  async function payWebhook(target: ReturnType<typeof createApp>, reference: string) {
+    const body = JSON.stringify({ event: 'charge.success', data: { reference } });
+    const signature = createHmac('sha512', c.paystack).update(body).digest('hex');
+    expect(
+      (
+        await request(target)
+          .post('/v1/webhooks/paystack')
+          .set('x-paystack-signature', signature)
+          .set('Content-Type', 'application/json')
+          .send(body)
+      ).status,
+    ).toBe(200);
+  }
+  const walletOf = async (id: string) =>
+    Number(
+      (
+        await db.query(
+          "SELECT COALESCE(SUM(amount_kobo),0)::bigint AS n FROM ledger WHERE account='wallet' AND owner_id=$1",
+          [id],
+        )
+      )[0].n,
+    );
+  const pastGrace = () => db.query("UPDATE funding SET credited_at=now()-interval '1 hour'");
+
+  it('switches later-phase features off and tells clients', () => {
+    expect(readFeatures({}).shopping).toBe(true);
+    expect(readFeatures({ PILOT_MODE: 'true' })).toEqual({
+      wallet: false,
+      local_status: false,
+      promotions: false,
+      shopping: false,
+      parcels: false,
+      voice: false,
+      preorders: false,
+      market_maps: false,
+    });
+    expect(readFeatures({ PILOT_MODE: 'true', FEATURE_VOICE: 'true' }).voice).toBe(true);
+  });
+  it('hides switched-off routes, keeps the core loop, and refuses wallet-only options', async () => {
+    const app = pilot();
+    const settings = (await as(app, 'buyer', 'get', '/settings')).body;
+    expect(settings.features.wallet).toBe(false);
+    for (const [method, path] of [
+      ['get', '/shopping'],
+      ['get', '/local-status'],
+      ['get', '/parcels'],
+      ['get', '/voice/config'],
+      ['post', '/wallet/fund'],
+      ['get', '/admin/shopping'],
+      ['get', '/admin/promotions'],
+    ] as const) {
+      const r = await as(
+        app,
+        method === 'get' ? 'admin' : 'buyer',
+        method,
+        path,
+        method === 'post' ? {} : undefined,
+      );
+      expect([path, r.status, r.body.error?.code]).toEqual([path, 404, 'FEATURE_DISABLED']);
+    }
+    expect((await as(app, 'buyer', 'get', '/bookings')).status).toBe(200);
+    const listing = await setup();
+    const preorder = await as(app, 'seller', 'post', '/listings', {
+      title: 'Next month yams',
+      description: 'Harvesting soon from the farm',
+      category: 'Tubers',
+      unit: 'kg',
+      price_kobo: 50000,
+      stock: 0,
+      available_from: new Date(Date.now() + 7 * 86400000).toISOString(),
+      preorder_capacity: 10,
+    });
+    expect(preorder.body.error?.code).toBe('FEATURE_DISABLED');
+    expect((await as(app, 'admin', 'get', `/sellers/seller/listings`)).status).toBe(200);
+    const pod = await as(app, 'admin', 'put', '/admin/settings', {
+      reservation_hours: 168,
+      commission_bps: 500,
+      pay_on_delivery_enabled: true,
+    });
+    expect(pod.body.error?.code).toBe('WALLET_REQUIRED');
+    expect(listing).toBeTruthy();
+  });
+  it('pays a booking directly at the provider, once, with nothing left in a wallet', async () => {
+    const provider = fakeProvider();
+    const app = pilot();
+    const { b } = await accepted();
+    const checkout = await as(app, 'buyer', 'post', '/payments/checkout', {
+      purpose: 'booking',
+      provider: 'paystack',
+      booking_id: b,
+    });
+    expect(checkout.status).toBe(200);
+    expect(checkout.body.checkout_url).toContain('checkout.paystack.test');
+    expect(provider.amounts.get(checkout.body.reference)).toBe(200000);
+    provider.paid.add(checkout.body.reference);
+    await payWebhook(app, checkout.body.reference);
+    await payWebhook(app, checkout.body.reference);
+    const [booking] = await db.query('SELECT paid FROM bookings WHERE id=$1', [b]);
+    expect(booking.paid).toBe(true);
+    expect(await walletOf('buyer')).toBe(0);
+    expect(
+      (
+        await as(app, 'buyer', 'post', '/payments/checkout', {
+          purpose: 'booking',
+          provider: 'paystack',
+          booking_id: b,
+        })
+      ).body.error?.code,
+    ).toBe('ALREADY_PAID');
+    expect(await ledgerBalances()).toBe(0);
+  });
+  it('refunds a cancelled direct payment to the card exactly once', async () => {
+    const provider = fakeProvider();
+    const app = pilot();
+    const { b } = await accepted();
+    const ref = (
+      await as(app, 'buyer', 'post', '/payments/checkout', {
+        purpose: 'booking',
+        provider: 'paystack',
+        booking_id: b,
+      })
+    ).body.reference;
+    provider.paid.add(ref);
+    await payWebhook(app, ref);
+    expect((await as(app, 'buyer', 'post', `/bookings/${b}/cancel`, {})).status).toBe(200);
+    expect(await walletOf('buyer')).toBe(200000);
+    const { runCardRefunds } = await import('../src/services/card-refunds.service.js');
+    const cfg = { ...c, features: pilotFeatures() };
+    // Inside the grace period nothing is refunded yet.
+    expect((await runCardRefunds(db, cfg)).queued).toBe(0);
+    await pastGrace();
+    await Promise.all([runCardRefunds(db, cfg), runCardRefunds(db, cfg)]);
+    await runCardRefunds(db, cfg);
+    expect(provider.refunds).toEqual([{ transaction: ref, amount: 200000 }]);
+    const [refund] = await db.query('SELECT * FROM card_refunds');
+    expect(refund.status).toBe('REFUNDED');
+    expect(await walletOf('buyer')).toBe(0);
+    expect(
+      (await db.query('SELECT refunded_kobo FROM funding WHERE id=$1', [ref]))[0].refunded_kobo,
+    ).toBe(200000);
+    expect((await as(app, 'buyer', 'get', '/wallet')).body.refunds[0].status).toBe('REFUNDED');
+    expect(await ledgerBalances()).toBe(0);
+  });
+  it('never resends a refund with an unknown outcome; staff settle rejected ones', async () => {
+    const provider = fakeProvider();
+    const app = pilot();
+    const { runCardRefunds } = await import('../src/services/card-refunds.service.js');
+    const cfg = { ...c, features: pilotFeatures() };
+    const pay = async () => {
+      const { b } = await accepted();
+      const ref = (
+        await as(app, 'buyer', 'post', '/payments/checkout', {
+          purpose: 'booking',
+          provider: 'paystack',
+          booking_id: b,
+        })
+      ).body.reference;
+      provider.paid.add(ref);
+      await payWebhook(app, ref);
+      await as(app, 'buyer', 'post', `/bookings/${b}/cancel`, {});
+      await pastGrace();
+    };
+    await pay();
+    provider.refund = 'down';
+    await runCardRefunds(db, cfg);
+    provider.refund = 'ok';
+    await runCardRefunds(db, cfg);
+    const [unknown] = await db.query('SELECT * FROM card_refunds');
+    expect(unknown.status).toBe('SENDING');
+    expect(unknown.error).toMatch(/may or may not/);
+    expect(provider.refunds).toHaveLength(0);
+    const resolve = (id: string, body: object, actor = 'admin') =>
+      as(app, actor, 'post', `/admin/refunds/${id}/resolve`, body);
+    expect((await resolve(unknown.id, { outcome: 'REFUNDED', reason: 'x' })).status).toBe(400);
+    expect(
+      (
+        await resolve(
+          unknown.id,
+          { outcome: 'RETRY', reason: 'Paystack dashboard shows no refund' },
+          'seller',
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await resolve(unknown.id, {
+          outcome: 'RETRY',
+          reason: 'Paystack dashboard shows no refund',
+        })
+      ).body.status,
+    ).toBe('PENDING');
+    await runCardRefunds(db, cfg);
+    expect(provider.refunds).toHaveLength(1);
+    expect(
+      (await db.query('SELECT status FROM card_refunds WHERE id=$1', [unknown.id]))[0].status,
+    ).toBe('REFUNDED');
+    expect(await ledgerBalances()).toBe(0);
+  });
+  it('marks a provider-rejected refund FAILED and keeps the money held for staff', async () => {
+    const provider = fakeProvider();
+    const app = pilot();
+    const { runCardRefunds } = await import('../src/services/card-refunds.service.js');
+    const cfg = { ...c, features: pilotFeatures() };
+    const { b } = await accepted();
+    const ref = (
+      await as(app, 'buyer', 'post', '/payments/checkout', {
+        purpose: 'booking',
+        provider: 'paystack',
+        booking_id: b,
+      })
+    ).body.reference;
+    provider.paid.add(ref);
+    await payWebhook(app, ref);
+    await as(app, 'buyer', 'post', `/bookings/${b}/cancel`, {});
+    await pastGrace();
+    provider.refund = 'reject';
+    await runCardRefunds(db, cfg);
+    await runCardRefunds(db, cfg);
+    const rows = await db.query('SELECT * FROM card_refunds');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe('FAILED');
+    const held = await db.query(
+      "SELECT COALESCE(SUM(amount_kobo),0)::bigint AS n FROM ledger WHERE account='refund_pending'",
+    );
+    expect(Number(held[0].n)).toBe(200000);
+    const done = await as(app, 'admin', 'post', `/admin/refunds/${rows[0].id}/resolve`, {
+      outcome: 'REFUNDED',
+      reason: 'Refunded by hand in the Paystack dashboard',
+    });
+    expect(done.body.status).toBe('REFUNDED');
+    expect(await ledgerBalances()).toBe(0);
+  });
+  it('refunds a checkout that arrives after its booking expired', async () => {
+    const provider = fakeProvider();
+    const app = pilot();
+    const { b } = await accepted();
+    const ref = (
+      await as(app, 'buyer', 'post', '/payments/checkout', {
+        purpose: 'booking',
+        provider: 'paystack',
+        booking_id: b,
+      })
+    ).body.reference;
+    await db.query("UPDATE bookings SET reserved_until=now()-interval '1 minute' WHERE id=$1", [b]);
+    provider.paid.add(ref);
+    await payWebhook(app, ref);
+    expect((await db.query('SELECT paid FROM bookings WHERE id=$1', [b]))[0].paid).toBe(false);
+    expect(await walletOf('buyer')).toBe(200000);
+    await pastGrace();
+    const { runCardRefunds } = await import('../src/services/card-refunds.service.js');
+    await runCardRefunds(db, { ...c, features: pilotFeatures() });
+    expect(provider.refunds).toEqual([{ transaction: ref, amount: 200000 }]);
+    expect(await ledgerBalances()).toBe(0);
+  });
+});
+describe('rider and call privacy', () => {
+  it('never reveals exact rider positions to nearby-rider searches', async () => {
+    await db.query(
+      "INSERT INTO drivers(user_id,vehicle_type,plate_number,licence_number,city,status,online,latitude,longitude,location_at) VALUES('other','motorcycle','LAG-123-XY','ABC12345','Lagos','APPROVED',true,6.5512,3.3517,now())",
+    );
+    const search = async (lat: number, lng: number) =>
+      (await call('buyer', 'get', `/riders/nearby?lat=${lat}&lng=${lng}`)).body;
+    const a = await search(6.5513, 3.3518);
+    expect(a).toHaveLength(1);
+    expect(a[0].latitude).toBeUndefined();
+    // Points inside the same ~1 km grid cell give identical answers, so probing reveals nothing.
+    expect(await search(6.5541, 3.3549)).toEqual(a);
+    for (const [lat, lng] of [
+      [6.5513, 3.3518],
+      [6.57, 3.36],
+      [6.6, 3.4],
+    ]) {
+      const [r] = await search(lat, lng);
+      expect(r.distance_km).toBeGreaterThanOrEqual(0.5);
+      expect((r.distance_km * 2) % 1).toBe(0);
+    }
+  });
+  async function convo() {
+    const listing = await setup();
+    return (await call('buyer', 'post', '/conversations', { listing_id: listing })).body
+      .id as string;
+  }
+  it('keeps voice calls off outside demo mode until a TURN relay is configured', async () => {
+    const id = await convo();
+    const live = createApp(db, {
+      ...c,
+      demo: false,
+      voiceEnabled: true,
+      voiceTurnUrl: '',
+      voiceTurnSecret: '',
+    });
+    const auth = (r: any) =>
+      r.set('Authorization', 'Bearer token-buyer').set('Idempotency-Key', randomUUID());
+    const cfg = (await auth(request(live).get('/v1/voice/config'))).body;
+    expect(cfg.enabled).toBe(false);
+    expect(cfg.ice_transport_policy).toBe('relay');
+    expect((await auth(request(live).post(`/v1/conversations/${id}/call`))).status).toBe(503);
+  });
+  it('relays calls only: direct network addresses never reach the other participant', async () => {
+    const id = await convo();
+    const relayed = createApp(db, {
+      ...c,
+      demo: false,
+      voiceEnabled: true,
+      voiceTurnUrl: 'turn:turn.example.test:3478',
+      voiceTurnSecret: 'turn-secret',
+      voiceStunUrl: 'stun:stun.example.test:3478',
+    });
+    const as = (actor: string, r: any) =>
+      r.set('Authorization', `Bearer token-${actor}`).set('Idempotency-Key', randomUUID());
+    const cfg = (await as('buyer', request(relayed).get('/v1/voice/config'))).body;
+    expect(cfg.ice_transport_policy).toBe('relay');
+    expect(cfg.ice_servers.every((s: any) => s.credential)).toBe(true);
+    const callId = (await as('buyer', request(relayed).post(`/v1/conversations/${id}/call`))).body
+      .id;
+    const sdp = [
+      'v=0',
+      'a=candidate:1 1 udp 2122260223 192.168.1.20 54400 typ host',
+      'a=candidate:2 1 udp 1686052607 102.89.4.7 54400 typ srflx raddr 192.168.1.20 rport 54400',
+      'a=candidate:3 1 udp 41885439 203.0.113.9 3478 typ relay raddr 102.89.4.7 rport 54400',
+    ].join('\r\n');
+    const signal = (body: object) =>
+      as('buyer', request(relayed).post(`/v1/voice/${callId}/signals`)).send(body);
+    expect((await signal({ kind: 'offer', payload: { type: 'offer', sdp } })).status).toBe(200);
+    for (const candidate of [
+      'candidate:1 1 udp 2122260223 192.168.1.20 54400 typ host',
+      'candidate:3 1 udp 41885439 203.0.113.9 3478 typ relay raddr 102.89.4.7 rport 54400',
+    ])
+      expect((await signal({ kind: 'ice', payload: { candidate, sdpMid: '0' } })).status).toBe(200);
+    const seen = JSON.stringify(
+      (await as('seller', request(relayed).get(`/v1/voice/${callId}/signals`))).body,
+    );
+    expect(seen).not.toContain('192.168.1.20 54400 typ host');
+    expect(seen).not.toContain('typ srflx');
+    expect(seen).toContain('203.0.113.9 3478 typ relay');
+    // The relay candidate's related address is the caller's public IP: it is masked too.
+    expect(seen).not.toContain('102.89.4.7');
   });
 });
 describe('security and configuration', () => {
@@ -1222,13 +1644,13 @@ describe('security and configuration', () => {
       OTP_SECRET: 'x'.repeat(44),
       PAYOUT_ENCRYPTION_KEY: 'y'.repeat(44),
       SMTP_HOST: 'smtp.example.com',
-      MAIL_FROM: 'Farmers Market <no-reply@example.com>',
-      RENDER_EXTERNAL_URL: 'https://farmers-market-api.onrender.com',
+      MAIL_FROM: 'Zuru <no-reply@example.com>',
+      RENDER_EXTERNAL_URL: 'https://zuru-api.onrender.com',
       RENDER_GIT_COMMIT: 'abc123',
-      CORS_ALLOWED_HOSTS_ADMIN: 'farmers-market-admin.onrender.com',
+      CORS_ALLOWED_HOSTS_ADMIN: 'zuru-admin.onrender.com',
     });
     expect(productionProblems(render)).toEqual([]);
-    expect(render.PUBLIC_API_URL).toBe('https://farmers-market-api.onrender.com');
+    expect(render.PUBLIC_API_URL).toBe('https://zuru-api.onrender.com');
     expect(render.CORS_ORIGINS).toBe('');
     expect(render.GIT_COMMIT).toBe('abc123');
   });
@@ -1751,7 +2173,7 @@ describe('redis, rate limits and realtime', () => {
       const seen: string[] = [];
       const stop = events.onUserChanged((id) => seen.push(id));
       // Published by "another instance" (a separate connection).
-      await outside.publish('farmers-market:user-sync', 'buyer');
+      await outside.publish('zuru:user-sync', 'buyer');
       await new Promise((r) => setTimeout(r, 200));
       stop();
       expect(seen).toEqual(['buyer']);

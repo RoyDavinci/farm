@@ -1,11 +1,11 @@
 # Production image for the API, the background worker and database migrations.
-# Build from the repository root:  docker build -f apps/api/Dockerfile -t farmers-market-api .
-#   API:        docker run … farmers-market-api                       (default command)
-#   Worker:     docker run … farmers-market-api node dist/worker.js   (set RUN_WORKERS=false on the API)
-#   Migrations: docker run … farmers-market-api npx prisma migrate deploy   (run before each release)
+# Build from the repository root:  docker build -f apps/api/Dockerfile -t zuru-api .
+#   API:        docker run … zuru-api                       (default command)
+#   Worker:     docker run … zuru-api node dist/worker.js   (set RUN_WORKERS=false on the API)
+#   Migrations: docker run … zuru-api npx prisma migrate deploy   (run before each release)
 FROM node:24-slim AS build
 # Prisma picks its migration engine by OpenSSL version, so build and runtime must match.
-RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates ffmpeg \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json tsconfig.base.json ./
@@ -13,16 +13,16 @@ COPY apps/api/package.json apps/api/
 COPY apps/admin/package.json apps/admin/
 COPY apps/mobile/package.json apps/mobile/
 COPY packages/shared/package.json packages/shared/
-RUN npm ci --workspace @farmers-market/api --include-workspace-root --ignore-scripts
+RUN npm ci --workspace @zuru/api --include-workspace-root --ignore-scripts
 COPY apps/api apps/api
 RUN npm rebuild @prisma/engines prisma \
-  && npm run build -w @farmers-market/api \
-  && npm prune --omit=dev --workspace @farmers-market/api \
+  && npm run build -w @zuru/api \
+  && npm prune --omit=dev --workspace @zuru/api \
   && mkdir -p apps/api/node_modules
 
 FROM node:24-slim
 ENV NODE_ENV=production
-RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates ffmpeg \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/node_modules node_modules

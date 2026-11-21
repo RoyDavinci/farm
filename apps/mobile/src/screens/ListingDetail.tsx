@@ -1,4 +1,5 @@
-import { money, type Listing } from '@farmers-market/shared';
+import PublicSellerInfo from '../PublicSellerInfo';
+import { money, type Listing } from '@zuru/shared';
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
@@ -12,11 +13,13 @@ export default function ListingDetail({
   onBack,
   initialVariantId,
   initialQuantity,
+  attributionToken,
 }: {
   listing: Listing;
   onBack: () => void;
   initialVariantId?: string;
   initialQuantity?: number;
+  attributionToken?: string;
 }) {
   const { me, busy, run, openConversation, openSeller, setTab } = useApp();
   const initial =
@@ -48,6 +51,9 @@ export default function ListingDetail({
   return (
     <>
       <Back onPress={onBack} />
+      <Text style={s.small}>
+        {(selected.condition || 'NEW').toLowerCase()} · {selected.category}
+      </Text>
       <View style={s.detailHero}>
         {selected.image_url ? (
           <Image
@@ -59,7 +65,7 @@ export default function ListingDetail({
         ) : (
           <Text style={s.detailEmoji}>{produceIcon(selected.category)}</Text>
         )}
-        <Text style={s.eyebrow}>{selected.category.toUpperCase()} · LOCALLY GROWN</Text>
+        <Text style={s.eyebrow}>{selected.category.toUpperCase()} · AVAILABLE LOCALLY</Text>
       </View>
       {selected.image_urls && selected.image_urls.length > 1 && (
         <ScrollView horizontal contentContainerStyle={{ gap: 10 }}>
@@ -73,6 +79,11 @@ export default function ListingDetail({
         </ScrollView>
       )}
       <Text style={s.heading}>{selected.title}</Text>
+      <Text style={s.small}>
+        {selected.pickup_available ? 'Collection available' : 'Delivery only'}
+        {selected.delivery_available ? ' · Rider delivery available' : ''}
+      </Text>
+      <PublicSellerInfo sellerId={selected.seller_id} />
       <Text style={s.price}>
         {money(selectedPrice)}{' '}
         <Text style={s.muted}>/ {selectedVariant?.unit || selected.unit}</Text>
@@ -126,8 +137,8 @@ export default function ListingDetail({
             Pre-order · ready from {new Date(selected.available_from!).toDateString()}
           </Text>
           <Text style={s.small}>
-            Book now and the seller holds it for you from the harvest date. Pay once the seller
-            accepts.
+            Book now and the seller holds it for you from the ready date. The seller chooses whether
+            advance payment is accepted. Otherwise pay when stock becomes available.
           </Text>
         </View>
       )}
@@ -190,6 +201,7 @@ export default function ListingDetail({
                 listing_id: selected.id,
                 variant_id: selectedVariant?.id,
                 quantity: Number(quantity),
+                ...(attributionToken ? { source_status_click_id: attributionToken } : {}),
               },
             });
             setTab('Bookings');
@@ -197,6 +209,21 @@ export default function ListingDetail({
         }
       />
       <Text style={s.fine}>{t('listing.noCharge')}</Text>
+      {!own && (
+        <Button
+          secondary
+          title="Save interest without booking or paying"
+          disabled={busy || !Number.isInteger(Number(quantity)) || Number(quantity) < 1}
+          onPress={() =>
+            void run(async () => {
+              await request('post', '/listings/{id}/interest', {
+                params: { id: selected.id },
+                body: { quantity: Number(quantity) },
+              });
+            }, 'Interest saved. Review it under Bookings before confirming an order.')
+          }
+        />
+      )}
     </>
   );
 }

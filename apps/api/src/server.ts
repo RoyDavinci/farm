@@ -20,7 +20,7 @@ else if (config.production)
 await expireReservations(db);
 
 const server = createApp(db, config, redis).listen(config.port, config.host, () =>
-  logger.info(`Farmers Market API listening on :${config.port}`, { env: config.env }),
+  logger.info(`Zuru API listening on :${config.port}`, { env: config.env }),
 );
 // Keep idle connections open slightly longer than typical load balancer timeouts (60s).
 server.keepAliveTimeout = 65_000;

@@ -6,7 +6,11 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.35-177-195-6.sslip.io/v1",
+        "EXPO_PUBLIC_WEB_URL": "https://app.35-177-195-6.sslip.io"
+      }
     },
     "preview": {
       "distribution": "internal",
@@ -14,8 +18,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://farmers-market-api.onrender.com/v1",
-        "EXPO_PUBLIC_WEB_URL": "https://farmers-market-web.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://api.35-177-195-6.sslip.io/v1",
+        "EXPO_PUBLIC_WEB_URL": "https://app.35-177-195-6.sslip.io"
       }
     },
     "production": {

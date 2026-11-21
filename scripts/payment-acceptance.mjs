@@ -116,6 +116,69 @@ async function topUp(buyer, provider) {
   );
 }
 
+/** Pilot mode (wallet off): pay one booking directly at the provider instead of a top-up. */
+async function directBookingPayment(buyer, seller, provider) {
+  const booking = await placeAcceptedBooking(buyer, seller);
+  if (!booking) return null;
+  const checkout = await call(buyer.token, 'POST', '/payments/checkout', {
+    purpose: 'booking',
+    provider,
+    booking_id: booking.id,
+  });
+  record(
+    `${provider}: booking checkout created`,
+    'PASS',
+    `${checkout.reference} for ${naira(booking.total_kobo)}`,
+  );
+  console.log(
+    `\nOpen and pay ${naira(booking.total_kobo)} with a ${provider} TEST card:\n  ${checkout.checkout_url}`,
+  );
+  await ask('Press Enter once the checkout says the payment succeeded…');
+  let paid = false;
+  for (let i = 0; i < 18 && !paid; i++) {
+    paid = (await call(buyer.token, 'GET', `/bookings/${booking.id}`)).paid;
+    if (!paid) await sleep(5000);
+  }
+  record(
+    `${provider}: booking paid by webhook`,
+    paid ? 'PASS' : 'FAIL',
+    paid ? '' : 'not paid after 90 s — check the webhook URL and secret',
+  );
+  const wallet = await call(buyer.token, 'GET', '/wallet');
+  record(
+    `${provider}: nothing left as a stored balance`,
+    wallet.balance_kobo === 0 ? 'PASS' : 'FAIL',
+    naira(wallet.balance_kobo),
+  );
+  return paid ? booking : null;
+}
+
+async function placeAcceptedBooking(buyer, seller) {
+  const listings = await call(buyer.token, 'GET', `/sellers/${seller.user.id}/listings`);
+  const listing = listings.find(
+    (l) => l.in_stock && l.variants?.some((v) => v.active && v.stock >= v.min_quantity),
+  );
+  if (!listing) {
+    record('booking for payment test', 'SKIP', 'the seller has no listing in stock');
+    return null;
+  }
+  const variant = listing.variants.find((v) => v.active && v.stock >= v.min_quantity);
+  const booking = await call(buyer.token, 'POST', '/bookings', {
+    listing_id: listing.id,
+    variant_id: variant.id,
+    quantity: variant.min_quantity,
+  });
+  await call(seller.token, 'POST', `/bookings/${booking.id}/accept`, {});
+  return { ...booking, title: listing.title };
+}
+
+async function collect(buyer, seller, booking) {
+  await call(seller.token, 'POST', `/bookings/${booking.id}/ready`, {});
+  const { pickup_code } = await call(buyer.token, 'GET', `/bookings/${booking.id}`);
+  await call(seller.token, 'POST', `/bookings/${booking.id}/pickup`, { code: pickup_code });
+  record('paid booking collected', 'PASS', `${booking.title}, ${naira(booking.total_kobo)}`);
+}
+
 async function earnProceeds(buyer, seller) {
   const listings = await call(buyer.token, 'GET', `/sellers/${seller.user.id}/listings`);
   const listing = listings.find(
@@ -198,8 +261,19 @@ try {
   const buyer = await signIn('Buyer');
   const seller = await signIn('Seller');
   const admin = await signIn('Staff (finance or owner)');
-  for (const provider of settings.providers) await topUp(buyer, provider);
-  await earnProceeds(buyer, seller);
+  if (settings.features?.wallet === false) {
+    console.log('\nPilot mode: the wallet is off, so each provider pays one booking directly.');
+    let last = null;
+    for (const provider of settings.providers)
+      last = (await directBookingPayment(buyer, seller, provider)) || last;
+    if (last) await collect(buyer, seller, last);
+    console.log(
+      '\nCard refunds: cancel a paid booking in the app; the refund is sent 30 minutes after the payment. Check it in the provider dashboard and on the admin Refunds page.',
+    );
+  } else {
+    for (const provider of settings.providers) await topUp(buyer, provider);
+    await earnProceeds(buyer, seller);
+  }
   await payout(seller, admin);
 } catch (err) {
   record('run aborted', 'FAIL', err.message);

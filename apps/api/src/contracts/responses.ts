@@ -1,4 +1,6 @@
+import { featureNames, type FeatureName } from '../config/features.js';
 import { z } from 'zod';
+import { sellerTypes, productConditions } from '../config/marketplace.js';
 
 /**
  * Response shapes published in openapi.json (components.schemas) and used to generate the shared
@@ -25,7 +27,9 @@ export const Seller = z
   .looseObject({
     user_id: z.string(),
     business_name: z.string(),
-    business_type: z.enum(['farm', 'shop', 'market_stall', 'home_based']),
+    state: z.string().optional(),
+    lga: z.string().optional(),
+    business_type: z.enum(sellerTypes),
     city: z.string(),
     area: z.string(),
     status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED']),
@@ -52,12 +56,29 @@ export const Settings = z
     payout_min_kobo: kobo.optional(),
     payout_fee_kobo: kobo.optional(),
     promotion_daily_kobo: kobo.optional(),
+    status_boost_hourly_kobo: z.number(),
+    status_lifetime_hours: z.number(),
+    status_radius_km: z.number(),
+    status_max_active: z.number(),
     delivery_commission_bps: z.number().int().optional(),
     delivery_radius_km: z.number().optional(),
     pay_on_delivery_enabled: z.boolean().optional(),
     stock_confirmation: z.string(),
     payment_mode: z.enum(['demo', 'provider', 'disabled']),
+    /** Feature switches for this deployment (PILOT_MODE turns later-phase features off). */
+    features: z.object(
+      Object.fromEntries(featureNames.map((n) => [n, z.boolean()])) as Record<
+        FeatureName,
+        z.ZodBoolean
+      >,
+    ),
     providers: z.array(z.string()),
+    catalog: z.object({
+      categories: z.array(z.string()),
+      seller_types: z.array(z.string()),
+      units: z.array(z.string()),
+      conditions: z.array(z.string()),
+    }),
   })
   .meta({ id: 'Settings' });
 
@@ -78,10 +99,16 @@ export const ProductVariant = z
 
 export const Listing = z
   .looseObject({
+    pickup_available: z.boolean(),
+    delivery_available: z.boolean(),
+    confirmed_at: z.string(),
+    archived_at: z.string().nullable(),
+    preorder_advance_allowed: z.boolean(),
     id: z.string(),
     seller_id: z.string(),
     title: z.string(),
     description: z.string(),
+    condition: z.enum(productConditions),
     category: z.string(),
     unit: z.string(),
     price_kobo: kobo,
@@ -99,7 +126,7 @@ export const Listing = z
     business_name: z.string(),
     city: z.string(),
     area: z.string(),
-    business_type: z.enum(['farm', 'shop', 'market_stall', 'home_based']),
+    business_type: z.enum(sellerTypes),
     in_stock: z.boolean().optional(),
     stock_alert: z.boolean().optional(),
     available_from: timestamp.nullish(),
@@ -123,6 +150,8 @@ export const BookingStatus = z
 
 export const Booking = z
   .looseObject({
+    pickup_available: z.boolean(),
+    delivery_available: z.boolean(),
     id: z.string(),
     buyer_id: z.string(),
     seller_id: z.string(),
@@ -198,6 +227,16 @@ export const Wallet = z
       }),
     ),
     funding: z.array(Funding),
+    /** Refunds sent back to the buyer's card (when the wallet feature is off). */
+    refunds: z.array(
+      z.looseObject({
+        id: z.string(),
+        amount_kobo: kobo,
+        status: z.enum(['PENDING', 'SENDING', 'REFUNDED', 'FAILED']),
+        provider: z.string(),
+        created_at: timestamp,
+      }),
+    ),
   })
   .meta({ id: 'Wallet' });
 
@@ -292,6 +331,7 @@ export const coreResponses: Record<string, z.ZodType> = {
   'geography.search': SearchResult,
   'wallet.getWallet': Wallet,
   'wallet.startFunding': FundingCheckout,
+  'wallet.startCheckout': FundingCheckout,
   'payouts.getPayoutSummary': PayoutSummary,
   'deliveries.getBookingDelivery': Delivery.nullable(),
 };

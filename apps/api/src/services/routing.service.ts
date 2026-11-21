@@ -56,7 +56,7 @@ export function createRouting(
   }
   async function drivingDistance(from: Point, to: Point): Promise<Distance> {
     if (!c.mapboxToken) return estimate(from, to);
-    const key = `farmers-market:route:${round(from.latitude)},${round(from.longitude)}:${round(to.latitude)},${round(to.longitude)}`;
+    const key = `zuru:route:${round(from.latitude)},${round(from.longitude)}:${round(to.latitude)},${round(to.longitude)}`;
     const hit = await cached(key);
     if (hit) return hit;
     try {

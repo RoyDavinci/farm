@@ -16,7 +16,7 @@ export function createMediaService(deps: AppDeps) {
       "SELECT user_id FROM sellers WHERE user_id=$1 AND status='APPROVED'",
       [uid],
     );
-    ensure(seller, 403, 'SELLER_NOT_APPROVED', 'Approved sellers can upload produce photos.');
+    ensure(seller, 403, 'SELLER_NOT_APPROVED', 'Approved sellers can upload product photos.');
     ensure(input.file, 400, 'IMAGE_REQUIRED', 'Choose a JPEG, PNG or WebP image under 5 MB.');
     const [count] = await db.query('SELECT COUNT(*)::int AS n FROM media WHERE owner_id=$1', [uid]);
     ensure(
@@ -84,14 +84,23 @@ export function createPublicMediaService(deps: AppDeps) {
   const store = storage(c);
   /** Returns a local file path, a signed URL (S3) or bytes for the requested photo. */
   async function findPhoto(file: string) {
-    const match = /^([a-f0-9-]{36})(-thumb)?\.webp$/.exec(file);
+    const match = /^([a-f0-9-]{36})(-thumb)?\.(webp|mp4)$/.exec(file);
     ensure(match, 404, 'NOT_FOUND', 'Photo not found.');
     const media = await db.prisma.media.findUnique({ where: { id: match[1] } });
     ensure(media, 404, 'NOT_FOUND', 'Photo not found.');
+    ensure(
+      match[2] ? match[3] === 'webp' : match[3] === (media.media_type === 'VIDEO' ? 'mp4' : 'webp'),
+      404,
+      'NOT_FOUND',
+      'Media not found.',
+    );
+    const mimeType = !match[2] && media.media_type === 'VIDEO' ? 'video/mp4' : 'image/webp';
     const key = match[2] ? media.thumbnail_key : media.storage_key;
     // Photos uploaded before storage keys existed live directly in the upload folder.
-    if (!key) return { path: resolve(c.uploadDir, file) };
-    return store.read(key, media.storage_provider);
+    if (!key) return { path: resolve(c.uploadDir, file), mimeType };
+    if (media.storage_provider === 'local')
+      return { path: resolve(c.uploadDir, 'public', key), mimeType };
+    return { ...(await store.read(key, media.storage_provider)), mimeType };
   }
   return { findPhoto };
 }

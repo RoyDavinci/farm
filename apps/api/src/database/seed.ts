@@ -11,15 +11,15 @@ try {
   const ph = await bcrypt.hash(password, 12);
   await db.transaction(async (q) => {
     for (const [name, email, phone, admin] of [
-      ['Market Admin', 'admin@farmers.market', '+2348000000001', true],
-      ['Ada Okafor', 'seller@farmers.market', '+2348000000002', false],
-      ['Tunde Bello', 'buyer@farmers.market', '+2348000000003', false],
+      ['Market Admin', 'admin@zuru.example', '+2348000000001', true],
+      ['Ada Okafor', 'seller@zuru.example', '+2348000000002', false],
+      ['Tunde Bello', 'buyer@zuru.example', '+2348000000003', false],
     ] as const)
       await q.query(
         'INSERT INTO users(id,name,email,phone,password_hash,admin,staff_role) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(email) DO NOTHING',
         [randomUUID(), name, email, phone, ph, admin, admin ? 'owner' : null],
       );
-    const [seller] = await q.query("SELECT id FROM users WHERE email='seller@farmers.market'");
+    const [seller] = await q.query("SELECT id FROM users WHERE email='seller@zuru.example'");
     const [existing] = await q.query('SELECT user_id FROM sellers WHERE user_id=$1', [seller.id]);
     if (!existing) {
       await q.query(
@@ -70,7 +70,7 @@ try {
     );
   });
   console.log(
-    'Demo accounts ready: admin@farmers.market, seller@farmers.market, buyer@farmers.market. Password: your SEED_PASSWORD. Existing passwords are preserved.',
+    'Demo accounts ready: admin@zuru.example, seller@zuru.example, buyer@zuru.example. Password: your SEED_PASSWORD. Existing passwords are preserved.',
   );
 } finally {
   await db.close();

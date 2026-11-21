@@ -1,3 +1,4 @@
+import { productUnits, productConditions, sellerTypes } from '../config/marketplace.js';
 import type { Query } from '../database/client.js';
 import type { RequestInput } from '../lib/http.js';
 import type { AppDeps } from '../types/deps.js';
@@ -62,7 +63,16 @@ export function createAccountService(deps: AppDeps) {
     return {
       ...settings,
       stock_confirmation: 'immediate',
+      catalog: {
+        categories: (
+          await db.query('SELECT name FROM catalogue_categories WHERE active ORDER BY name')
+        ).map((r) => r.name),
+        seller_types: [...sellerTypes],
+        units: [...productUnits],
+        conditions: [...productConditions],
+      },
       payment_mode: c.demo ? 'demo' : c.payments ? 'provider' : 'disabled',
+      features: c.features,
       providers: (['paystack', 'flutterwave'] as Provider[]).filter((p) => payments.enabled(p)),
     };
   }

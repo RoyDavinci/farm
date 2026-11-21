@@ -1,7 +1,8 @@
-import type { Booking, Listing, Seller, Settings } from '@farmers-market/shared';
+import type { Booking, Listing, Seller, Settings } from '@zuru/shared';
 import { createContext, useContext } from 'react';
 
-export type Tab = 'Market' | 'Bookings' | 'Sell' | 'Drive' | 'Wallet' | 'Inbox' | 'Account';
+export type Tab =
+  'Market' | 'Bookings' | 'Sell' | 'Riders' | 'Drive' | 'Wallet' | 'Inbox' | 'Account';
 
 export interface AppState {
   me: any;
@@ -13,7 +14,10 @@ export interface AppState {
   refresh: () => Promise<void>;
   openHistory: (booking: Booking) => void;
   openConversation: (conversationId: string) => void;
-  openListing: (listing: Listing, options?: { variantId?: string; quantity?: number }) => void;
+  openListing: (
+    listing: Listing,
+    options?: { variantId?: string; quantity?: number; attributionToken?: string },
+  ) => void;
   /** Opens a seller's shop page (their listings, reviews and share link). */
   openSeller: (sellerId: string) => void;
   setTab: (tab: Tab) => void;

@@ -1,3 +1,5 @@
+import { discoveryEvent } from './discovery-operations.service.js';
+import { listingAvailable as catalogueAvailable } from './retention.service.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Database, Query } from '../database/client.js';
@@ -118,7 +120,7 @@ export async function readBookings(db: Database, u: any, bookingId?: string) {
       safe.pickup_latitude = pickup_latitude;
       safe.pickup_longitude = pickup_longitude;
     }
-    if (active && u.id === b.buyer_id) safe.pickup_code = pickup_code;
+    if (active && b.pickup_available && u.id === b.buyer_id) safe.pickup_code = pickup_code;
     return safe;
   });
 }
@@ -151,13 +153,19 @@ export function createBookingsService(deps: AppDeps) {
         listing_id: z.uuid(),
         variant_id: z.uuid().optional(),
         quantity: z.number().int().min(1).max(100000),
+        source_status_click_id: z.uuid().optional(),
       })
       .parse(input.body);
     const [l] = await q.query(
       "SELECT l.* FROM listings l JOIN sellers s ON s.user_id=l.seller_id WHERE l.id=$1 AND l.status='ACTIVE' AND s.status='APPROVED' AND EXISTS(SELECT 1 FROM users su WHERE su.id=s.user_id AND su.status='ACTIVE')",
       [d.listing_id],
     );
-    ensure(l, 404, 'NOT_FOUND', 'Listing is unavailable.');
+    ensure(
+      l && (await catalogueAvailable(q, l.id)),
+      404,
+      'NOT_FOUND',
+      'Listing is unavailable or needs stock reconfirmation.',
+    );
     ensure(l.seller_id !== u.id, 400, 'OWN_LISTING', 'You cannot book your own listing.');
     const [variant] = await q.query(
       `SELECT * FROM listing_variants WHERE listing_id=$1 AND active AND ${d.variant_id ? 'id=$2' : 'is_primary'}`,
@@ -172,11 +180,17 @@ export function createBookingsService(deps: AppDeps) {
     );
     const preorder = !!l.available_from && new Date(l.available_from).getTime() > Date.now();
     ensure(
+      !preorder || c.features.preorders,
+      409,
+      'OUT_OF_STOCK',
+      'This item is not available to book yet.',
+    );
+    ensure(
       preorder ? l.preorder_capacity >= d.quantity : variant.stock >= d.quantity,
       409,
       'OUT_OF_STOCK',
       preorder
-        ? 'Not enough pre-order capacity left for this harvest.'
+        ? 'Not enough pre-order places left for this item.'
         : 'Not enough stock for this variant.',
     );
     const price = unitPrice(variant as any, d.quantity);
@@ -208,7 +222,24 @@ export function createBookingsService(deps: AppDeps) {
     ]);
     b.variant_id = variant.id;
     b.variant_name = variant.name;
+    await q.query('UPDATE bookings SET pickup_available=$1,delivery_available=$2 WHERE id=$3', [
+      l.pickup_available,
+      l.delivery_available,
+      b.id,
+    ]);
+    b.pickup_available = l.pickup_available;
+    b.delivery_available = l.delivery_available;
     b.preorder = preorder;
+    await discoveryEvent(q, u.id, 'BOOKING', l.id, l.category);
+    const [sourceClick] = await q.query(
+      'SELECT id FROM status_clicks WHERE buyer_id=$1 AND listing_id=$2 AND booking_id IS NULL AND expires_at>now() AND ($3::text IS NULL OR id=$3) ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE',
+      [u.id, l.id, d.source_status_click_id ?? null],
+    );
+    if (sourceClick)
+      await q.query('UPDATE status_clicks SET booking_id=$1 WHERE id=$2 AND booking_id IS NULL', [
+        b.id,
+        sourceClick.id,
+      ]);
     await event(q, { ...b, status: null }, 'REQUESTED', u.id, 'Buyer requested pickup booking.');
     const { pickup_code, ...safe } = b;
     return safe;
@@ -389,7 +420,7 @@ export function createBookingsService(deps: AppDeps) {
         409,
         'OUT_OF_STOCK',
         b.preorder
-          ? 'Pre-order capacity is no longer available for this harvest.'
+          ? 'Pre-order places are no longer available for this item.'
           : 'Stock is no longer available for this variant.',
       );
       if (b.preorder)
@@ -403,12 +434,12 @@ export function createBookingsService(deps: AppDeps) {
       }
       await q.query('UPDATE listings SET confirmed_at=now() WHERE id=$1', [l.id]);
       const [pickup] = await q.query(
-        'SELECT address,latitude,longitude FROM sellers WHERE user_id=$1',
+        'SELECT address,latitude,longitude,market_id FROM sellers WHERE user_id=$1',
         [b.seller_id],
       );
       await q.query(
-        'UPDATE bookings SET pickup_address_snapshot=$1,pickup_latitude=$2,pickup_longitude=$3 WHERE id=$4',
-        [pickup.address, pickup.latitude, pickup.longitude, b.id],
+        'UPDATE bookings SET pickup_address_snapshot=$1,pickup_latitude=$2,pickup_longitude=$3,pickup_market_id=$4 WHERE id=$5',
+        [pickup.address, pickup.latitude, pickup.longitude, pickup.market_id, b.id],
       );
       const [s2] = await q.query('SELECT reservation_hours FROM settings WHERE id=1');
       // Pre-orders are held from the harvest date, so the collection window starts then.
@@ -441,6 +472,20 @@ export function createBookingsService(deps: AppDeps) {
     else if (action === 'ready')
       await event(q, b, 'READY_FOR_PICKUP', u.id, 'Seller marked the order ready for collection.');
     else if (action === 'pay') {
+      if (b.preorder) {
+        const [p] = await q.query(
+          'SELECT available_from,preorder_advance_allowed FROM listings WHERE id=$1',
+          [b.listing_id],
+        );
+        ensure(
+          !p.available_from ||
+            new Date(p.available_from).getTime() <= Date.now() ||
+            (deps.config.demo && p.preorder_advance_allowed),
+          409,
+          'ADVANCE_NOT_ACCEPTED',
+          'The seller accepts payment once this product becomes available.',
+        );
+      }
       ensure(buyer, 403, 'FORBIDDEN', 'Only the buyer can pay.');
       ensure(!b.paid, 409, 'ALREADY_PAID', 'This booking is already paid.');
       ensure(c.demo || c.payments, 503, 'PAYMENTS_DISABLED', 'Wallet payments are not enabled.');
@@ -456,15 +501,14 @@ export function createBookingsService(deps: AppDeps) {
       ]);
       await q.query('UPDATE bookings SET paid=TRUE WHERE id=$1', [b.id]);
       await audit(q, u.id, 'booking.pay', b.id);
-      await notify(
-        q,
-        b.seller_id,
-        'payment',
-        'Booking paid',
-        `${b.title} has been paid from the buyer’s wallet.`,
-        b.id,
-      );
+      await notify(q, b.seller_id, 'payment', 'Booking paid', `${b.title} has been paid.`, b.id);
     } else if (action === 'pickup') {
+      ensure(
+        b.pickup_available,
+        409,
+        'PICKUP_UNAVAILABLE',
+        'This booking requires rider delivery.',
+      );
       ensure(b.paid, 409, 'PAYMENT_REQUIRED', 'The buyer must pay before pickup can be confirmed.');
       ensure(
         !b.pickup_locked_until || new Date(b.pickup_locked_until).getTime() <= Date.now(),

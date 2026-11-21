@@ -1,3 +1,20 @@
+import { regionInput } from '../src/services/regions.service.js';
+import { voiceSignalInput } from '../src/services/voice.service.js';
+import { parcelInput, parcelQuoteInput } from '../src/services/parcels.service.js';
+import { returnJourneyInput } from '../src/services/returns-operations.service.js';
+import { discoveryPreferenceInput } from '../src/services/discovery-operations.service.js';
+import { tariffInput } from '../src/services/delivery-operations.service.js';
+import { categoryInput, policyInput } from '../src/services/catalogue-policy.service.js';
+import {
+  sellerDetailsInput,
+  driverDetailsInput,
+  waypointInput,
+  pathInput,
+} from '../src/services/market-profiles.service.js';
+import { boostInput } from '../src/services/status-boost.service.js';
+import { statusAreaInput, publishStatusInput } from '../src/services/local-status.service.js';
+import { nearbyRiderInput } from '../src/services/riders.service.js';
+import { shoppingInput, shoppingQuoteInput } from '../src/services/shopping.service.js';
 /**
  * Builds the OpenAPI 3.1 contract from the route files, controllers and zod validators.
  *   npm run openapi         write apps/api/openapi.json
@@ -13,6 +30,7 @@ import { fundingInput } from '../src/validators/funding.validators.js';
 import { searchInput } from '../src/validators/geography.validators.js';
 import { listingSchema, sellerSchema } from '../src/validators/marketplace.validators.js';
 import { resolveDisputeInput } from '../src/validators/support.validators.js';
+import { checkoutInput } from '../src/services/checkout.service.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const src = join(root, 'src');
@@ -74,7 +92,7 @@ function idempotentHandlers() {
     for (const m of text.matchAll(
       /const (\w+): RequestHandler(?:\[\])? = [\s\S]*?(?=\n  const \w+: RequestHandler|\n  return \{)/g,
     ))
-      if (/mutate\(|readIdempotency\(|service\.startFunding\(/.test(m[0]))
+      if (/mutate\(|readIdempotency\(|service\.startFunding\(|checkout\.startCheckout\(/.test(m[0]))
         names.add(`${file.replace('.controller.ts', '')}.${m[1]}`);
   }
   return names;
@@ -93,13 +111,40 @@ const json = (schema: z.ZodType, io: 'input' | 'output' = 'input') =>
   z.toJSONSchema(schema, { io, unrepresentable: 'any' }) as Record<string, unknown>;
 /** Request bodies (and query strings) with real schemas; others accept any JSON object. */
 const bodies: Record<string, Record<string, unknown>> = {
+  'wallet.startCheckout': json(checkoutInput),
+  'market-operations.saveCategory': json(categoryInput),
+  'market-operations.savePolicies': json(policyInput),
+  'market-operations.saveSellerDetails': json(sellerDetailsInput),
+  'market-operations.saveDriverDetails': json(driverDetailsInput),
+  'market-operations.saveWaypoint': json(waypointInput),
+  'market-operations.savePath': json(pathInput),
+  'delivery-operations.saveTariff': json(tariffInput),
+  'discovery-operations.savePreferences': json(discoveryPreferenceInput),
+  'returns-operations.create': json(returnJourneyInput),
+  'parcels.create': json(parcelInput),
+  'parcels.quote': json(parcelQuoteInput),
+  'voice.signal': json(voiceSignalInput),
+  'regions.saveRegion': json(regionInput),
+  'shopping.create': json(shoppingInput),
+  'local-status.publish': json(publishStatusInput),
+  'status-boost.quote': json(boostInput),
+  'status-boost.create': json(
+    boostInput.and(z.object({ expected_fee_kobo: z.number().int().min(0) })),
+  ),
+  'shopping.quote': json(shoppingQuoteInput),
   'marketplace.applyAsSeller': json(sellerSchema),
   'marketplace.createListing': json(listingSchema),
   'marketplace.updateListing': json(listingSchema.partial()),
   'wallet.startFunding': json(fundingInput),
   'support.resolveDispute': json(resolveDisputeInput),
 };
-const queries: Record<string, z.ZodObject<any>> = { 'geography.search': searchInput };
+const queries: Record<string, z.ZodObject<any>> = {
+  'geography.search': searchInput,
+  'shopping.nearbyRiders': nearbyRiderInput,
+  'local-status.feed': statusAreaInput,
+  'local-status.event': statusAreaInput,
+  'local-status.report': statusAreaInput,
+};
 
 /** Named response schemas (contracts/responses.ts) become components.schemas and are $ref'd. */
 const schemaUri = (id: string) => `#/components/schemas/${id}`;
@@ -157,7 +202,9 @@ function responseSchema(
 const statusFor = (r: Route) =>
   ['register', 'login', 'forgotPassword'].includes(r.handler) && r.tag === 'auth'
     ? '202'
-    : ['uploadPhoto', 'uploadEvidence', 'uploadDocument'].includes(r.handler)
+    : ['uploadPhoto', 'uploadEvidence', 'uploadDocument', 'uploadReceipt', 'uploadVideo'].includes(
+          r.handler,
+        )
       ? '201'
       : '200';
 
@@ -200,7 +247,13 @@ export function buildOpenApi() {
       },
     };
     if (['post', 'put', 'patch'].includes(r.method)) {
-      const upload = ['uploadPhoto', 'uploadEvidence', 'uploadDocument'].includes(r.handler);
+      const upload = [
+        'uploadPhoto',
+        'uploadEvidence',
+        'uploadDocument',
+        'uploadReceipt',
+        'uploadVideo',
+      ].includes(r.handler);
       op.requestBody = upload
         ? {
             required: true,
@@ -209,7 +262,11 @@ export function buildOpenApi() {
                 schema: {
                   type: 'object',
                   properties: {
-                    [r.handler === 'uploadPhoto' ? 'image' : 'file']: {
+                    [r.handler === 'uploadPhoto'
+                      ? 'image'
+                      : r.handler === 'uploadVideo'
+                        ? 'video'
+                        : 'file']: {
                       type: 'string',
                       format: 'binary',
                     },
@@ -232,7 +289,7 @@ export function buildOpenApi() {
   return {
     openapi: '3.1.0',
     info: {
-      title: 'Farmers Market API',
+      title: 'Zuru API',
       version: '1.0.0',
       description:
         'Generated from apps/api/src by `npm run openapi`. Amounts are integers in kobo. Writes that change money, orders or accounts require an Idempotency-Key; retries with the same key replay the first response.',
@@ -288,7 +345,7 @@ export const render = () => `${JSON.stringify(buildOpenApi(), null, 2)}\n`;
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv.includes('--check')) {
     if (readFileSync(specPath, 'utf8') !== render()) {
-      console.error('openapi.json is out of date. Run `npm run openapi -w @farmers-market/api`.');
+      console.error('openapi.json is out of date. Run `npm run openapi -w @zuru/api`.');
       process.exit(1);
     }
     console.log('openapi.json is up to date.');

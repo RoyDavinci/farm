@@ -1,4 +1,4 @@
-import { money, statusLabel, type Booking } from '@farmers-market/shared';
+import { money, statusLabel, type Booking } from '@zuru/shared';
 import { ArrowUpRight, Clock, Package, Search, X } from 'lucide-react';
 import React, { useEffect } from 'react';
 export function Badge({ status }: { status: string }) {
@@ -140,8 +140,8 @@ export function BookingTable({ rows, open }: { rows: Booking[]; open: (b: Bookin
       ) : (
         <Empty
           icon={<Clock />}
-          title="Room for the first harvest"
-          text="Bookings will appear here as buyers discover and reserve produce."
+          title="Ready for the first order"
+          text="Bookings will appear here as buyers discover and reserve goods."
         />
       )}
     </>

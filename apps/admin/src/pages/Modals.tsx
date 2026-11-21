@@ -1,10 +1,4 @@
-import {
-  money,
-  statusLabel,
-  type Booking,
-  type OrderEvent,
-  type Seller,
-} from '@farmers-market/shared';
+import { money, statusLabel, type Booking, type OrderEvent, type Seller } from '@zuru/shared';
 import { useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';
 import { request } from '../api';
@@ -41,6 +35,7 @@ export function SellerReviewModal({
           </>
         )}
       </dl>
+      <VerificationProfileDetails details={review.profile_details as Record<string, unknown>} />
       <SellerDocuments sellerId={review.user_id} />
       <label>
         Decision reason
@@ -204,6 +199,29 @@ export function SellerDocuments({
             ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+export function VerificationProfileDetails({ details }: { details?: Record<string, unknown> }) {
+  if (!details || !Object.keys(details).length)
+    return <p className="fine">No extended verification details submitted.</p>;
+  return (
+    <div className="settings-card">
+      <h3>Submitted profile and location details</h3>
+      <dl>
+        {Object.entries(details)
+          .filter(
+            ([, value]) =>
+              value !== null && value !== '' && (!Array.isArray(value) || value.length),
+          )
+          .map(([key, value]) => (
+            <div key={key}>
+              <dt>{key.replaceAll('_', ' ')}</dt>
+              <dd>{Array.isArray(value) ? value.join(', ') : String(value)}</dd>
+            </div>
+          ))}
+      </dl>
     </div>
   );
 }

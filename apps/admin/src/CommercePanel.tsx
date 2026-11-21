@@ -1,4 +1,4 @@
-import { money, statusLabel } from '@farmers-market/shared';
+import { money, statusLabel } from '@zuru/shared';
 import { useEffect, useState } from 'react';
 import { request } from './api';
 export default function CommercePanel({

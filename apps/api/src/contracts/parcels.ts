@@ -1,0 +1,57 @@
+import { z } from 'zod';
+const pricing = z.object({
+  source: z.string(),
+  weight_kg: z.number(),
+  waiting_minutes: z.number(),
+  state: z.string().optional(),
+  city: z.string().optional(),
+  base_kobo: z.number().optional(),
+  distance_kobo: z.number().optional(),
+  load_kobo: z.number().optional(),
+  waiting_kobo: z.number().optional(),
+  demand_bps: z.number().optional(),
+  surcharge_kobo: z.number().optional(),
+  reason: z.string().optional(),
+});
+const parcel = z.object({
+  id: z.string(),
+  buyer_id: z.string(),
+  driver_id: z.string(),
+  driver_name: z.string().optional(),
+  vehicle_type: z.string(),
+  description: z.string(),
+  status: z.enum(['REQUESTED', 'ACCEPTED', 'PICKED_UP', 'DELIVERED', 'CANCELLED']),
+  pickup_address: z.string(),
+  pickup_latitude: z.number(),
+  pickup_longitude: z.number(),
+  dropoff_address: z.string(),
+  dropoff_latitude: z.number(),
+  dropoff_longitude: z.number(),
+  fare_kobo: z.number(),
+  commission_bps: z.number(),
+  distance_km: z.number(),
+  pricing,
+  pickup_pin: z.string().optional(),
+  delivery_pin: z.string().optional(),
+  review_open: z.boolean(),
+  review_note: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  tracking: z
+    .object({ latitude: z.number(), longitude: z.number(), updated_at: z.string() })
+    .optional(),
+});
+export const parcelResponses: Record<string, z.ZodType> = {
+  'parcels.quote': z.object({
+    fare_kobo: z.number(),
+    pricing,
+    distance_km: z.number(),
+    distance_method: z.string(),
+    vehicle_type: z.string(),
+  }),
+  'parcels.mine': z.array(parcel),
+  'parcels.list': z.array(parcel.omit({ pickup_pin: true, delivery_pin: true })),
+  'parcels.create': z.object({ id: z.string() }),
+  'parcels.action': z.object({ ok: z.boolean() }),
+  'parcels.review': z.object({ ok: z.boolean() }),
+};

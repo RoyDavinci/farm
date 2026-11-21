@@ -1,4 +1,7 @@
-import { type Listing, money } from '@farmers-market/shared';
+import LocalStatusFeed from './LocalStatusFeed';
+import { useApp } from './AppContext';
+import { featureOn } from './features';
+import { type Listing, money } from '@zuru/shared';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -13,6 +16,7 @@ export default function DiscoveryPanel({
   name: string;
   onSelect: (l: Listing) => void;
 }) {
+  const { settings, setTab } = useApp();
   const [q, setQ] = useState(''),
     [city, setCity] = useState(''),
     [area, setArea] = useState(''),
@@ -27,6 +31,8 @@ export default function DiscoveryPanel({
     [rating, setRating] = useState('0'),
     [sellerType, setSellerType] = useState(''),
     [wholesale, setWholesale] = useState(false),
+    [deliveryOnly, setDeliveryOnly] = useState(false),
+    [availability, setAvailability] = useState(''),
     [map, setMap] = useState(false),
     [filters, setFilters] = useState(false),
     [config, setConfig] = useState<any>(null),
@@ -58,6 +64,8 @@ export default function DiscoveryPanel({
     rating,
     sellerType,
     wholesale,
+    deliveryOnly,
+    availability,
   });
   const search = useCallback(
     async (next?: string) => {
@@ -79,6 +87,8 @@ export default function DiscoveryPanel({
         p.set('min_rating', d.rating);
         if (d.sellerType) p.set('seller_type', d.sellerType);
         if (d.wholesale) p.set('wholesale', 'true');
+        if (d.deliveryOnly) p.set('delivery_available', 'true');
+        if (d.availability) p.set('availability', d.availability);
         if (next) p.set('cursor', next);
         const result = await request('get', '/search', { query: Object.fromEntries(p) });
         if (requestId !== sequence.current) return;
@@ -146,8 +156,8 @@ export default function DiscoveryPanel({
               Grains: '🌽',
               Tubers: '🥔',
               Livestock: '🥚',
-              Other: '🌱',
-            }[l.category] || '🌱'}
+              Other: '📦',
+            }[l.category] || '📦'}
           </Text>
         )}
       </View>
@@ -159,7 +169,11 @@ export default function DiscoveryPanel({
           </Text>
         )}
         <Text style={s.bold}>{l.title}</Text>
-        <Text style={s.small}>{l.business_name}</Text>
+        <Text style={s.small}>{(l.condition || 'NEW').toLowerCase()}</Text>
+        <Text style={s.small}>
+          {l.business_name} · {l.pickup_available ? 'Collection' : ''}
+          {l.delivery_available ? ' · Delivery' : ''}
+        </Text>
         <Text style={s.price}>From {money(l.search_price || l.price_kobo)}</Text>
         <Text style={s.small}>
           {l.variants?.length || 1} option(s) · {l.area}, {l.city}
@@ -172,24 +186,35 @@ export default function DiscoveryPanel({
   );
   return (
     <View style={{ gap: 17 }}>
+      {featureOn(settings, 'local_status') && (
+        <LocalStatusFeed point={point} category={category} refreshVersion={refreshVersion} />
+      )}
       <Text style={s.eyebrow}>YOUR EVERYDAY LOCAL MARKET</Text>
-      <Text style={s.heading}>Fresh finds.{'\n'}Close to home.</Text>
+      <Text style={s.heading}>Great finds.{'\n'}Close to home.</Text>
       <Text style={s.body}>
-        Hello {name.split(' ')[0]}. Discover produce by area, market or distance.
+        Hello {name.split(' ')[0]}. Discover goods by area, market or distance.
       </Text>
       <View style={s.hero}>
-        <Text style={s.heroTitle}>A little local. A lot of good.</Text>
-        <Text style={s.heroText}>Find the growers behind your next harvest.</Text>
+        <Text style={s.heroTitle}>Your everyday marketplace.</Text>
+        <Text style={s.heroText}>Discover goods from people and businesses near you.</Text>
       </View>
       {error && (
         <Text accessibilityRole="alert" style={s.error}>
           {error}
         </Text>
       )}
+      {featureOn(settings, 'shopping') && (
+        <Pressable onPress={() => setTab('Riders')} style={s.filterBox}>
+          <Text style={s.bold}>Need someone to buy and deliver for you?</Text>
+          <Text style={s.small}>
+            Find a nearby rider, set a goods budget and request items from a shop or market.
+          </Text>
+        </Pressable>
+      )}
       <TextInput
         style={s.input}
-        accessibilityLabel="Search produce or seller"
-        placeholder="Search produce or sellers"
+        accessibilityLabel="Search goods or seller"
+        placeholder="Search goods or sellers"
         value={q}
         onChangeText={setQ}
       />
@@ -235,64 +260,76 @@ export default function DiscoveryPanel({
         contentContainerStyle={{ gap: 8 }}
         showsHorizontalScrollIndicator={false}
       >
-        {['', 'Vegetables', 'Fruit', 'Grains', 'Tubers', 'Livestock', 'Other'].map((c) =>
-          chip(c || 'All produce', category === c, () => setCategory(c)),
+        {['', ...(settings?.catalog?.categories || ['Other'])].map((c) =>
+          chip(c || 'All goods', category === c, () => setCategory(c)),
         )}
       </ScrollView>
       {filters && (
-        <View style={s.filterBox}>
-          <Text style={s.bold}>Market</Text>
+        <>
           <View style={s.wrap}>
-            {chip('Any market', !market, () => setMarket(''))}
-            {markets
-              .filter((m) => !city || m.city.toLowerCase().includes(city.toLowerCase()))
-              .map((m) => chip(`${m.name} · ${m.city}`, market === m.id, () => setMarket(m.id)))}
+            {chip('Offers delivery', deliveryOnly, () => setDeliveryOnly(!deliveryOnly))}
+            {chip('Stock ready now', availability === 'in_stock', () =>
+              setAvailability(availability === 'in_stock' ? '' : 'in_stock'),
+            )}
+            {chip('Pre-orders', availability === 'preorder', () =>
+              setAvailability(availability === 'preorder' ? '' : 'preorder'),
+            )}
           </View>
-          <View style={s.row}>
-            <TextInput
-              style={[s.input, { flex: 1 }]}
-              accessibilityLabel="Minimum price naira"
-              placeholder="Min price ₦"
-              keyboardType="numeric"
-              value={min}
-              onChangeText={setMin}
-            />
-            <TextInput
-              style={[s.input, { flex: 1 }]}
-              accessibilityLabel="Maximum price naira"
-              placeholder="Max price ₦"
-              keyboardType="numeric"
-              value={max}
-              onChangeText={setMax}
-            />
-          </View>
-          {point && (
-            <>
-              <Text style={s.bold}>Radius (km)</Text>
+          <View style={s.filterBox}>
+            <Text style={s.bold}>Market</Text>
+            <View style={s.wrap}>
+              {chip('Any market', !market, () => setMarket(''))}
+              {markets
+                .filter((m) => !city || m.city.toLowerCase().includes(city.toLowerCase()))
+                .map((m) => chip(`${m.name} · ${m.city}`, market === m.id, () => setMarket(m.id)))}
+            </View>
+            <View style={s.row}>
               <TextInput
-                style={s.input}
-                keyboardType="number-pad"
-                value={radius}
-                onChangeText={setRadius}
+                style={[s.input, { flex: 1 }]}
+                accessibilityLabel="Minimum price naira"
+                placeholder="Min price ₦"
+                keyboardType="numeric"
+                value={min}
+                onChangeText={setMin}
               />
-            </>
-          )}
-          <Text style={s.bold}>Seller type</Text>
-          <View style={s.wrap}>
-            {['', 'farm', 'shop', 'market_stall', 'home_based'].map((t) =>
-              chip(t.replaceAll('_', ' ') || 'Any seller', sellerType === t, () =>
-                setSellerType(t),
-              ),
+              <TextInput
+                style={[s.input, { flex: 1 }]}
+                accessibilityLabel="Maximum price naira"
+                placeholder="Max price ₦"
+                keyboardType="numeric"
+                value={max}
+                onChangeText={setMax}
+              />
+            </View>
+            {point && (
+              <>
+                <Text style={s.bold}>Radius (km)</Text>
+                <TextInput
+                  style={s.input}
+                  keyboardType="number-pad"
+                  value={radius}
+                  onChangeText={setRadius}
+                />
+              </>
             )}
+            <Text style={s.bold}>Seller type</Text>
+            <View style={s.wrap}>
+              {['', ...(settings?.catalog?.seller_types || ['individual', 'shop', 'farm'])].map(
+                (t) =>
+                  chip(t.replaceAll('_', ' ') || 'Any seller', sellerType === t, () =>
+                    setSellerType(t),
+                  ),
+              )}
+            </View>
+            <Text style={s.bold}>Minimum review score</Text>
+            <View style={s.wrap}>
+              {['0', '3', '4', '5'].map((v) =>
+                chip(v === '0' ? 'Any rating' : `${v}+ stars`, rating === v, () => setRating(v)),
+              )}
+            </View>
+            {chip('Wholesale offers', wholesale, () => setWholesale(!wholesale))}
           </View>
-          <Text style={s.bold}>Minimum review score</Text>
-          <View style={s.wrap}>
-            {['0', '3', '4', '5'].map((v) =>
-              chip(v === '0' ? 'Any rating' : `${v}+ stars`, rating === v, () => setRating(v)),
-            )}
-          </View>
-          {chip('Wholesale offers', wholesale, () => setWholesale(!wholesale))}
-        </View>
+        </>
       )}
       <ScrollView
         horizontal
@@ -338,16 +375,16 @@ export default function DiscoveryPanel({
           <View style={s.grid}>{sponsored.map((l) => card(l, 'sponsored-'))}</View>
         </>
       )}
-      <Text style={s.bold}>{busy ? 'Finding fresh produce…' : `${items.length} fresh finds`}</Text>
+      <Text style={s.bold}>{busy ? 'Finding products…' : `${items.length} listings`}</Text>
       <View style={s.grid}>{items.map((l) => card(l))}</View>
       {!items.length && !busy && (
         <Text style={s.body}>
-          No produce matches these filters. Try another city, market or radius.
+          No products match these filters. Try another city, market or radius.
         </Text>
       )}
       {cursor && (
         <Pressable disabled={busy} style={s.button} onPress={() => void search(cursor)}>
-          <Text style={s.buttonText}>Load more produce</Text>
+          <Text style={s.buttonText}>Load more products</Text>
         </Pressable>
       )}
     </View>

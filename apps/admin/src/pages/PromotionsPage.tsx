@@ -1,4 +1,4 @@
-import { money } from '@farmers-market/shared';
+import { money } from '@zuru/shared';
 import { X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';

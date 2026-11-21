@@ -1,30 +1,36 @@
 {
   "expo": {
-    "name": "Farmers Market",
-    "slug": "farmers-market",
+    "name": "Zuru",
+    "slug": "zuru",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "scheme": "farmersmarket",
+    "scheme": "zuru",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "market.farmers.app",
+      "bundleIdentifier": "ng.zuru.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "Allow microphone access only when you start or accept an in-app voice call."
       }
     },
     "android": {
-      "package": "market.farmers.app",
-      "permissions": [],
+      "package": "ng.zuru.app",
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.BLUETOOTH_CONNECT"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#365b38"
+        "backgroundColor": "#F0954E",
+        "monochromeImage": "./assets/adaptive-monochrome.png"
       }
     },
     "web": {
       "bundler": "metro",
-      "name": "Farmers Market",
-      "shortName": "Farmers Market",
+      "name": "Zuru",
+      "shortName": "Zuru",
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
@@ -32,28 +38,32 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Farmers Market to select produce photos for your listings.",
-          "cameraPermission": "Allow Farmers Market to take photos of your produce.",
+          "photosPermission": "Allow Zuru to select product and receipt photos.",
+          "cameraPermission": "Allow Zuru to take photos of products and receipts.",
           "microphonePermission": false
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Farmers Market to find nearby produce or set your collection pin."
+          "locationWhenInUsePermission": "Allow Zuru to find nearby sellers, set collection pins and share delivery location.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "locationAlwaysAndWhenInUsePermission": "Allow location during active delivery work, including when the app is in the background. You can turn this off in Drive."
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#365b38"
+          "color": "#F0954E"
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Farmers Market to scan delivery handover codes.",
+          "cameraPermission": "Allow Zuru to scan delivery handover codes.",
           "recordAudioAndroid": false
         }
       ],
@@ -61,9 +71,9 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "imageWidth": 160,
+          "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#365b38"
+          "backgroundColor": "#F0954E"
         }
       ]
     ],

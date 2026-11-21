@@ -43,7 +43,7 @@ const production = process.env.NODE_ENV === 'production';
  */
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'test' ? 'error' : 'info'),
-  defaultMeta: { service: process.env.SERVICE_NAME || 'farmers-market-api' },
+  defaultMeta: { service: process.env.SERVICE_NAME || 'zuru-api' },
   format: winston.format.combine(
     winston.format.errors({ stack: true }),
     redact(),

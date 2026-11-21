@@ -52,7 +52,7 @@ export function createAuthService(deps: AppDeps) {
   const digest = (id: string, code: string) =>
     createHmac('sha256', c.otpSecret).update(`${id}:${code}`).digest('hex');
   const codeMessage = (purpose: string, code: string) =>
-    `Your Farmers Market ${purpose === 'reset' ? 'password reset' : purpose === 'register' ? 'email verification' : 'sign-in'} code is ${code}.\n\nIt expires in 10 minutes and can only be used once. Do not share it. If you did not request this, ignore this email.\n\nFarmers Market`;
+    `Your Zuru ${purpose === 'reset' ? 'password reset' : purpose === 'register' ? 'email verification' : 'sign-in'} code is ${code}.\n\nIt expires in 10 minutes and can only be used once. Do not share it. If you did not request this, ignore this email.\n\nZuru`;
   async function challenge(to: string, purpose: string, uid: string | null, payload: object = {}) {
     const cid = randomUUID(),
       code = String(randomInt(100000, 1000000));
@@ -92,7 +92,7 @@ export function createAuthService(deps: AppDeps) {
         ],
       );
       // No challenge is committed if delivery fails.
-      await mail.send(to, 'Your Farmers Market verification code', codeMessage(purpose, code));
+      await mail.send(to, 'Your Zuru verification code', codeMessage(purpose, code));
     });
     return {
       challenge_id: cid,
@@ -151,11 +151,7 @@ export function createAuthService(deps: AppDeps) {
         'UPDATE otp_challenges SET code_hash=$1,sent_at=now(),send_count=send_count+1 WHERE id=$2',
         [digest(otp.id, code), otp.id],
       );
-      await mail.send(
-        otp.email,
-        'Your Farmers Market verification code',
-        codeMessage(otp.purpose, code),
-      );
+      await mail.send(otp.email, 'Your Zuru verification code', codeMessage(otp.purpose, code));
       return { ok: true, resend_after: 60 };
     });
     return result;

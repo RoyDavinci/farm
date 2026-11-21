@@ -7,7 +7,7 @@ export function createHealthService(deps: AppDeps) {
     await db.query('SELECT 1');
     return {
       status: 'ok' as const,
-      service: 'farmers-market-api',
+      service: 'zuru-api',
       version: config.gitCommit || 'dev',
     };
   }
@@ -25,8 +25,19 @@ export function createHealthService(deps: AppDeps) {
         .then((r) => (r === 'PONG' ? 'ok' : 'down'))
         .catch(() => 'down' as const);
     const expiry = workers.find((b) => b.name === 'reservation-expiry');
+    const required: Record<string, number> = {
+      'reservation-expiry': 300,
+      'voice-expiry': 300,
+      'discovery-maintenance': 300,
+      'stock-freshness': 7200,
+      'local-status-expiry': 300,
+      'status-boost-recovery': 300,
+    };
+    const workersHealthy = Object.entries(required).every(([name, maxAge]) =>
+      workers.some((w) => w.name === name && w.age_s < maxAge && !w.last_error),
+    );
     const healthy =
-      !!expiry && expiry.age_s < 300 && backlog.email_late < 100 && redisStatus !== 'down';
+      !!expiry && workersHealthy && backlog.email_late < 100 && redisStatus !== 'down';
     return {
       healthy,
       body: { status: healthy ? 'ready' : 'degraded', workers, backlog, redis: redisStatus },

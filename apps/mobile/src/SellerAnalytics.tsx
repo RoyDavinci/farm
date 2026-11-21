@@ -1,4 +1,4 @@
-import { money } from '@farmers-market/shared';
+import { money } from '@zuru/shared';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { request } from './request';

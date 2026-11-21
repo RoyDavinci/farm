@@ -82,6 +82,8 @@ export async function restoreToken() {
   return !!(token || refreshToken);
 }
 export async function saveToken(value: string) {
+  if (!value)
+    await import('./backgroundTracking').then((m) => m.stopBackgroundTracking()).catch(() => {});
   sessionEpoch++;
   token = value;
   refreshToken = '';
@@ -192,7 +194,7 @@ export async function api<T = any>(
         const cached = await recall<T>(path, requestScope);
         if (cached !== null) return cached;
       }
-      throw new Error('Cannot reach Farmers Market. Please check your connection.');
+      throw new Error('Cannot reach Zuru. Please check your connection.');
     }
   }
   setOffline(false);
@@ -266,6 +268,35 @@ export function liveUpdates(onSync: () => void) {
     socket?.close();
   };
 }
+export async function uploadStatusVideo(asset: {
+  uri: string;
+  mimeType?: string | null;
+  fileName?: string | null;
+  file?: File;
+}) {
+  const form = new FormData();
+  if (Platform.OS === 'web')
+    form.append(
+      'video',
+      asset.file || (await (await fetch(asset.uri)).blob()),
+      asset.fileName || 'status.mp4',
+    );
+  else
+    form.append('video', {
+      uri: asset.uri,
+      name: asset.fileName || 'status.mp4',
+      type: asset.mimeType || 'video/mp4',
+    } as any);
+  const response = await authenticatedFetch('/media/status-video', { method: 'POST', body: form });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error?.message || 'Video upload failed.');
+  return data as {
+    url: string;
+    thumbnail_url: string;
+    media_type: 'VIDEO';
+    duration_seconds: number;
+  };
+}
 export async function uploadEvidence(
   disputeId: string,
   asset: { uri: string; mimeType?: string | null; fileName?: string | null; file?: File },
@@ -286,6 +317,28 @@ export async function uploadEvidence(
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error?.message || 'Evidence upload failed.');
+  return data;
+}
+export async function uploadShoppingReceipt(
+  requestId: string,
+  asset: { uri: string; mimeType?: string | null; fileName?: string | null; file?: File },
+) {
+  const form = new FormData();
+  if (Platform.OS === 'web') {
+    const file = asset.file || (await (await fetch(asset.uri)).blob());
+    form.append('file', file, asset.fileName || 'receipt.jpg');
+  } else
+    form.append('file', {
+      uri: asset.uri,
+      name: asset.fileName || 'receipt.jpg',
+      type: asset.mimeType || 'image/jpeg',
+    } as any);
+  const response = await authenticatedFetch(`/shopping/${requestId}/receipts`, {
+    method: 'POST',
+    body: form,
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error?.message || 'Receipt upload failed.');
   return data;
 }
 export async function uploadSellerDocument(

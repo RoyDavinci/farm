@@ -1,4 +1,5 @@
-import { type Booking, money, statusLabel } from '@farmers-market/shared';
+import AppealPanel from './AppealPanel';
+import { type Booking, money, statusLabel } from '@zuru/shared';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -40,8 +41,8 @@ export default function BookingSupport({
     await run(async () => {
       const r = await request('get', '/bookings/{id}/receipt', { params: { id: b.id } });
       await Share.share({
-        title: 'Farmers Market receipt',
-        message: `Farmers Market ${r.simulated ? 'DEVELOPMENT / SIMULATED ' : ''}receipt\n${r.receipt_number}\n${r.seller}\n${r.title} — ${r.variant}\n${r.quantity} ${r.unit} × ${money(r.unit_price_kobo)}\nTotal: ${money(r.total_kobo)}\nRefunded: ${money(r.refunded_kobo)}\nPayment: wallet\nStatus: ${r.status}`,
+        title: 'Zuru receipt',
+        message: `Zuru ${r.simulated ? 'DEVELOPMENT / SIMULATED ' : ''}receipt\n${r.receipt_number}\n${r.seller}\n${r.title} — ${r.variant}\n${r.quantity} ${r.unit} × ${money(r.unit_price_kobo)}\nTotal: ${money(r.total_kobo)}\nRefunded: ${money(r.refunded_kobo)}\nPayment: wallet\nStatus: ${r.status}`,
       });
     });
   }
@@ -83,6 +84,7 @@ export default function BookingSupport({
             <Text style={s.body}>
               {statusLabel(record.reason_code)}: {record.description}
             </Text>
+            {record.status === 'RESOLVED' && <AppealPanel disputeId={record.id} />}
             {record.return_status !== 'NONE' && (
               <Text style={s.body}>Return: {statusLabel(record.return_status)}</Text>
             )}

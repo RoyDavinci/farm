@@ -36,6 +36,16 @@ export async function resolveSupportCase(
   const [b] = await q.query('SELECT * FROM bookings WHERE id=$1 FOR UPDATE', [lookup.booking_id]);
   const [d] = await q.query('SELECT * FROM disputes WHERE id=$1 FOR UPDATE', [lookup.id]);
   ensure(d.status === 'OPEN', 409, 'CASE_CLOSED', 'This case is already resolved.');
+  const [returnInProgress] = await q.query(
+    "SELECT id FROM return_journeys WHERE dispute_id=$1 AND status IN ('ASSIGNED','ACCEPTED','PICKED_UP')",
+    [d.id],
+  );
+  ensure(
+    !returnInProgress,
+    409,
+    'RETURN_TRANSPORT_ACTIVE',
+    'Complete or cancel the arranged return journey before closing this case.',
+  );
   ensure(
     data.refund_kobo <= b.total_kobo && (!data.refund_kobo || b.paid),
     400,
@@ -217,6 +227,20 @@ export function createSupportService(deps: AppDeps) {
   async function updateReturn(q: Query, u: any, input: RequestInput) {
     const d = await getDisputeForUser(q, input.params.id as string, u);
     const { action } = z.object({ action: z.enum(['request', 'received']) }).parse(input.body);
+    const [locked] = await q.query('SELECT * FROM disputes WHERE id=$1 FOR UPDATE', [d.id]);
+    Object.assign(d, locked);
+    if (action === 'received') {
+      const [moving] = await q.query(
+        "SELECT id FROM return_journeys WHERE dispute_id=$1 AND status IN ('ASSIGNED','ACCEPTED','PICKED_UP')",
+        [d.id],
+      );
+      ensure(
+        !moving,
+        409,
+        'RETURN_TRANSPORT_ACTIVE',
+        'Use the arranged return PIN confirmation, or cancel the uncollected journey first.',
+      );
+    }
     ensure(d.status === 'OPEN', 409, 'CASE_CLOSED', 'Case is closed.');
     if (action === 'request') ensure(u.admin, 403, 'FORBIDDEN', 'Support must approve a return.');
     else

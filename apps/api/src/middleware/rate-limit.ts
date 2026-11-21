@@ -12,7 +12,7 @@ export function createLimiters(c: Config, redis?: RedisClient | null) {
   const store = (prefix: string): Store | undefined =>
     redis
       ? new RedisStore({
-          prefix: `farmers-market:rl:${prefix}:`,
+          prefix: `zuru:rl:${prefix}:`,
           sendCommand: (command: string, ...args: string[]) =>
             redis.call(command, ...args) as Promise<any>,
         })

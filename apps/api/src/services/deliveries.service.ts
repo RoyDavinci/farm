@@ -1,3 +1,11 @@
+import { regionalFare, loadInput } from './delivery-operations.service.js';
+import {
+  checkRider,
+  riderFree,
+  requireNearby,
+  requireServiceArea,
+  requireCurrentDriverDocuments,
+} from './riders.service.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Query } from '../database/client.js';
@@ -48,11 +56,23 @@ export async function cancelDelivery(q: Query, d: any, reason: string, actor: st
 export function createDeliveriesService(deps: AppDeps) {
   const { db } = deps;
   const routing = createRouting(deps.config, deps.redis);
-  async function quote(q: Query, b: any, vehicle: string, drop: z.infer<typeof point>) {
-    const [s] = await q.query<{ latitude: number; longitude: number }>(
-      'SELECT latitude,longitude FROM sellers WHERE user_id=$1',
-      [b.seller_id],
-    );
+  async function quote(
+    q: Query,
+    b: any,
+    vehicle: string,
+    drop: z.infer<typeof point>,
+    load = loadInput.parse({}),
+  ) {
+    const [s] = await q.query<{
+      latitude: number;
+      longitude: number;
+      state: string;
+      city: string;
+      lga: string;
+      area: string;
+    }>('SELECT latitude,longitude,state,city,lga,area FROM sellers WHERE user_id=$1', [
+      b.seller_id,
+    ]);
     ensure(
       s?.latitude != null,
       409,
@@ -63,14 +83,19 @@ export function createDeliveriesService(deps: AppDeps) {
       vehicle,
     ]);
     ensure(v, 400, 'INVALID_VEHICLE', 'Choose an available vehicle type.');
-    const { km, method } = await routing.drivingDistance(s, drop);
+    const pickup = {
+      ...s,
+      latitude: b.pickup_latitude ?? s.latitude,
+      longitude: b.pickup_longitude ?? s.longitude,
+    };
+    const { km, method } = await routing.drivingDistance(pickup, drop);
     ensure(km <= v.max_km, 400, 'TOO_FAR', `${v.name} delivery covers up to ${v.max_km} km.`);
     return {
-      pickup: s,
+      pickup,
       vehicle: v,
       distance_km: km,
       distance_method: method,
-      fare_kobo: fareFor(v, km),
+      ...(await regionalFare(q, s, vehicle, km, load, fareFor(v, km))),
     };
   }
   async function buyerBooking(q: Query, id: string, uid: string, lock = false) {
@@ -78,6 +103,7 @@ export function createDeliveriesService(deps: AppDeps) {
       id,
     ]);
     ensure(b && b.buyer_id === uid, 404, 'NOT_FOUND', 'Booking not found.');
+    ensure(b.delivery_available, 409, 'DELIVERY_UNAVAILABLE', 'This booking is collection-only.');
     ensure(
       ['ACCEPTED', 'READY_FOR_PICKUP'].includes(b.status),
       409,
@@ -100,7 +126,7 @@ export function createDeliveriesService(deps: AppDeps) {
     return safe;
   };
   const withParty = `SELECT d.*,b.paid AS booking_paid,b.title,b.quantity,b.unit,b.total_kobo,
-    s.business_name,s.address AS pickup_address,buyer.name AS buyer_name,buyer.phone AS buyer_phone,
+    s.business_name,COALESCE(b.pickup_address_snapshot,s.address) AS pickup_address,buyer.name AS buyer_name,buyer.phone AS buyer_phone,
     du.name AS driver_name,du.phone AS driver_phone,dr.plate_number,vt.name AS vehicle_name
     FROM deliveries d JOIN bookings b ON b.id=d.booking_id JOIN sellers s ON s.user_id=d.seller_id
     JOIN users buyer ON buyer.id=d.buyer_id LEFT JOIN users du ON du.id=d.driver_id
@@ -114,17 +140,22 @@ export function createDeliveriesService(deps: AppDeps) {
       vehicle_types: await db.query(
         'SELECT code,name,base_fare_kobo,per_km_kobo,min_fare_kobo,max_km FROM vehicle_types WHERE active ORDER BY sort',
       ),
-      pay_on_delivery: s.pay_on_delivery_enabled,
+      // Pay on Delivery charges a stored balance at the door, so it needs the wallet feature.
+      pay_on_delivery: s.pay_on_delivery_enabled && deps.config.features.wallet,
     };
   }
   async function quoteDelivery(user: any, input: RequestInput) {
-    const d = z.object({ vehicle_type: z.string().max(30), dropoff: point }).parse(input.body);
+    const d = z
+      .object({ vehicle_type: z.string().max(30), dropoff: point })
+      .extend(loadInput.shape)
+      .parse(input.body);
     const b = await buyerBooking(db, input.params.id as string, user.id);
-    const { distance_km, distance_method, fare_kobo, vehicle } = await quote(
+    const { distance_km, distance_method, fare_kobo, vehicle, pricing } = await quote(
       db,
       b,
       d.vehicle_type,
       d.dropoff,
+      d,
     );
     return {
       distance_km,
@@ -132,6 +163,7 @@ export function createDeliveriesService(deps: AppDeps) {
       fare_kobo,
       vehicle_type: vehicle.code,
       vehicle_name: vehicle.name,
+      pricing,
     };
   }
   async function requestDelivery(q: Query, u: any, input: RequestInput) {
@@ -142,6 +174,8 @@ export function createDeliveriesService(deps: AppDeps) {
         dropoff_address: z.string().trim().min(8).max(500),
         pay_on_delivery: z.boolean().default(false),
         expected_fare_kobo: z.number().int().positive(),
+        requested_driver_id: z.uuid().optional(),
+        ...loadInput.shape,
       })
       .parse(input.body);
     const b = await buyerBooking(q, input.params.id as string, u.id, true);
@@ -156,7 +190,7 @@ export function createDeliveriesService(deps: AppDeps) {
     ensure(!existing, 409, 'DELIVERY_EXISTS', 'A delivery is already arranged for this booking.');
     const [settings] = await q.query('SELECT * FROM settings WHERE id=1');
     ensure(
-      !d.pay_on_delivery || settings.pay_on_delivery_enabled,
+      !d.pay_on_delivery || (settings.pay_on_delivery_enabled && deps.config.features.wallet),
       403,
       'POD_DISABLED',
       'Pay on Delivery is not available yet.',
@@ -167,13 +201,25 @@ export function createDeliveriesService(deps: AppDeps) {
       'PAYMENT_REQUIRED',
       'Pay for the booking first, or choose Pay on Delivery.',
     );
-    const qd = await quote(q, b, d.vehicle_type, d.dropoff);
+    const qd = await quote(q, b, d.vehicle_type, d.dropoff, d);
     ensure(
       qd.fare_kobo === d.expected_fare_kobo,
       409,
       'FARE_CHANGED',
       'The delivery fare changed. Please review the new quote.',
     );
+    if (d.requested_driver_id) {
+      const rider = await checkRider(q, d.requested_driver_id, u.id, d.vehicle_type);
+      ensure(
+        rider.user_id !== b.seller_id,
+        409,
+        'CONFLICT',
+        'The seller cannot deliver their own order.',
+      );
+      requireServiceArea(rider, qd.pickup);
+      await riderFree(q, rider.user_id);
+      requireNearby(rider, d.dropoff, settings.delivery_radius_km);
+    }
     const id = randomUUID();
     if (!d.pay_on_delivery) {
       ensure(
@@ -210,6 +256,14 @@ export function createDeliveriesService(deps: AppDeps) {
         pin(),
       ],
     );
+    if (d.requested_driver_id) {
+      await q.query('UPDATE deliveries SET requested_driver_id=$1 WHERE id=$2', [
+        d.requested_driver_id,
+        id,
+      ]);
+      delivery.requested_driver_id = d.requested_driver_id;
+    }
+    await q.query('UPDATE deliveries SET pricing=$1 WHERE id=$2', [JSON.stringify(qd.pricing), id]);
     await audit(q, u.id, 'delivery.request', id, { fare_kobo: qd.fare_kobo });
     await notify(
       q,
@@ -221,13 +275,15 @@ export function createDeliveriesService(deps: AppDeps) {
     );
     // Tell online drivers near the pickup point.
     const nearby = await q.query(
-      "SELECT user_id,latitude,longitude FROM drivers WHERE status='APPROVED' AND online AND vehicle_type=$1 AND latitude IS NOT NULL AND location_at>now()-interval '30 minutes'",
+      "SELECT user_id,latitude,longitude FROM drivers WHERE status='APPROVED' AND online AND vehicle_type=$1 AND latitude IS NOT NULL AND location_at>now()-interval '5 minutes'",
       [qd.vehicle.code],
     );
     for (const n of nearby)
       if (
-        haversineKm(n.latitude, n.longitude, qd.pickup.latitude, qd.pickup.longitude) <=
-        settings.delivery_radius_km
+        d.requested_driver_id
+          ? n.user_id === d.requested_driver_id
+          : haversineKm(n.latitude, n.longitude, qd.pickup.latitude, qd.pickup.longitude) <=
+            settings.delivery_radius_km
       )
         await notify(
           q,
@@ -285,24 +341,41 @@ export function createDeliveriesService(deps: AppDeps) {
   }
   async function updateDriverStatus(user: any, input: RequestInput) {
     const d = z.object({ online: z.boolean() }).and(point.partial()).parse(input.body);
+    ensure(
+      (d.latitude == null) === (d.longitude == null),
+      400,
+      'LOCATION_REQUIRED',
+      'Send both latitude and longitude.',
+    );
     const [driver] = await db.query('SELECT status FROM drivers WHERE user_id=$1', [user.id]);
     ensure(driver?.status === 'APPROVED', 403, 'DRIVER_NOT_APPROVED', 'Approved drivers only.');
     ensure(
-      !d.online || d.latitude != null,
+      !d.online || (d.latitude != null && d.longitude != null),
       400,
       'LOCATION_REQUIRED',
       'Share your location to go online.',
     );
     const [saved] = await db.query(
-      'UPDATE drivers SET online=$1,latitude=COALESCE($2,latitude),longitude=COALESCE($3,longitude),location_at=CASE WHEN $2 IS NULL THEN location_at ELSE now() END WHERE user_id=$4 RETURNING online,latitude,longitude,location_at',
+      'UPDATE drivers SET online=$1,background_tracking=CASE WHEN $1 THEN background_tracking ELSE false END,latitude=COALESCE($2,latitude),longitude=COALESCE($3,longitude),location_at=CASE WHEN $2 IS NULL THEN location_at ELSE now() END WHERE user_id=$4 RETURNING online,latitude,longitude,location_at',
       [d.online, d.latitude ?? null, d.longitude ?? null, user.id],
     );
+    if (d.online && d.latitude != null && d.longitude != null)
+      await db.query(
+        "UPDATE shopping_requests SET rider_latitude=$1,rider_longitude=$2,rider_location_at=now() WHERE rider_id=$3 AND status IN ('SHOPPING','PURCHASED') AND NOT review_open",
+        [d.latitude, d.longitude, user.id],
+      );
     // Live tracking: active jobs follow the driver's latest position.
     if (d.latitude != null)
       await db.query(
         "UPDATE deliveries SET driver_latitude=$1,driver_longitude=$2,driver_location_at=now() WHERE driver_id=$3 AND status IN ('ASSIGNED','PICKED_UP')",
         [d.latitude, d.longitude, user.id],
       );
+    if (d.online && d.latitude != null) {
+      await db.query(
+        "UPDATE parcel_jobs SET driver_latitude=$1,driver_longitude=$2,location_at=now() WHERE driver_id=$3 AND status IN ('ACCEPTED','PICKED_UP') AND NOT review_open",
+        [d.latitude, d.longitude, user.id],
+      );
+    }
     return saved;
   }
   async function listDriverJobs(user: any, input: RequestInput) {
@@ -319,7 +392,7 @@ export function createDeliveriesService(deps: AppDeps) {
         ? []
         : (
             await db.query(
-              `${withParty} WHERE d.status='OPEN' AND d.vehicle_type=$1 AND d.buyer_id<>$2 AND d.seller_id<>$2 ORDER BY d.created_at LIMIT 100`,
+              `${withParty} WHERE d.status='OPEN' AND (d.scheduled_at IS NULL OR d.scheduled_at<=now()+interval '15 minutes') AND (d.requested_driver_id IS NULL OR d.requested_driver_id=$2) AND d.vehicle_type=$1 AND d.buyer_id<>$2 AND d.seller_id<>$2 ORDER BY d.created_at LIMIT 100`,
               [driver.vehicle_type, u.id],
             )
           )
@@ -335,7 +408,9 @@ export function createDeliveriesService(deps: AppDeps) {
                   ) * 10,
                 ) / 10,
             }))
-            .filter((d) => d.away_km <= settings.delivery_radius_km)
+            .filter(
+              (d) => d.requested_driver_id === u.id || d.away_km <= settings.delivery_radius_km,
+            )
             .sort((a, b) => a.away_km - b.away_km)
             // Exact addresses are shared only after a driver takes the job.
             .map(({ pickup_address, dropoff_address, buyer_phone, ...d }) => ({
@@ -363,9 +438,25 @@ export function createDeliveriesService(deps: AppDeps) {
     ensure(ref, 404, 'NOT_FOUND', 'Delivery not found.');
     const [b] = await q.query('SELECT * FROM bookings WHERE id=$1 FOR UPDATE', [ref.booking_id]);
     const [d] = await q.query('SELECT * FROM deliveries WHERE id=$1 FOR UPDATE', [input.params.id]);
+    const [caseOpen] = await q.query(
+      "SELECT id FROM disputes WHERE booking_id=$1 AND status='OPEN'",
+      [b.id],
+    );
+    ensure(
+      !caseOpen || ['cancel', 'release'].includes(action),
+      409,
+      'SUPPORT_REVIEW',
+      'This booking is paused for support review.',
+    );
     if (action === 'claim') {
       const [driver] = await q.query('SELECT * FROM drivers WHERE user_id=$1', [u.id]);
       ensure(driver?.status === 'APPROVED', 403, 'DRIVER_NOT_APPROVED', 'Approved drivers only.');
+      requireCurrentDriverDocuments(driver);
+      const [servicePickup] = await q.query(
+        'SELECT state,city,lga,area FROM sellers WHERE user_id=$1',
+        [b.seller_id],
+      );
+      requireServiceArea(driver, servicePickup);
       ensure(
         u.id !== d.buyer_id && u.id !== d.seller_id,
         403,
@@ -384,11 +475,21 @@ export function createDeliveriesService(deps: AppDeps) {
         'ALREADY_TAKEN',
         'Another driver already took this delivery.',
       );
-      const [busy] = await q.query(
-        "SELECT id FROM deliveries WHERE driver_id=$1 AND status IN ('ASSIGNED','PICKED_UP')",
-        [u.id],
+      ensure(
+        !d.requested_driver_id || d.requested_driver_id === u.id,
+        403,
+        'RIDER_NOT_SELECTED',
+        'This delivery was offered to another rider.',
       );
-      ensure(!busy, 409, 'DRIVER_BUSY', 'Finish your current delivery first.');
+      ensure(
+        driver.online &&
+          driver.location_at &&
+          Date.now() - new Date(driver.location_at).getTime() < 5 * 60000,
+        409,
+        'LOCATION_STALE',
+        'Go online and refresh your location before accepting a job.',
+      );
+      await riderFree(q, u.id);
       await q.query(
         "UPDATE deliveries SET status='ASSIGNED',driver_id=$1,assigned_at=now() WHERE id=$2",
         [u.id, d.id],
@@ -409,18 +510,35 @@ export function createDeliveriesService(deps: AppDeps) {
         'INVALID_TRANSITION',
         'Only an assigned job that is not yet collected can be released.',
       );
-      await q.query(
-        "UPDATE deliveries SET status='OPEN',driver_id=NULL,assigned_at=NULL WHERE id=$1",
-        [d.id],
-      );
-      await notify(
-        q,
-        d.buyer_id,
-        'delivery',
-        'Finding another driver',
-        'Your driver released the job. We are finding another driver.',
-        b.id,
-      );
+      if (d.requested_driver_id) {
+        await cancelDelivery(
+          q,
+          d,
+          'The selected rider released this delivery. Choose another rider.',
+          u.id,
+        );
+        await notify(
+          q,
+          d.buyer_id,
+          'delivery',
+          'Choose another rider',
+          'Your selected rider could not complete this delivery. The held fare was returned.',
+          b.id,
+        );
+      } else {
+        await q.query(
+          "UPDATE deliveries SET status='OPEN',driver_id=NULL,assigned_at=NULL WHERE id=$1",
+          [d.id],
+        );
+        await notify(
+          q,
+          d.buyer_id,
+          'delivery',
+          'Finding another rider',
+          'Your rider released the job. Choose another rider or wait for a nearby rider.',
+          b.id,
+        );
+      }
     } else if (action === 'cancel') {
       ensure(d.buyer_id === u.id, 403, 'FORBIDDEN', 'Only the buyer can cancel a delivery.');
       ensure(
@@ -431,6 +549,13 @@ export function createDeliveriesService(deps: AppDeps) {
       );
       await cancelDelivery(q, d, 'Buyer cancelled the delivery.', u.id);
     } else if (action === 'pay') {
+      if (deps.config.demo && d.pay_on_delivery && d.progress_stage === 'ARRIVED_DROPOFF')
+        ensure(
+          d.inspection_accepted_at,
+          409,
+          'INSPECTION_REQUIRED',
+          'Inspect and accept the goods before payment, or report a problem.',
+        );
       // Digital Pay on Delivery: the buyer pays in-app at the door; cash is never accepted.
       ensure(d.buyer_id === u.id, 403, 'FORBIDDEN', 'Only the buyer can pay.');
       ensure(
@@ -554,6 +679,23 @@ export function createDeliveriesService(deps: AppDeps) {
           'Driver verified the buyer’s delivery PIN; delivery confirmed.',
         );
       }
+    }
+    if (action === 'handover' || action === 'deliver') {
+      const stage = action === 'handover' ? 'GOODS_COLLECTED' : 'DELIVERED';
+      await q.query('UPDATE deliveries SET progress_stage=$1 WHERE id=$2', [stage, d.id]);
+      await q.query(
+        'INSERT INTO delivery_milestones(id,delivery_id,actor_id,stage) VALUES($1,$2,$3,$4) ON CONFLICT(delivery_id,stage) DO NOTHING',
+        [randomUUID(), d.id, u.id, stage],
+      );
+    }
+    if (action === 'claim') {
+      ensure(
+        !d.scheduled_at || new Date(d.scheduled_at).getTime() <= Date.now() + 15 * 60000,
+        409,
+        'SCHEDULED_DELIVERY',
+        'This job becomes available 15 minutes before its scheduled time.',
+      );
+      await q.query("UPDATE deliveries SET progress_stage='ASSIGNED' WHERE id=$1", [d.id]);
     }
     await audit(q, u.id, `delivery.${action}`, d.id);
     const [fresh] = await q.query(`${withParty} WHERE d.id=$1`, [d.id]);

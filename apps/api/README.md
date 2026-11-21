@@ -1,4 +1,4 @@
-# Farmers Market API
+# Zuru API
 
 Express 5 + TypeScript, PostgreSQL through Prisma, Winston logging.
 

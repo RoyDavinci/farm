@@ -2,16 +2,16 @@
 
 `render.yaml` describes the whole staging environment, all in Render's Frankfurt region (the region selected for this Blueprint):
 
-| Render resource                          | What it runs                                                                                  |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `farmers-market-api` (web, Docker)       | The API. Runs `prisma migrate deploy` before each release, and its health check is `/health`. |
-| `farmers-market-worker` (worker, Docker) | Background jobs: expiry, email, push, funding and payout recovery.                            |
-| `farmers-market-admin` (static site)     | The operations console.                                                                       |
-| `farmers-market-web` (static site)       | The mobile app as a website, so it can be tried on any phone browser.                         |
-| `farmers-market-db` (Postgres 17)        | The database.                                                                                 |
-| `farmers-market-redis` (Key Value)       | Shared rate limits and live updates. Internal only.                                           |
+| Render resource                | What it runs                                                                                  |
+| ------------------------------ | --------------------------------------------------------------------------------------------- |
+| `zuru-api` (web, Docker)       | The API. Runs `prisma migrate deploy` before each release, and its health check is `/health`. |
+| `zuru-worker` (worker, Docker) | Background jobs: expiry, email, push, funding and payout recovery.                            |
+| `zuru-admin` (static site)     | The operations console.                                                                       |
+| `zuru-web` (static site)       | The mobile app as a website, so it can be tried on any phone browser.                         |
+| `zuru-db` (Postgres 17)        | The database.                                                                                 |
+| `zuru-redis` (Key Value)       | Shared rate limits and live updates. Internal only.                                           |
 
-Staging runs with `NODE_ENV=production`. That means real email, real (test-mode) payments, no simulated money, and the same safety checks as production. Each service redeploys on its own after CI passes on `main`. Then the **Staging smoke test** workflow waits for the new commit to go live and checks it.
+Staging runs in [pilot mode](pilot-mode.md): the brief's launch scope, with no wallet (buyers pay each booking at the provider and refunds go back to the card). Staging runs with `NODE_ENV=production`. That means real email, real (test-mode) payments, no simulated money, and the same safety checks as production. Each service redeploys on its own after CI passes on `main`. Then the **Staging smoke test** workflow waits for the new commit to go live and checks it.
 
 ## One-time setup
 
@@ -23,7 +23,7 @@ Staging runs with `NODE_ENV=production`. That means real email, real (test-mode)
    git push -u origin main
    ```
 2. **File storage (Cloudflare R2, or any S3-compatible storage).**
-   - Create two buckets, for example `farmers-market-staging` (photos) and `farmers-market-staging-records` (private documents and evidence).
+   - Create two buckets, for example `zuru-staging` (photos) and `zuru-staging-records` (private documents and evidence).
    - Create an API token with read/write access to both.
    - Note the S3 endpoint, `https://<account-id>.r2.cloudflarestorage.com`.
 3. **Email.** Get SMTP settings from a provider such as Resend, Postmark, Brevo or Amazon SES. You need a host, username, password, and a verified sender address for `MAIL_FROM`.
@@ -42,7 +42,7 @@ Staging runs with `NODE_ENV=production`. That means real email, real (test-mode)
    - Flutterwave: Settings → Webhooks → `https://<api-host>/v1/webhooks/flutterwave`, with the same secret hash as `FLUTTERWAVE_WEBHOOK_SECRET`.
    - Callback/redirect URL (both providers): `https://<api-host>/v1/payments/return`. The API works this out from its own URL, so no setting is needed.
 8. **First staff account.**
-   - Register in the staging web app (`farmers-market-web`).
+   - Register in the staging web app (`zuru-web`).
    - Open the database in Render, use **Connect → PSQL**, and run this with the address you registered:
      ```sql
      UPDATE users SET admin = true, staff_role = 'owner' WHERE email = '<you>';

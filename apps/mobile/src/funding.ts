@@ -17,14 +17,32 @@ export interface FundingRow {
  * is still preparing it (FUNDING_IN_PROGRESS) we wait and ask again.
  */
 export type PaymentProvider = 'paystack' | 'flutterwave';
-export async function startCheckout(provider: PaymentProvider, amount_kobo: number) {
+export function startCheckout(provider: PaymentProvider, amount_kobo: number) {
+  return withRetries((idempotencyKey) =>
+    request('post', '/wallet/fund', { body: { provider, amount_kobo }, idempotencyKey }),
+  );
+}
+
+/** Pays one booking or delivery fare directly at the provider (pilot mode: no wallet). */
+export type DirectCheckout =
+  | { purpose: 'booking'; booking_id: string }
+  | {
+      purpose: 'delivery';
+      booking_id: string;
+      quote: Record<string, unknown>;
+      expected_fare_kobo: number;
+    };
+export function startDirectCheckout(provider: PaymentProvider, what: DirectCheckout) {
+  return withRetries((idempotencyKey) =>
+    request('post', '/payments/checkout', { body: { provider, ...what }, idempotencyKey }),
+  );
+}
+
+async function withRetries<T>(send: (idempotencyKey: string) => Promise<T>): Promise<T> {
   const idempotencyKey = Crypto.randomUUID();
   for (let attempt = 0; ; attempt++) {
     try {
-      return await request('post', '/wallet/fund', {
-        body: { provider, amount_kobo },
-        idempotencyKey,
-      });
+      return await send(idempotencyKey);
     } catch (e) {
       const retryable =
         (e instanceof ApiError && e.code === 'FUNDING_IN_PROGRESS') ||

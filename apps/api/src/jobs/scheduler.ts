@@ -1,3 +1,9 @@
+import { expireVoiceCalls } from '../services/voice.service.js';
+import { discoveryMaintenance } from '../services/discovery-operations.service.js';
+import { stockFreshnessReminders } from '../services/catalogue-policy.service.js';
+import { recoverStatusBoosts } from '../services/status-boost.service.js';
+import { expireLocalStatuses } from '../services/local-status.service.js';
+import { expireShoppingRequests } from '../services/shopping.service.js';
 import type { Config } from '../config/index.js';
 import type { Database } from '../database/client.js';
 import { logger } from '../lib/logger.js';
@@ -5,6 +11,7 @@ import { expireReservations } from '../services/booking.service.js';
 import { deliverNotifications } from '../services/communications.service.js';
 import { recoverFunding } from '../services/funding-recovery.service.js';
 import { recoverPayouts } from '../services/payouts.service.js';
+import { runCardRefunds } from '../services/card-refunds.service.js';
 import { deliverPush } from '../services/push.service.js';
 interface Job {
   name: string;
@@ -19,10 +26,17 @@ interface Job {
  */
 export function startWorkers(db: Database, c: Config) {
   const jobs: Job[] = [
+    { name: 'voice-expiry', every: 60000, run: () => expireVoiceCalls(db) },
+    { name: 'discovery-maintenance', every: 60000, run: () => discoveryMaintenance(db) },
+    { name: 'stock-freshness', every: 3600000, run: () => stockFreshnessReminders(db) },
+    { name: 'status-boost-recovery', every: 60000, run: () => recoverStatusBoosts(db) },
+    { name: 'local-status-expiry', every: 60000, run: () => expireLocalStatuses(db) },
+    { name: 'shopping-expiry', every: 60000, run: () => expireShoppingRequests(db) },
     { name: 'reservation-expiry', every: 30000, run: () => expireReservations(db) },
     { name: 'email', every: 5000, run: () => deliverNotifications(db, c) },
     { name: 'push', every: 5000, run: () => deliverPush(db, c) },
     { name: 'payout-recovery', every: 60000, run: () => recoverPayouts(db, c) },
+    { name: 'card-refunds', every: 60000, run: () => runCardRefunds(db, c) },
     { name: 'funding-recovery', every: 60000, run: () => recoverFunding(db, c) },
     {
       name: 'auth-cleanup',

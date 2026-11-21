@@ -10,6 +10,10 @@ import { notify } from './communications.service.js';
 import { balance, ledger, lockedBalance } from './ledger.service.js';
 import { paymentService, type Provider, type TransferStatus } from './payment-provider.service.js';
 
+function payoutSource(p: any) {
+  return { account: p.source_account || 'seller_payable', owner: p.source_owner || p.user_id };
+}
+
 // Shown only when no provider is configured (local development). Clearly simulated.
 export const demoBanks = [
   { code: '044', name: 'Access Bank (simulated)' },
@@ -78,7 +82,7 @@ export function payoutService(db: Database, c: Config) {
     } else {
       await ledger(q, payout.id, [
         { account: 'payout_pending', owner: payout.id, amount: -amount },
-        { account: 'seller_payable', owner: payout.user_id, amount },
+        { ...payoutSource(payout), amount },
       ]);
     }
     const [updated] = await q.query(
@@ -96,7 +100,7 @@ export function payoutService(db: Database, c: Config) {
       status === 'PAID' ? 'Payout sent' : 'Payout failed',
       status === 'PAID'
         ? `₦${((amount - fee) / 100).toLocaleString()} has been sent to your bank account.`
-        : `Your payout could not be completed and ₦${(amount / 100).toLocaleString()} was returned to your proceeds. ${reason || ''}`.trim(),
+        : `Your payout could not be completed and ₦${(amount / 100).toLocaleString()} was returned to its available balance. ${reason || ''}`.trim(),
     );
     return updated;
   }
@@ -110,6 +114,19 @@ export function payoutService(db: Database, c: Config) {
       if (new Date(row.recovery_after).getTime() > Date.now() && (row.recovery_token || !force))
         return null;
       if (row.provider === 'simulated' ? !c.demo : !payments.enabled(row.provider)) return null;
+      if (row.dispatch_state === 'READY' && row.shopping_request_id) {
+        const [r] = await q.query(
+          "SELECT 1 FROM shopping_requests r WHERE id=$1 AND status='SHOPPING' AND NOT review_open AND EXISTS(SELECT 1 FROM drivers d JOIN users u ON u.id=d.user_id WHERE d.user_id=r.rider_id AND d.status='APPROVED' AND u.status='ACTIVE')",
+          [row.shopping_request_id],
+        );
+        if (!r) {
+          await q.query(
+            "UPDATE payouts SET recovery_error='Shopping advance paused for review',recovery_after=now()+interval '5 minutes' WHERE id=$1",
+            [id],
+          );
+          return null;
+        }
+      }
       const [claimed] = await q.query(
         "UPDATE payouts SET recovery_token=$1,recovery_after=now()+interval '2 minutes',dispatch_state=CASE WHEN dispatch_state='READY' THEN 'SENDING' ELSE dispatch_state END WHERE id=$2 RETURNING *",
         [token, id],
@@ -143,7 +160,7 @@ export function payoutService(db: Database, c: Config) {
           recipient: account.recipient_code,
           bankCode: account.bank_code,
           accountNumber: decryptAccount(c, account.account_cipher),
-          reason: 'Farmers Market seller payout',
+          reason: 'Zuru seller payout',
         });
         providerId = transfer.id;
         await db.query(
@@ -304,7 +321,30 @@ export function createPayoutsService(deps: AppDeps) {
   }
   async function requestPayout(q: Query, u: any, input: RequestInput) {
     await approvedSeller(q, u.id);
-    const d = z.object({ amount_kobo: z.number().int().min(1).max(1000000000) }).parse(input.body);
+    const d = z
+      .object({
+        amount_kobo: z.number().int().min(1).max(1000000000),
+        shopping_request_id: z.uuid().optional(),
+      })
+      .parse(input.body);
+    let source = { account: 'seller_payable', owner: u.id };
+    if (d.shopping_request_id) {
+      const [r] = await q.query(
+        "SELECT r.* FROM shopping_requests r WHERE r.id=$1 AND EXISTS(SELECT 1 FROM drivers d JOIN users u ON u.id=d.user_id WHERE d.user_id=r.rider_id AND d.status='APPROVED' AND u.status='ACTIVE') FOR UPDATE",
+        [d.shopping_request_id],
+      );
+      ensure(
+        r &&
+          r.rider_id === u.id &&
+          r.status === 'SHOPPING' &&
+          r.payment_mode === 'ADVANCE' &&
+          !r.review_open,
+        409,
+        'ADVANCE_UNAVAILABLE',
+        'Only the assigned rider may withdraw an active, funded shopping advance.',
+      );
+      source = { account: 'shopping_advance', owner: r.id };
+    }
     const [settings] = await q.query(
       'SELECT payout_min_kobo,payout_fee_kobo FROM settings WHERE id=1',
     );
@@ -326,18 +366,27 @@ export function createPayoutsService(deps: AppDeps) {
     );
     // users row is already locked by mutate(), so this balance check cannot race.
     ensure(
-      (await lockedBalance(q, u.id, 'seller_payable')) >= d.amount_kobo,
+      (await lockedBalance(q, source.owner, source.account)) >= d.amount_kobo,
       409,
       'INSUFFICIENT_PROCEEDS',
       'This is more than your available proceeds.',
     );
     const pid = randomUUID();
     const [payout] = await q.query(
-      'INSERT INTO payouts(id,user_id,account_id,amount_kobo,fee_kobo) VALUES($1,$2,$3,$4,$5) RETURNING *',
-      [pid, u.id, account.id, d.amount_kobo, settings.payout_fee_kobo],
+      'INSERT INTO payouts(id,user_id,account_id,amount_kobo,fee_kobo,source_account,source_owner,shopping_request_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+      [
+        pid,
+        u.id,
+        account.id,
+        d.amount_kobo,
+        settings.payout_fee_kobo,
+        source.account,
+        source.owner,
+        d.shopping_request_id || null,
+      ],
     );
     await ledger(q, pid, [
-      { account: 'seller_payable', owner: u.id, amount: -d.amount_kobo },
+      { ...source, amount: -d.amount_kobo },
       { account: 'payout_pending', owner: pid, amount: d.amount_kobo },
     ]);
     await audit(q, u.id, 'payout.request', pid, { amount_kobo: d.amount_kobo });
@@ -357,7 +406,7 @@ export function createPayoutsService(deps: AppDeps) {
     );
     await ledger(q, p.id, [
       { account: 'payout_pending', owner: p.id, amount: -Number(p.amount_kobo) },
-      { account: 'seller_payable', owner: u.id, amount: Number(p.amount_kobo) },
+      { ...payoutSource(p), amount: Number(p.amount_kobo) },
     ]);
     await q.query("UPDATE payouts SET status='CANCELLED',updated_at=now() WHERE id=$1", [p.id]);
     await audit(q, u.id, 'payout.cancel', p.id);
@@ -452,6 +501,13 @@ export function createAdminPayoutsService(deps: AppDeps) {
         'INVALID_TRANSITION',
         `This payout is already ${p.status.toLowerCase()}.`,
       );
+      if (p.shopping_request_id) {
+        const [r] = await q.query(
+          "SELECT 1 FROM shopping_requests r WHERE id=$1 AND rider_id=$2 AND status='SHOPPING' AND NOT review_open AND EXISTS(SELECT 1 FROM drivers d JOIN users u ON u.id=d.user_id WHERE d.user_id=r.rider_id AND d.status='APPROVED' AND u.status='ACTIVE')",
+          [p.shopping_request_id, p.user_id],
+        );
+        ensure(r, 409, 'ADVANCE_PAUSED', 'This shopping advance is paused or no longer available.');
+      }
       const [account] = await q.query('SELECT * FROM payout_accounts WHERE id=$1', [p.account_id]);
       const provider = account?.provider;
       ensure(
@@ -484,7 +540,7 @@ export function createAdminPayoutsService(deps: AppDeps) {
     );
     await ledger(q, p.id, [
       { account: 'payout_pending', owner: p.id, amount: -Number(p.amount_kobo) },
-      { account: 'seller_payable', owner: p.user_id, amount: Number(p.amount_kobo) },
+      { ...payoutSource(p), amount: Number(p.amount_kobo) },
     ]);
     const [updated] = await q.query(
       "UPDATE payouts SET status='REJECTED',failure_reason=$1,reviewed_by=$2,reviewed_at=now(),updated_at=now() WHERE id=$3 RETURNING *",
@@ -496,7 +552,7 @@ export function createAdminPayoutsService(deps: AppDeps) {
       p.user_id,
       'payout',
       'Payout not approved',
-      `${d.reason} The amount was returned to your proceeds.`,
+      `${d.reason} The amount was returned to its available balance.`,
     );
     return updated;
   }

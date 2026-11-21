@@ -19,6 +19,10 @@ export type Wallet = Schemas['Wallet'];
 export type SearchResult = Schemas['SearchResult'];
 export type PayoutSummary = Schemas['PayoutSummary'];
 export type Delivery = Schemas['Delivery'];
+export type NearbyRider = Schemas['NearbyRider'];
+export type LocalStatus = Schemas['LocalStatus'];
+export type ShoppingRequest = Schemas['ShoppingRequest'];
+export type ShoppingDetail = Schemas['ShoppingDetail'];
 export type ApiError = Schemas['Error'];
 
 export const money = (kobo: number) =>

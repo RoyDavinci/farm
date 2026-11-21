@@ -1,3 +1,4 @@
+import { validateCategory } from './catalogue-policy.service.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Query } from '../database/client.js';
@@ -14,6 +15,19 @@ import {
   listingAvailable,
   notifyIfRestocked,
 } from './retention.service.js';
+
+/** Opening a pre-order window needs the pre-orders feature; closing one is always allowed. */
+function requirePreorders(
+  deps: AppDeps,
+  d: { available_from?: string | null; preorder_capacity?: number },
+) {
+  ensure(
+    deps.config.features.preorders || (!d.available_from && !d.preorder_capacity),
+    404,
+    'FEATURE_DISABLED',
+    'Pre-orders are not available yet.',
+  );
+}
 
 /** Saves the pre-order window (harvest date and capacity) when the request includes it. */
 export async function savePreorder(
@@ -71,6 +85,7 @@ export function createMarketplaceService(deps: AppDeps) {
       "INSERT INTO sellers(user_id,business_name,business_type,city,area,address) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(user_id) DO UPDATE SET business_name=$2,business_type=$3,city=$4,area=$5,address=$6,status='PENDING',reason=NULL RETURNING *",
       [u.id, d.business_name, d.business_type, d.city, d.area, d.address],
     );
+    await q.query('UPDATE sellers SET state=$1,lga=$2 WHERE user_id=$3', [d.state, d.lga, u.id]);
     await setLocation(q, u.id, d);
     await audit(q, u.id, 'seller.register', u.id);
     return s;
@@ -94,6 +109,13 @@ export function createMarketplaceService(deps: AppDeps) {
   }
   async function createListing(q: Query, u: any, input: RequestInput) {
     const d = listingSchema.parse(input.body);
+    ensure(
+      (d.pickup_available ?? true) || (d.delivery_available ?? true),
+      400,
+      'FULFILMENT_REQUIRED',
+      'Offer collection or delivery.',
+    );
+    await validateCategory(q, d.category, d.title, d.description);
     const images = d.image_urls || (d.image_url ? [d.image_url] : []);
     await validateImages(q, u.id, images);
     const [s] = await q.query('SELECT * FROM sellers WHERE user_id=$1 FOR UPDATE', [u.id]);
@@ -104,7 +126,7 @@ export function createMarketplaceService(deps: AppDeps) {
       'Your seller account must be approved before publishing.',
     );
     const [l] = await q.query(
-      'INSERT INTO listings(id,seller_id,title,description,category,unit,price_kobo,stock,status,image_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *',
+      'INSERT INTO listings(id,seller_id,title,description,category,unit,price_kobo,stock,status,image_url,condition) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *',
       [
         id(),
         u.id,
@@ -116,6 +138,7 @@ export function createMarketplaceService(deps: AppDeps) {
         d.stock,
         d.status,
         d.image_url || null,
+        d.condition,
       ],
     );
     await q.query('UPDATE listings SET image_url=$1,image_urls=$2 WHERE id=$3', [
@@ -123,9 +146,17 @@ export function createMarketplaceService(deps: AppDeps) {
       JSON.stringify(images),
       l.id,
     ]);
+    await q.query('UPDATE listings SET pickup_available=$1,delivery_available=$2 WHERE id=$3', [
+      d.pickup_available ?? true,
+      d.delivery_available ?? true,
+      l.id,
+    ]);
+    l.pickup_available = d.pickup_available ?? true;
+    l.delivery_available = d.delivery_available ?? true;
     l.image_url = images[0] || null;
     l.image_urls = images;
     l.variants = await saveVariants(q, l, d.variants);
+    requirePreorders(deps, d);
     await savePreorder(q, l.id, d);
     await announceNewListing(q, l);
     await audit(q, u.id, 'listing.create', l.id);
@@ -144,13 +175,21 @@ export function createMarketplaceService(deps: AppDeps) {
     ensure(l && l.seller_id === u.id, 404, 'NOT_FOUND', 'Listing not found.');
     const wasAvailable = await listingAvailable(q, l.id);
     const merged = { ...l, ...d };
+    ensure(
+      merged.pickup_available || merged.delivery_available,
+      400,
+      'FULFILMENT_REQUIRED',
+      'Offer collection or delivery.',
+    );
+    await validateCategory(q, merged.category!, merged.title!, merged.description!);
+    ensure(!l.archived_at, 409, 'LISTING_ARCHIVED', 'Restore this listing before editing it.');
     const images =
       d.image_urls ||
       (d.image_url !== undefined ? (d.image_url ? [d.image_url] : []) : l.image_urls || []);
     await validateImages(q, u.id, images);
     // stock represents AVAILABLE stock; existing reservations are separate and preserved.
     const [updated] = await q.query(
-      'UPDATE listings SET title=$1,description=$2,category=$3,unit=$4,price_kobo=$5,stock=$6,status=$7,image_url=$8,confirmed_at=now() WHERE id=$9 RETURNING *',
+      'UPDATE listings SET title=$1,description=$2,category=$3,unit=$4,price_kobo=$5,stock=$6,status=$7,image_url=$8,condition=$9,confirmed_at=now() WHERE id=$10 RETURNING *',
       [
         merged.title,
         merged.description,
@@ -160,6 +199,7 @@ export function createMarketplaceService(deps: AppDeps) {
         merged.stock,
         merged.status,
         merged.image_url,
+        merged.condition,
         l.id,
       ],
     );
@@ -168,6 +208,13 @@ export function createMarketplaceService(deps: AppDeps) {
       JSON.stringify(images),
       l.id,
     ]);
+    await q.query('UPDATE listings SET pickup_available=$1,delivery_available=$2 WHERE id=$3', [
+      merged.pickup_available,
+      merged.delivery_available,
+      l.id,
+    ]);
+    updated.pickup_available = merged.pickup_available;
+    updated.delivery_available = merged.delivery_available;
     updated.image_url = images[0] || null;
     updated.image_urls = images;
     if (d.variants) updated.variants = await saveVariants(q, updated, d.variants);
@@ -177,6 +224,7 @@ export function createMarketplaceService(deps: AppDeps) {
         [merged.stock, merged.price_kobo, merged.unit, l.id],
       );
     }
+    requirePreorders(deps, d);
     await savePreorder(q, l.id, d);
     await notifyIfRestocked(q, l.id, wasAvailable);
     await audit(q, u.id, 'listing.update', l.id, d);

@@ -1,10 +1,13 @@
-import { money, type Booking } from '@farmers-market/shared';
+import MarketNavigationPanel from '../MarketNavigationPanel';
+import { money, type Booking } from '@zuru/shared';
 import { useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
 import BookingSupport from '../BookingSupport';
 import CounterofferPanel from '../CounterofferPanel';
 import DeliveryPanel from '../DeliveryPanel';
+import DirectPay from '../DirectPay';
+import { featureOn } from '../features';
 import { useI18n } from '../i18n';
 import { request } from '../request';
 import { ReviewForm } from '../TrustPanels';
@@ -17,8 +20,8 @@ const actionMessages: Record<string, string> = {
   'decline-change': 'Counteroffer declined.',
   decline: 'Booking declined.',
   ready: 'Buyer can now collect this order.',
-  cancel: 'Booking cancelled. Any held stock and wallet payment have been returned.',
-  pay: 'Paid from your wallet. Share your code only when collecting.',
+  cancel: 'Booking cancelled. Any held stock and payment have been returned.',
+  pay: 'Paid. Share your code only when collecting.',
   pickup: 'Pickup confirmed. Thank you for growing your local market.',
 };
 export default function BookingCard({
@@ -28,7 +31,8 @@ export default function BookingCard({
   booking: Booking;
   isSeller: boolean;
 }) {
-  const { busy, run, refresh, openHistory, openListing } = useApp();
+  const { busy, run, refresh, openHistory, openListing, settings } = useApp();
+  const wallet = featureOn(settings, 'wallet');
   const [code, setCode] = useState('');
   const { t } = useI18n();
   async function bookingAction(_b: Booking, action: string, body: Record<string, unknown> = {}) {
@@ -99,7 +103,14 @@ export default function BookingCard({
         </Text>
       )}
       {['ACCEPTED', 'READY_FOR_PICKUP', 'COMPLETED'].includes(b.status) && (
-        <DeliveryPanel booking={b} isSeller={isSeller} />
+        <>
+          {!isSeller &&
+            featureOn(settings, 'market_maps') &&
+            ['ACCEPTED', 'READY_FOR_PICKUP'].includes(b.status) && (
+              <MarketNavigationPanel bookingId={b.id} />
+            )}
+          <DeliveryPanel booking={b} isSeller={isSeller} />
+        </>
       )}
       {!isSeller && b.status === 'COMPLETED' && <ReviewForm bookingId={b.id} />}
       {['REQUESTED', 'COUNTERED'].includes(b.status) && !b.dispute_status && (
@@ -142,14 +153,24 @@ export default function BookingCard({
               onPress={() => void bookingAction(b, 'ready')}
             />
           )}{' '}
-          {!isSeller && ['ACCEPTED', 'READY_FOR_PICKUP'].includes(b.status) && !b.paid && (
-            <Button
-              title={t('booking.pay', { amount: money(b.total_kobo) })}
-              disabled={busy}
-              onPress={() => void bookingAction(b, 'pay')}
-            />
-          )}{' '}
-          {isSeller && b.status === 'READY_FOR_PICKUP' && (
+          {!isSeller &&
+            ['ACCEPTED', 'READY_FOR_PICKUP'].includes(b.status) &&
+            !b.paid &&
+            (wallet ? (
+              <Button
+                title={t('booking.pay', { amount: money(b.total_kobo) })}
+                disabled={busy}
+                onPress={() => void bookingAction(b, 'pay')}
+              />
+            ) : (
+              <DirectPay
+                amountKobo={b.total_kobo}
+                checkout={{ purpose: 'booking', booking_id: b.id }}
+                onPaid={refresh}
+                paidMessage="Payment confirmed. Share your pickup code only when collecting."
+              />
+            ))}{' '}
+          {isSeller && b.pickup_available && b.status === 'READY_FOR_PICKUP' && (
             <>
               <Field
                 label="Buyer’s 6-digit pickup code"

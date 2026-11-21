@@ -1,0 +1,75 @@
+# Zuru test environment: one server, everything in Docker.
+# Caddy serves HTTPS (Let's Encrypt) for the API, the admin console and the mobile web app.
+name: zuru
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: zuru
+      POSTGRES_USER: zuru
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U zuru -d zuru']
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes: [redisdata:/data]
+
+  migrate:
+    image: zuru-api:${RELEASE:?}
+    env_file: api.env
+    command: ['npx', 'prisma', 'migrate', 'deploy']
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+
+  api:
+    image: zuru-api:${RELEASE:?}
+    restart: unless-stopped
+    env_file: api.env
+    environment:
+      RUN_WORKERS: 'false'
+      GIT_COMMIT: ${RELEASE:?}
+    volumes: [uploads:/app/apps/api/.data]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_started }
+
+  worker:
+    image: zuru-api:${RELEASE:?}
+    restart: unless-stopped
+    env_file: api.env
+    environment:
+      GIT_COMMIT: ${RELEASE:?}
+    command: ['node', 'dist/worker.js']
+    # The image's health check probes the API port, which the worker doesn't serve. Worker health
+    # is reported by the API's /health/ready (job heartbeats).
+    healthcheck: { disable: true }
+    volumes: [uploads:/app/apps/api/.data]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_started }
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ['80:80', '443:443']
+    environment:
+      HOST_SUFFIX: ${HOST_SUFFIX:?}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/srv:ro
+      - caddydata:/data
+    depends_on: [api]
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:
+  caddydata:

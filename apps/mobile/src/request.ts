@@ -1,4 +1,4 @@
-import { createRequest } from '@farmers-market/shared';
+import { createRequest } from '@zuru/shared';
 import { api } from './api';
 
 /**

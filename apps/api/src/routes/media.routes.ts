@@ -9,6 +9,7 @@ export function mediaRoutes(deps: AppDeps) {
   const r = Router();
   const c = createMediaController(deps);
   r.post('/', ...c.uploadPhoto);
+  r.post('/status-video', ...c.uploadVideo);
   return r;
 }
 

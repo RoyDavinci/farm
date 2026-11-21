@@ -85,8 +85,8 @@ export default function AuthPanel({ onSignedIn }: { onSignedIn: (u: any) => void
       )}
       {challenge?.delivery === 'development_file' && (
         <div className="demo-banner">
-          Development email saved in apps/api/.data/farmers-market/mail. Configure SMTP to deliver
-          it to an inbox.
+          Development email saved in apps/api/.data/zuru/mail. Configure SMTP to deliver it to an
+          inbox.
         </div>
       )}
       <form onSubmit={submit}>
@@ -127,7 +127,7 @@ export default function AuthPanel({ onSignedIn }: { onSignedIn: (u: any) => void
                 type="email"
                 autoComplete="username"
                 required
-                placeholder="admin@farmers.market"
+                placeholder="admin@zuru.example"
               />
             </label>
             {!reset && (

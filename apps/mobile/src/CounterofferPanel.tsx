@@ -1,4 +1,4 @@
-import { money, type Booking } from '@farmers-market/shared';
+import { money, type Booking } from '@zuru/shared';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 export default function CounterofferPanel({

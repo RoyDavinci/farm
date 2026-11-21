@@ -72,15 +72,15 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-          <Text style={s.brand}>❋ farmers market</Text>
+          <Text style={s.brand}>❋ zuru</Text>
           <View style={s.hero}>
-            <Text style={s.eyebrow}>FRESH FROM YOUR COMMUNITY</Text>
+            <Text style={s.eyebrow}>BUY, SELL & DELIVER ACROSS NIGERIA</Text>
             <Text style={s.heading}>
               {challenge
                 ? 'Check your inbox.'
                 : mode === 'reset'
                   ? 'A fresh start.'
-                  : 'Good food.\nGreat neighbours.'}
+                  : 'Find it.\nBuy it nearby.'}
             </Text>
             <Text style={s.body}>
               {challenge
@@ -104,8 +104,8 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
             <>
               {challenge.delivery === 'development_file' && (
                 <Text style={s.hint}>
-                  Development mode: the email is saved as an .eml file in
-                  apps/api/.data/farmers-market/mail. SMTP delivery is not configured yet.
+                  Development mode: the email is saved as an .eml file in apps/api/.data/zuru/mail.
+                  SMTP delivery is not configured yet.
                 </Text>
               )}
               {field('Email verification code', code, setCode, {

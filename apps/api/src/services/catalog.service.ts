@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { productUnits } from '../config/marketplace.js';
 import type { Query } from '../database/client.js';
 import { ensure } from '../lib/errors.js';
 export const variantSchema = z
   .object({
     id: z.uuid().optional(),
     name: z.string().trim().min(1).max(80),
-    unit: z.enum(['kg', 'crate', 'bag', 'basket', 'piece', 'carton']),
+    unit: z.enum(productUnits),
     price_kobo: z.number().int().min(100).max(100000000),
     stock: z.number().int().min(0).max(100000),
     min_quantity: z.number().int().min(1).max(100000).default(1),
