@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Deploys the Ahia test environment to the EC2 server in deploy/aws-test.env.
 #   deploy/deploy.sh            build everything and release it
-# Needs: Docker running locally, ~/.ssh/zuru-test.pem, deploy/.env.test (node deploy/make-env.mjs).
+# Needs: ~/.ssh/zuru-test.pem, deploy/.env.test (node deploy/make-env.mjs).
 set -euo pipefail
 cd "${0:A:h}/.."
 source deploy/aws-test.env
@@ -16,16 +16,21 @@ echo "▸ Release $RELEASE → $HOST_SUFFIX"
 echo "▸ Waiting for the server to finish its first-boot setup"
 until "${SSH[@]}" 'test -f /var/lib/zuru-ready && docker info >/dev/null 2>&1' 2>/dev/null; do sleep 5; done
 
-echo "▸ Building the API image (linux/arm64)"
-docker build --platform linux/arm64 -f apps/api/Dockerfile -t zuru-api:$RELEASE . >/dev/null
-
 echo "▸ Building the admin console and the mobile web app"
 VITE_API_URL=$API_URL npm run build -w @ahia/admin >/dev/null
 cp -R apps/admin/dist $BUILD/sites/admin
 (cd apps/mobile && EXPO_PUBLIC_API_URL=$API_URL npx expo export --platform web --output-dir ../../$BUILD/sites/web >/dev/null)
 
-echo "▸ Uploading the image"
-docker save zuru-api:$RELEASE | gzip -1 | "${SSH[@]}" 'gunzip | docker load' >/dev/null
+# Upload only the API source (a few MB) and build the image on the server: uploading a built
+# image (~1.5 GB) is far too slow on an ordinary home connection.
+echo "▸ Uploading the API source and building the image on the server"
+{
+  printf '%s\n' .dockerignore package.json package-lock.json tsconfig.base.json \
+    apps/api/package.json apps/admin/package.json apps/mobile/package.json packages/shared/package.json
+  git ls-files -co --exclude-standard apps/api # git-ignored files (.env, uploads) never leave the Mac
+} | sort -u > $BUILD/context.txt
+COPYFILE_DISABLE=1 tar --no-mac-metadata --no-xattrs -czf - -T $BUILD/context.txt | "${SSH[@]}" "rm -rf /opt/zuru/src && mkdir -p /opt/zuru/src && tar -C /opt/zuru/src -xzf - 2>/dev/null &&
+  cd /opt/zuru/src && docker build -q -f apps/api/Dockerfile -t zuru-api:$RELEASE . >/dev/null"
 
 echo "▸ Uploading configuration and sites"
 # Caddy bind-mounts /opt/zuru/sites: replace its contents in place, never the folder itself.
@@ -48,7 +53,8 @@ COPYFILE_DISABLE=1 tar --no-mac-metadata --no-xattrs -C $BUILD -czf - compose.ya
 
 echo "▸ Starting release $RELEASE"
 "${SSH[@]}" 'cd /opt/zuru && docker compose up -d --remove-orphans --wait api worker caddy coturn && docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true
-  docker image ls zuru-api --format "{{.Tag}}" | sort -r | tail -n +4 | xargs -r -I{} docker image rm zuru-api:{} >/dev/null 2>&1 || true'
+  docker image ls zuru-api --format "{{.Tag}}" | sort -r | tail -n +4 | xargs -r -I{} docker image rm zuru-api:{} >/dev/null 2>&1 || true
+  docker builder prune -f --filter until=168h >/dev/null 2>&1 || true'
 
 echo "▸ Checking https://api.$HOST_SUFFIX/health"
 for i in {1..30}; do

@@ -55,9 +55,12 @@ text). Older builds cannot use the microphone.
 deploy/deploy.sh
 ```
 
-Builds the API image locally (ARM, same as the server), builds the admin console and the mobile web
-app pointed at the HTTPS API, uploads everything over SSH, runs migrations, restarts the services,
-and checks `/health`. It keeps the last three images on the server.
+Uploads the API source (a few hundred KB; git-ignored files such as `.env` are never sent) and builds
+the image on the server, builds the admin console and the mobile web app locally pointed at the HTTPS
+API, uploads them over SSH, runs migrations, restarts the services, and checks `/health`. A release
+takes about four minutes. It keeps the last three images on the server.
+
+If it stops at "Waiting for the server", your IP address has changed: allow it again (above).
 
 Check it afterwards:
 
@@ -109,4 +112,26 @@ aws ec2 wait instance-terminated --region $REGION --instance-ids $INSTANCE_ID
 aws ec2 release-address --region $REGION --allocation-id $ALLOCATION_ID
 aws ec2 delete-security-group --region $REGION --group-id $SECURITY_GROUP
 aws ec2 delete-key-pair --region $REGION --key-name zuru-test
+```
+
+## Demo catalogue
+
+13 demo sellers around Lagos with 104 products (drawn product pictures) and 19 stories, so the app
+has something to show. Demo accounts use `@demo.ahia.example` and cannot sign in.
+
+```bash
+node deploy/demo/draw-photos.mjs   # draws deploy/demo/photos/*.jpg (git-ignored)
+```
+
+Upload the pictures and load them (safe to re-run; it skips what already exists):
+
+```bash
+COPYFILE_DISABLE=1 tar --no-mac-metadata -C deploy/demo/photos -czf - . | ssh -i ~/.ssh/zuru-test.pem ubuntu@35.177.195.6 'rm -rf /opt/zuru/demo-photos && mkdir -p /opt/zuru/demo-photos && tar -C /opt/zuru/demo-photos -xzf - && cd /opt/zuru && docker compose run --rm --no-deps -v /opt/zuru/demo-photos:/demo:ro -e DEMO_CATALOG=yes api node dist/database/demo-catalog.js /demo'
+```
+
+Stories last a week. To bring them back, or to delete all demo data:
+
+```bash
+ssh -i ~/.ssh/zuru-test.pem ubuntu@35.177.195.6 'cd /opt/zuru && docker compose run --rm --no-deps -e DEMO_CATALOG=yes api node dist/database/demo-catalog.js --refresh-stories'
+ssh -i ~/.ssh/zuru-test.pem ubuntu@35.177.195.6 'cd /opt/zuru && docker compose run --rm --no-deps -e DEMO_CATALOG=yes api node dist/database/demo-catalog.js --remove'
 ```
