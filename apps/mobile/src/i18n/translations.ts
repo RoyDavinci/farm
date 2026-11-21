@@ -14,6 +14,8 @@ export type Language = (typeof languages)[number]['code'];
 const en = {
   'tab.Market': 'Home',
   'tab.Categories': 'Categories',
+  'tab.Planner': 'My Planner',
+  'tab.Cart': 'Cart',
   'tab.Bookings': 'Bookings',
   'tab.Sell': 'Sell',
   'tab.Drive': 'Drive',
@@ -30,6 +32,7 @@ const en = {
   'nav.Drive': 'Register as a rider and manage deliveries',
   'nav.Inbox': 'Messages and updates from your market',
   'nav.Account': 'Your profile, language and preferences',
+  'nav.Planner': 'Plan a home, event or meals with a budget',
   'common.back': '← Back',
   'common.demo': 'DEVELOPMENT · Wallet funds are simulated',
   'bookings.eyebrow': 'FROM REQUEST TO COLLECTION',

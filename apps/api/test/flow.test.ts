@@ -1800,6 +1800,206 @@ describe('funding recovery', () => {
     expect(await ledgerBalances()).toBe(0);
   });
 });
+describe('cart', () => {
+  it('collects items from several sellers and sends each seller a booking request', async () => {
+    const tomatoes = await setup(10);
+    const add = await call('buyer', 'post', '/cart', { listing_id: tomatoes, quantity: 2 });
+    expect(add.status).toBe(200);
+    // Adding the same product again increases the quantity.
+    await call('buyer', 'post', '/cart', { listing_id: tomatoes, quantity: 1 });
+    let cart = (await call('buyer', 'get', '/cart')).body;
+    expect(cart.line_count).toBe(1);
+    expect(cart.sellers[0].lines[0].quantity).toBe(3);
+    expect(cart.total_kobo).toBe(300000);
+    expect((await call('seller', 'post', '/cart', { listing_id: tomatoes })).body.error.code).toBe(
+      'OWN_LISTING',
+    );
+    expect((await call('buyer', 'patch', `/cart/${add.body.id}`, { quantity: 12 })).status).toBe(
+      200,
+    );
+    cart = (await call('buyer', 'get', '/cart')).body;
+    expect(cart.sellers[0].lines[0].problem).toBe('Only 10 kg left');
+    const tooMany = await call('buyer', 'post', '/cart/checkout', {});
+    expect(tooMany.status).toBe(409);
+    expect(tooMany.body.error.message).toMatch(/^Fresh tomatoes: /);
+    await call('buyer', 'patch', `/cart/${add.body.id}`, { quantity: 4 });
+    const done = await call('buyer', 'post', '/cart/checkout', {});
+    expect(done.status).toBe(200);
+    expect(done.body.bookings).toHaveLength(1);
+    expect(done.body.bookings[0]).toMatchObject({ status: 'REQUESTED', quantity: 4 });
+    expect((await call('buyer', 'get', '/cart')).body.line_count).toBe(0);
+    expect((await call('buyer', 'post', '/cart/checkout', {})).body.error.code).toBe('CART_EMPTY');
+    const again = await call('buyer', 'post', '/cart', { listing_id: tomatoes });
+    expect((await call('buyer', 'delete', `/cart/${again.body.id}`)).status).toBe(200);
+  });
+});
+
+describe('smart planner', () => {
+  it('reads a short request into a guided plan', async () => {
+    const read = await call('buyer', 'post', '/planner/read', {
+      text: 'Help me furnish a 2-bedroom flat with ₦5m',
+    });
+    expect(read.body).toMatchObject({ template: 'home-setup', budget_kobo: 500000000, rooms: 2 });
+    const party = await call('buyer', 'post', '/planner/read', {
+      text: 'birthday party for 50 guests, 800k naira',
+    });
+    expect(party.body).toMatchObject({ template: 'party', people: 50, budget_kobo: 80000000 });
+    const templates = (await call('buyer', 'get', '/planner/templates')).body;
+    expect(templates.map((t: any) => t.key)).toContain('meal-plan');
+  });
+
+  it('builds a home plan from a template and tracks budget, products and spending', async () => {
+    const created = await call('buyer', 'post', '/plans', {
+      template: 'home-setup',
+      title: 'Our new flat',
+      budget_kobo: 100000000,
+      rooms: 2,
+      people: 3,
+      tier: 'BASIC',
+    });
+    expect(created.status).toBe(200);
+    const planId = created.body.id;
+    let plan = (await call('buyer', 'get', `/plans/${planId}`)).body;
+    const beds = plan.items.find((i: any) => i.name === 'Bed frame');
+    expect(beds).toMatchObject({
+      quantity: 2,
+      budget_kobo: 2 * 90000 * 100,
+      priority: 'ESSENTIAL',
+    });
+    // Basic furniture for two bedrooms costs more than ₦1m, so the plan is over budget.
+    expect(plan.summary.over_budget_kobo).toBeGreaterThan(0);
+    expect(plan.summary.suggestions[0]).toMatch(/over budget/);
+    expect(plan.summary.sections.map((s: any) => s.section)).toContain('Bedroom');
+
+    // A custom item, matched to a real listing and bought through the cart.
+    const tomatoes = await setup(10);
+    const item = await call('buyer', 'post', `/plans/${planId}/items`, {
+      name: 'Tomatoes for the house-warming',
+      keywords: 'tomatoes',
+      category: 'Vegetables',
+      quantity: 2,
+      unit: 'kg',
+      budget_kobo: 250000,
+    });
+    const found = await call('buyer', 'get', `/plans/${planId}/items/${item.body.id}/matches`);
+    expect(found.body.items[0]).toMatchObject({
+      listing_id: tomatoes,
+      within_estimate: true,
+      sponsored: false,
+    });
+    expect(found.body.items[0].reasons).toContain('Within your estimate');
+    await call('buyer', 'post', '/cart', {
+      listing_id: tomatoes,
+      quantity: 2,
+      plan_item_id: item.body.id,
+    });
+    const order = await call('buyer', 'post', '/cart/checkout', {});
+    expect(order.body.bookings[0].plan_item_id).toBe(item.body.id);
+    plan = (await call('buyer', 'get', `/plans/${planId}`)).body;
+    expect(plan.summary.requested_kobo).toBe(200000);
+    expect(plan.items.find((i: any) => i.id === item.body.id).listing.listing_id).toBe(tomatoes);
+    await call('seller', 'post', `/bookings/${order.body.bookings[0].id}/accept`);
+    plan = (await call('buyer', 'get', `/plans/${planId}`)).body;
+    expect(plan.summary).toMatchObject({ spent_kobo: 200000, remaining_kobo: 100000000 - 200000 });
+
+    // Another user cannot see or attach to this plan.
+    expect((await call('other', 'get', `/plans/${planId}`)).status).toBe(404);
+    expect(
+      (
+        await call('other', 'post', '/cart', {
+          listing_id: tomatoes,
+          plan_item_id: item.body.id,
+        })
+      ).body.error.code,
+    ).toBe('PLAN_ITEM_NOT_FOUND');
+
+    // Editing, statuses, duplicating and deleting.
+    const rug = plan.items.find((i: any) => i.name === 'Rug');
+    await call('buyer', 'patch', `/plans/${planId}/items/${rug.id}`, { status: 'OWNED' });
+    await call('buyer', 'patch', `/plans/${planId}`, { budget_kobo: 900000000, status: 'PAUSED' });
+    plan = (await call('buyer', 'get', `/plans/${planId}`)).body;
+    expect(plan.status).toBe('PAUSED');
+    expect(plan.summary.over_budget_kobo).toBe(0);
+    const copy = await call('buyer', 'post', `/plans/${planId}/duplicate`, {});
+    const copied = (await call('buyer', 'get', `/plans/${copy.body.id}`)).body;
+    expect(copied.items.length).toBe(plan.items.length);
+    expect(copied.items.find((i: any) => i.name === 'Rug').status).toBe('OWNED');
+    expect((await call('buyer', 'get', '/plans')).body).toHaveLength(2);
+    expect((await call('buyer', 'delete', `/plans/${planId}/items/${rug.id}`)).status).toBe(200);
+    expect((await call('buyer', 'delete', `/plans/${copy.body.id}`)).status).toBe(200);
+    expect((await call('buyer', 'get', '/plans')).body).toHaveLength(1);
+  });
+
+  it('plans meals into a grocery list and respects the allergy profile', async () => {
+    const plan = await call('buyer', 'post', '/plans', { template: 'meal-plan', people: 4 });
+    const planId = plan.body.id;
+    const jollof = await call('buyer', 'post', `/plans/${planId}/meals`, {
+      recipe: 'jollof-rice',
+      day: 1,
+      servings: 4,
+    });
+    expect(jollof.status).toBe(200);
+    await call('buyer', 'post', `/plans/${planId}/meals`, {
+      recipe: 'yam-and-egg',
+      day: 2,
+      meal: 'BREAKFAST',
+      servings: 4,
+    });
+    const list = await call('buyer', 'post', `/plans/${planId}/grocery-list`, {});
+    expect(list.body.added).toBeGreaterThan(5);
+    let detail = (await call('buyer', 'get', `/plans/${planId}`)).body;
+    const rice = detail.items.find((i: any) => i.ingredient_key === 'rice');
+    expect(rice).toMatchObject({ quantity: 1, unit: 'kg', source: 'RECIPE' }); // 0.6 kg → 1 kg
+    const eggs = detail.items.find((i: any) => i.ingredient_key === 'eggs');
+    expect(eggs.quantity).toBe(8);
+
+    // Allergy information needs consent, then filters recipes and flags ingredients.
+    expect(
+      (await call('buyer', 'put', '/planner/diet-profile', { allergies: ['shellfish', 'egg'] }))
+        .body.error.code,
+    ).toBe('CONSENT_REQUIRED');
+    await call('buyer', 'put', '/planner/diet-profile', {
+      allergies: ['shellfish', 'egg'],
+      patterns: ['no_pork'],
+      consent: true,
+    });
+    const profile = (await call('buyer', 'get', '/planner/diet-profile')).body;
+    expect(profile.profile.allergies).toEqual(['shellfish', 'egg']);
+    expect(profile.profile.consented_at).toBeTruthy();
+    const recipes = (await call('buyer', 'get', '/planner/recipes')).body;
+    const egusi = recipes.find((r: any) => r.key === 'egusi-soup');
+    expect(egusi).toMatchObject({ diet_status: 'EXCLUDED' });
+    expect(egusi.diet_reasons[0]).toMatch(/Shellfish/);
+    expect(recipes.find((r: any) => r.key === 'jollof-rice').diet_status).toBe('OK');
+    const blocked = await call('buyer', 'post', `/plans/${planId}/meals`, {
+      recipe: 'egusi-soup',
+      servings: 4,
+    });
+    expect(blocked.body.error.code).toBe('DIET_CONFLICT');
+    detail = (await call('buyer', 'get', `/plans/${planId}`)).body;
+    expect(detail.items.find((i: any) => i.ingredient_key === 'eggs').allergy_warning).toMatch(
+      /Eggs/,
+    );
+    // Food matches never claim to be safe: allergen data is shown as unknown.
+    const listing = await setup(10);
+    const tomatoes = detail.items.find((i: any) => i.ingredient_key === 'tomatoes');
+    const found = (await call('buyer', 'get', `/plans/${planId}/items/${tomatoes.id}/matches`))
+      .body;
+    expect(found.items[0].listing_id).toBe(listing);
+    expect(found.items[0].allergen_note).toMatch(/Allergen information unavailable/);
+    // Sellers never see a buyer's diet profile; the buyer can delete it.
+    expect((await call('seller', 'get', '/planner/diet-profile')).body.profile.allergies).toEqual(
+      [],
+    );
+    expect((await call('buyer', 'delete', '/planner/diet-profile')).status).toBe(200);
+    // Removing a meal and rebuilding drops ingredients no longer needed.
+    const yamMeal = detail.meals.find((m: any) => m.recipe === 'yam-and-egg');
+    await call('buyer', 'delete', `/plans/${planId}/meals/${yamMeal.id}`);
+    const rebuilt = await call('buyer', 'post', `/plans/${planId}/grocery-list`, {});
+    expect(rebuilt.body.removed).toBeGreaterThan(0);
+  });
+});
+
 describe('API contract', () => {
   it('keeps openapi.json in step with the mounted routes', async () => {
     const { buildOpenApi, render, specPath } = await import('../scripts/openapi.js');

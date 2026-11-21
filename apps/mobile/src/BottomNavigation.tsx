@@ -17,7 +17,8 @@ import type { Tab } from './AppContext';
 import { useI18n } from './i18n';
 
 const primary: Tab[] = ['Market', 'Categories', 'Bookings', 'Wallet'];
-const extra: { tab: Exclude<Tab, 'Market' | 'Categories' | 'Bookings' | 'Wallet'> }[] = [
+const extra: { tab: Exclude<Tab, 'Market' | 'Categories' | 'Bookings' | 'Wallet' | 'Cart'> }[] = [
+  { tab: 'Planner' },
   { tab: 'Sell' },
   { tab: 'Riders' },
   { tab: 'Drive' },
@@ -27,6 +28,8 @@ const extra: { tab: Exclude<Tab, 'Market' | 'Categories' | 'Bookings' | 'Wallet'
 const paths: Partial<Record<Tab, string>> = {
   Market: 'M3 11 12 3l9 8M5 9.5V20h5v-6h4v6h5V9.5',
   Categories: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
+  Planner: 'M5 4h14v17H5zM9 2v4m6-4v4M8.5 11l2 2 4-4M8.5 17h7',
+  Cart: 'M3 4h2l2.4 11h10.2L20 8H6.2',
   Bookings: 'M6 4h12v17H6zM9 2v4m6-4v4M9 10h6m-6 4h6m-6 4h4',
   Wallet: 'M20 8V5H5a2 2 0 0 1 0-4h13M3 3v16a2 2 0 0 0 2 2h15V8H5M20 12h-6v5h6',
   Sell: 'M3 12 9 3h10l2 10-9 8zM15 7h.01',

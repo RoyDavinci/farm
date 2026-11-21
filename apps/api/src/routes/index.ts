@@ -1,6 +1,8 @@
 import { regionRoutes, adminRegionRoutes } from './regions.routes.js';
 import { adminRefundRoutes } from './refunds.routes.js';
 import { voiceRoutes } from './voice.routes.js';
+import { cartRoutes } from './cart.routes.js';
+import { plannerRoutes } from './planner.routes.js';
 import { parcelRoutes, adminParcelRoutes } from './parcels.routes.js';
 import {
   returnsOperationsRoutes,
@@ -95,6 +97,8 @@ export function apiRoutes(
   r.use(accountRoutes(deps));
   r.use(marketplaceRoutes(deps));
   r.use(bookingsRoutes(deps));
+  r.use(cartRoutes(deps));
+  r.use(plannerRoutes(deps));
   r.use(walletRoutes(deps));
 
   r.use('/admin', adminMarketOperationsRoutes(deps));

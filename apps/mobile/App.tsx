@@ -28,6 +28,8 @@ import AuthScreen from './src/AuthScreen';
 import CommunityScreen from './src/CommunityScreen';
 import DiscoveryPanel from './src/DiscoveryPanel';
 import CategoriesScreen from './src/CategoriesScreen';
+import CartScreen from './src/screens/CartScreen';
+import PlannerScreen from './src/screens/PlannerScreen';
 import { LanguageProvider, useI18n } from './src/i18n';
 import { onConnectivity } from './src/offline';
 import { onNotificationTap, registerForPush } from './src/push';
@@ -71,7 +73,13 @@ function Main() {
       funding: [],
     });
   const [marketRefresh, setMarketRefresh] = useState(0),
-    [category, setCategory] = useState('');
+    [category, setCategory] = useState(''),
+    [cartCount, setCartCount] = useState(0);
+  const refreshCart = useCallback(() => {
+    request('get', '/cart')
+      .then((c) => setCartCount(c.line_count))
+      .catch(() => {});
+  }, []);
   const [offline, setOfflineBanner] = useState(false);
   useEffect(() => onConnectivity(setOfflineBanner), []);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -109,13 +117,14 @@ function Main() {
       setWallet(w);
       setSettings(st);
       setMine(own);
+      refreshCart();
       setMarketRefresh((v) => v + 1);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshCart]);
   useEffect(() => {
     restoreToken()
       .then(async (exists) => {
@@ -310,6 +319,8 @@ function Main() {
       <BookingsScreen outgoing={outgoing} />
     );
   else if (tab === 'Drive') screen = <DriveScreen />;
+  else if (tab === 'Cart') screen = <CartScreen onChanged={refreshCart} />;
+  else if (tab === 'Planner') screen = <PlannerScreen onCartChanged={refreshCart} />;
   else
     screen = (
       <AccountScreen
@@ -326,6 +337,30 @@ function Main() {
         <View style={s.topbar}>
           <Brand size={38} tagline="Buy · Sell · Discover nearby" />
           <View style={s.topActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Cart, ${cartCount} item${cartCount === 1 ? '' : 's'}`}
+              onPress={() => changeTab('Cart')}
+              style={s.iconButton}
+            >
+              <Svg
+                width={22}
+                height={22}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#1d2a52"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <Path d="M3 4h2l2.4 11h10.2L20 8H6.2M9 20.5h.01M17 20.5h.01" />
+              </Svg>
+              {cartCount > 0 && (
+                <View style={s.countBadge}>
+                  <Text style={s.countText}>{cartCount > 99 ? '99+' : cartCount}</Text>
+                </View>
+              )}
+            </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Messages and updates"

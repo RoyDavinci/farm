@@ -26,6 +26,8 @@ model Booking {
   pickup_available        Boolean              @default(true)
   delivery_available      Boolean              @default(true)
   pickup_market_id        String?
+  /// Set when the booking came from a Smart Planner item (counts towards the plan's spending).
+  plan_item_id            String?
   pickup_market           Market?              @relation("booking_pickup_market", fields: [pickup_market_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   preorder_interests      preorder_interests[]
   status_click            StatusClick?
@@ -1338,4 +1340,99 @@ model MarketRegion {
   updated_at DateTime @default(now()) @db.Timestamptz(6)
 
   @@map("market_regions")
+}
+
+// Smart Planner and cart (migration 20261121160000_cart_and_planner). Foreign keys live in SQL;
+// these models carry no Prisma relations because the API queries them with raw SQL.
+model Plan {
+  id          String    @id
+  user_id     String
+  title       String
+  /// HOME, EVENT, FOOD, PERSONAL, OFFICE or CUSTOM.
+  kind        String
+  template    String?
+  budget_kobo BigInt?
+  people      Int?
+  rooms       Int?
+  /// BASIC, STANDARD or PREMIUM.
+  tier        String    @default("STANDARD")
+  target_date DateTime? @db.Date
+  /// ACTIVE, PAUSED or COMPLETED.
+  status      String    @default("ACTIVE")
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, updated_at(sort: Desc)], map: "plans_user_idx")
+  @@map("plans")
+}
+
+model PlanItem {
+  id             String   @id
+  plan_id        String
+  section        String   @default("Items")
+  name           String
+  category       String?
+  keywords       String   @default("")
+  quantity       Float    @default(1)
+  unit           String   @default("piece")
+  /// Estimate for the whole line, never a live price.
+  budget_kobo    BigInt   @default(0)
+  /// ESSENTIAL, IMPORTANT or OPTIONAL.
+  priority       String   @default("IMPORTANT")
+  /// PLANNED, SAVED, PURCHASED, UNAVAILABLE, NOT_NEEDED or OWNED.
+  status         String   @default("PLANNED")
+  listing_id     String?
+  variant_id     String?
+  /// TEMPLATE, RECIPE or MANUAL.
+  source         String   @default("MANUAL")
+  ingredient_key String?
+  allergens      String[] @default([])
+  position       Int      @default(0)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([plan_id, position], map: "plan_items_plan_idx")
+  @@map("plan_items")
+}
+
+model PlanMeal {
+  id         String   @id
+  plan_id    String
+  recipe     String
+  day        Int      @default(1)
+  /// BREAKFAST, LUNCH or DINNER.
+  meal       String   @default("DINNER")
+  servings   Int
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([plan_id, day], map: "plan_meals_plan_idx")
+  @@map("plan_meals")
+}
+
+/// Sensitive: allergies and diet. Only the owner reads it; never shown to sellers.
+model DietProfile {
+  user_id      String    @id
+  allergies    String[]  @default([])
+  intolerances String[]  @default([])
+  avoid        String[]  @default([])
+  patterns     String[]  @default([])
+  consented_at DateTime? @db.Timestamptz(6)
+  updated_at   DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@map("diet_profiles")
+}
+
+model CartItem {
+  id           String   @id
+  user_id      String
+  listing_id   String
+  variant_id   String
+  quantity     Int
+  plan_item_id String?
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([user_id, variant_id])
+  @@index([user_id, created_at], map: "cart_items_user_idx")
+  @@map("cart_items")
 }

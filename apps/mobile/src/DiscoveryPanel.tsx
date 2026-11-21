@@ -404,6 +404,23 @@ export default function DiscoveryPanel({
         </Text>
       )}
 
+      <PressScale
+        accessibilityRole="button"
+        accessibilityLabel="Open My Planner"
+        onPress={() => setTab('Planner')}
+        style={s.plannerPromo}
+      >
+        <Text style={s.riderEmoji}>📝</Text>
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text style={s.plannerTitle}>Plan your shopping</Text>
+          <Text style={s.plannerText}>
+            Furnishing a flat, a party or this week’s meals? Get a list with a budget and the
+            sellers who have it.
+          </Text>
+        </View>
+        <Text style={s.plannerArrow}>›</Text>
+      </PressScale>
+
       {featureOn(settings, 'shopping') && (
         <PressScale onPress={() => setTab('Riders')} style={s.riderPromo}>
           <Text style={s.riderEmoji}>🛵</Text>
@@ -704,6 +721,17 @@ const s = StyleSheet.create({
     borderColor: '#f8dca6',
   },
   riderEmoji: { fontSize: 30 },
+  plannerPromo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: BRAND,
+  },
+  plannerTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  plannerText: { fontSize: 12, color: '#d6def5', lineHeight: 17 },
+  plannerArrow: { fontSize: 26, color: ACCENT },
   riderTitle: { fontSize: 14, fontWeight: '800', color: '#3b2a07' },
   riderText: { fontSize: 12, color: '#7a5a1c' },
   riderArrow: { fontSize: 26, color: '#b57a10' },

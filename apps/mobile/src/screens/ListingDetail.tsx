@@ -208,6 +208,29 @@ export default function ListingDetail({
           }, 'Request sent. The seller will confirm stock before reserving it.')
         }
       />
+      {!own && (
+        <Button
+          secondary
+          title="Add to cart"
+          disabled={
+            busy ||
+            !Number.isInteger(Number(quantity)) ||
+            Number(quantity) < (selectedVariant?.min_quantity || 1) ||
+            Number(quantity) > limit
+          }
+          onPress={() =>
+            void run(async () => {
+              await request('post', '/cart', {
+                body: {
+                  listing_id: selected.id,
+                  variant_id: selectedVariant?.id,
+                  quantity: Number(quantity),
+                },
+              });
+            }, 'Added to your cart. Open the cart at the top to send all your requests at once.')
+          }
+        />
+      )}
       <Text style={s.fine}>{t('listing.noCharge')}</Text>
       {!own && (
         <Button

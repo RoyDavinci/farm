@@ -1364,6 +1364,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/cart': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['cart.getCart'];
+    put?: never;
+    post: operations['cart.addToCart'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cart/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['cart.removeLine'];
+    options?: never;
+    head?: never;
+    patch: operations['cart.updateLine'];
+    trace?: never;
+  };
+  '/v1/cart/checkout': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['cart.checkout'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/catalogue/categories': {
     parameters: {
       query?: never;
@@ -2511,6 +2559,214 @@ export interface paths {
     put?: never;
     post?: never;
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/planner/diet-profile': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['planner.getDietProfile'];
+    put: operations['planner.saveDietProfile'];
+    post?: never;
+    delete: operations['planner.deleteDietProfile'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/planner/read': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['planner.readText'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/planner/recipes': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['planner.listRecipes'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/planner/templates': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['planner.listTemplates'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/plans': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['planner.listPlans'];
+    put?: never;
+    post: operations['planner.createPlan'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/plans/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['planner.getPlan'];
+    put?: never;
+    post?: never;
+    delete: operations['planner.deletePlan'];
+    options?: never;
+    head?: never;
+    patch: operations['planner.updatePlan'];
+    trace?: never;
+  };
+  '/v1/plans/{id}/duplicate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['planner.duplicatePlan'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/plans/{id}/grocery-list': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['planner.buildGroceryList'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/plans/{id}/items': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['planner.addItem'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/plans/{id}/items/{itemId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['planner.deleteItem'];
+    options?: never;
+    head?: never;
+    patch: operations['planner.updateItem'];
+    trace?: never;
+  };
+  '/v1/plans/{id}/items/{itemId}/matches': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['planner.matches'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/plans/{id}/meals': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['planner.addMeal'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/plans/{id}/meals/{mealId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['planner.removeMeal'];
     options?: never;
     head?: never;
     patch?: never;
@@ -7275,6 +7531,218 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'cart.getCart': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            sellers: {
+              seller_id: string;
+              business_name: string;
+              area: string;
+              city: string;
+              pickup_available: boolean;
+              delivery_available: boolean;
+              subtotal_kobo: number;
+              lines: {
+                id: string;
+                listing_id: string;
+                variant_id: string;
+                plan_item_id: string | null;
+                title: string;
+                variant_name: string;
+                unit: string;
+                image_url: string | null;
+                thumbnail_url: string | null;
+                quantity: number;
+                unit_price_kobo: number;
+                total_kobo: number;
+                available: boolean;
+                problem: string | null;
+              }[];
+            }[];
+            line_count: number;
+            total_kobo: number;
+            notice: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'cart.addToCart': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          listing_id: string;
+          /** Format: uuid */
+          variant_id?: string;
+          /** @default 1 */
+          quantity?: number;
+          plan_item_id?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            quantity: number;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'cart.removeLine': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'cart.updateLine': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          quantity: number;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            quantity: number;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'cart.checkout': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          line_ids?: string[];
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            bookings: ({
+              buyer_id: string;
+              commission_bps: number;
+              commission_kobo: number;
+              created_at: string;
+              id: string;
+              listing_id: string;
+              offer_expires_at: string | null;
+              offer_note: string | null;
+              offer_price_kobo: number | null;
+              offer_quantity: number | null;
+              paid: boolean;
+              pickup_address_snapshot: string | null;
+              pickup_failures: number;
+              pickup_latitude: number | null;
+              pickup_locked_until: string | null;
+              pickup_longitude: number | null;
+              preorder: boolean;
+              price_kobo: number;
+              quantity: number;
+              reserved_until: string | null;
+              seller_id: string;
+              status: string;
+              title: string;
+              total_kobo: number;
+              unit: string;
+              variant_id: string;
+              variant_name: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+            sellers: number;
+            message: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'market-operations.categories': {
     parameters: {
       query?: never;
@@ -10601,6 +11069,801 @@ export interface operations {
             provider: string;
           } & {
             [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.getDietProfile': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            profile: {
+              allergies: string[];
+              intolerances: string[];
+              avoid: string[];
+              patterns: string[];
+              consented_at: string | null;
+              updated_at: string | null;
+            };
+            allergen_options: {
+              key: string;
+              label: string;
+            }[];
+            pattern_options: {
+              key: string;
+              label: string;
+            }[];
+            notice: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.saveDietProfile': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @default [] */
+          allergies?: string[];
+          /** @default [] */
+          intolerances?: string[];
+          /** @default [] */
+          avoid?: string[];
+          /** @default [] */
+          patterns?: (
+            'vegetarian' | 'vegan' | 'no_seafood' | 'no_pork' | 'no_beef' | 'low_salt' | 'low_sugar'
+          )[];
+          /** @default false */
+          consent?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.deleteDietProfile': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.readText': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          text: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            template: string;
+            title: string;
+            budget_kobo: number | null;
+            rooms: number | null;
+            people: number | null;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.listRecipes': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            key: string;
+            name: string;
+            description: string;
+            time_minutes: number;
+            meals: ('BREAKFAST' | 'LUNCH' | 'DINNER')[];
+            steps: string[];
+            ingredients: {
+              key: string;
+              name: string;
+              per_serving: number;
+              unit: string;
+            }[];
+            estimated_cost_per_serving_kobo: number;
+            allergens: string[];
+            may_contain: string[];
+            /** @enum {string} */
+            diet_status: 'OK' | 'WARNING' | 'EXCLUDED';
+            diet_reasons: string[];
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.listTemplates': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            key: string;
+            kind: string;
+            title: string;
+            description: string;
+            questions: ('budget' | 'people' | 'rooms' | 'tier' | 'target_date')[];
+            rooms_label: string | null;
+            people_label: string | null;
+            item_count: number;
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.listPlans': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            kind: 'HOME' | 'EVENT' | 'FOOD' | 'PERSONAL' | 'OFFICE' | 'CUSTOM';
+            template: string | null;
+            budget_kobo: number | null;
+            people: number | null;
+            rooms: number | null;
+            /** @enum {string} */
+            tier: 'BASIC' | 'STANDARD' | 'PREMIUM';
+            target_date: string | null;
+            /** @enum {string} */
+            status: 'ACTIVE' | 'PAUSED' | 'COMPLETED';
+            created_at: string;
+            updated_at: string;
+            summary: {
+              budget_kobo: number | null;
+              planned_kobo: number;
+              estimate_kobo: number;
+              spent_kobo: number;
+              requested_kobo: number;
+              remaining_kobo: number | null;
+              over_budget_kobo: number;
+              item_count: number;
+              done_count: number;
+              sections: {
+                section: string;
+                planned_kobo: number;
+                share: number;
+              }[];
+              suggestions: string[];
+              note: string;
+            };
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.createPlan': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @default custom */
+          template?: string;
+          title?: string;
+          budget_kobo?: number | null;
+          people?: number | null;
+          rooms?: number | null;
+          /**
+           * @default STANDARD
+           * @enum {string}
+           */
+          tier?: 'BASIC' | 'STANDARD' | 'PREMIUM';
+          target_date?: string | null;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.getPlan': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            kind: 'HOME' | 'EVENT' | 'FOOD' | 'PERSONAL' | 'OFFICE' | 'CUSTOM';
+            template: string | null;
+            budget_kobo: number | null;
+            people: number | null;
+            rooms: number | null;
+            /** @enum {string} */
+            tier: 'BASIC' | 'STANDARD' | 'PREMIUM';
+            target_date: string | null;
+            /** @enum {string} */
+            status: 'ACTIVE' | 'PAUSED' | 'COMPLETED';
+            created_at: string;
+            updated_at: string;
+            summary: {
+              budget_kobo: number | null;
+              planned_kobo: number;
+              estimate_kobo: number;
+              spent_kobo: number;
+              requested_kobo: number;
+              remaining_kobo: number | null;
+              over_budget_kobo: number;
+              item_count: number;
+              done_count: number;
+              sections: {
+                section: string;
+                planned_kobo: number;
+                share: number;
+              }[];
+              suggestions: string[];
+              note: string;
+            };
+            items: {
+              id: string;
+              section: string;
+              name: string;
+              category: string | null;
+              keywords: string;
+              quantity: number;
+              unit: string;
+              budget_kobo: number;
+              /** @enum {string} */
+              priority: 'ESSENTIAL' | 'IMPORTANT' | 'OPTIONAL';
+              /** @enum {string} */
+              status: 'PLANNED' | 'SAVED' | 'PURCHASED' | 'UNAVAILABLE' | 'NOT_NEEDED' | 'OWNED';
+              /** @enum {string} */
+              source: 'TEMPLATE' | 'RECIPE' | 'MANUAL';
+              ingredient_key: string | null;
+              allergens: string[];
+              allergy_warning: string | null;
+              listing: {
+                listing_id: string;
+                variant_id: string | null;
+                title: string | null;
+                variant_name: string | null;
+                business_name: string | null;
+                image_url: string | null;
+                thumbnail_url: string | null;
+                price_kobo: number | null;
+                unit: string | null;
+                available: boolean;
+                price_checked_at: string | null;
+              } | null;
+              orders: {
+                id: string;
+                status: string;
+                total_kobo: number;
+              }[];
+            }[];
+            meals: {
+              id: string;
+              recipe: string;
+              recipe_name: string;
+              day: number;
+              /** @enum {string} */
+              meal: 'BREAKFAST' | 'LUNCH' | 'DINNER';
+              servings: number;
+            }[];
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.deletePlan': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.updatePlan': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          title?: string;
+          budget_kobo?: number | null;
+          target_date?: string | null;
+          /** @enum {string} */
+          status?: 'ACTIVE' | 'PAUSED' | 'COMPLETED';
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.duplicatePlan': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.buildGroceryList': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            added: number;
+            updated: number;
+            removed: number;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.addItem': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          name: string;
+          /** @default Items */
+          section?: string;
+          category?: string | null;
+          /** @default  */
+          keywords?: string;
+          /** @default 1 */
+          quantity?: number;
+          /** @default piece */
+          unit?: string;
+          /** @default 0 */
+          budget_kobo?: number;
+          /**
+           * @default IMPORTANT
+           * @enum {string}
+           */
+          priority?: 'ESSENTIAL' | 'IMPORTANT' | 'OPTIONAL';
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.deleteItem': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+        itemId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.updateItem': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+        itemId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          name?: string;
+          /** @default Items */
+          section?: string;
+          category?: string | null;
+          /** @default  */
+          keywords?: string;
+          /** @default 1 */
+          quantity?: number;
+          /** @default piece */
+          unit?: string;
+          /** @default 0 */
+          budget_kobo?: number;
+          /**
+           * @default IMPORTANT
+           * @enum {string}
+           */
+          priority?: 'ESSENTIAL' | 'IMPORTANT' | 'OPTIONAL';
+          /** @enum {string} */
+          status?: 'PLANNED' | 'SAVED' | 'PURCHASED' | 'UNAVAILABLE' | 'NOT_NEEDED' | 'OWNED';
+          listing_id?: string | null;
+          variant_id?: string | null;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.matches': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+        itemId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            items: {
+              listing_id: string;
+              variant_id: string;
+              title: string;
+              variant_name: string;
+              category: string;
+              condition: string;
+              image_url: string | null;
+              thumbnail_url: string | null;
+              business_name: string;
+              area: string;
+              city: string;
+              unit: string;
+              price_kobo: number;
+              in_stock: boolean;
+              within_estimate: boolean;
+              rating_avg: number | null;
+              rating_count: number;
+              distance_km: number | null;
+              pickup_available: boolean;
+              delivery_available: boolean;
+              price_checked_at: string;
+              sponsored: boolean;
+              reasons: string[];
+              allergen_note: string | null;
+            }[];
+            estimate_unit_kobo?: number;
+            note: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.addMeal': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          recipe: string;
+          /** @default 1 */
+          day?: number;
+          /**
+           * @default DINNER
+           * @enum {string}
+           */
+          meal?: 'BREAKFAST' | 'LUNCH' | 'DINNER';
+          servings: number;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            warnings: string[];
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.removeMeal': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+        mealId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
           };
         };
       };

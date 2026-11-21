@@ -19,11 +19,12 @@ IDs are in `deploy/aws-test.env`.
 
 - EC2 `t4g.small` (Ubuntu 24.04, ARM) with a 30 GB encrypted disk and 2 GB swap: about $15 a month.
 - Elastic IP 35.177.195.6 (free while attached to the running server).
-- Security group `zuru-test`: SSH only from the developer Mac's IP at creation time; HTTP/HTTPS open;
+- Security group `zuru-test`: SSH only from the developer's VPN range `79.127.146.0/24` (key login
+  only); HTTP/HTTPS open;
   TURN on 3478 (UDP/TCP) and relay ports 49160–49359 (UDP) for voice calls.
 - Key pair `zuru-test`: the private key is `~/.ssh/zuru-test.pem` on the Mac that created it.
 
-If your IP changes, allow SSH again:
+If you connect from outside that range (VPN off, another network), allow your address:
 
 ```bash
 aws ec2 authorize-security-group-ingress --region eu-west-2 --group-id sg-05df7c7eb0bf34744 --protocol tcp --port 22 --cidr "$(curl -s https://checkip.amazonaws.com)/32"
@@ -34,7 +35,8 @@ aws ec2 authorize-security-group-ingress --region eu-west-2 --group-id sg-05df7c
 Docker Compose runs `postgres`, `redis`, `migrate` (runs before each release), `api`, `worker`,
 `caddy` and `coturn`. Uploads, the database, Redis and certificates live in Docker volumes and survive releases.
 
-Settings: `NODE_ENV=production`, `PILOT_MODE=true`, Paystack/Flutterwave **test** keys, Gmail SMTP,
+Settings: `NODE_ENV=production`, `PILOT_MODE=true` with voice calls and Local Status (stories) switched
+back on (`FEATURE_VOICE`, `FEATURE_LOCAL_STATUS`), Paystack/Flutterwave **test** keys, Gmail SMTP,
 uploads on the server disk. Secrets are generated once into `deploy/.env.test` (git-ignored) by
 `node deploy/make-env.mjs`.
 

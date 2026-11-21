@@ -10,7 +10,9 @@ export type Tab =
   | 'Drive'
   | 'Wallet'
   | 'Inbox'
-  | 'Account';
+  | 'Account'
+  | 'Cart'
+  | 'Planner';
 
 export interface AppState {
   me: any;

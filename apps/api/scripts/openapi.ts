@@ -31,6 +31,16 @@ import { searchInput } from '../src/validators/geography.validators.js';
 import { listingSchema, sellerSchema } from '../src/validators/marketplace.validators.js';
 import { resolveDisputeInput } from '../src/validators/support.validators.js';
 import { checkoutInput } from '../src/services/checkout.service.js';
+import { cartAddInput, cartCheckoutInput, cartUpdateInput } from '../src/services/cart.service.js';
+import {
+  dietProfileInput,
+  planCreateInput,
+  planItemInput,
+  planItemUpdateInput,
+  planMealInput,
+  planReadInput,
+  planUpdateInput,
+} from '../src/services/planner.service.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const src = join(root, 'src');
@@ -112,6 +122,16 @@ const json = (schema: z.ZodType, io: 'input' | 'output' = 'input') =>
 /** Request bodies (and query strings) with real schemas; others accept any JSON object. */
 const bodies: Record<string, Record<string, unknown>> = {
   'wallet.startCheckout': json(checkoutInput),
+  'cart.addToCart': json(cartAddInput),
+  'cart.updateLine': json(cartUpdateInput),
+  'cart.checkout': json(cartCheckoutInput),
+  'planner.readText': json(planReadInput),
+  'planner.saveDietProfile': json(dietProfileInput),
+  'planner.createPlan': json(planCreateInput),
+  'planner.updatePlan': json(planUpdateInput),
+  'planner.addItem': json(planItemInput),
+  'planner.updateItem': json(planItemUpdateInput),
+  'planner.addMeal': json(planMealInput),
   'market-operations.saveCategory': json(categoryInput),
   'market-operations.savePolicies': json(policyInput),
   'market-operations.saveSellerDetails': json(sellerDetailsInput),
