@@ -4,7 +4,13 @@ import { useAdmin } from '../AdminContext';
 export default function CataloguePage() {
   const { action, busy, setError } = useAdmin();
   const [rows, setRows] = useState<any[]>([]),
-    [form, setForm] = useState({ name: '', active: true, rules: '', prohibited_terms: '' });
+    [form, setForm] = useState<any>({
+      name: '',
+      active: true,
+      rules: '',
+      prohibited_terms: '',
+      commission: '',
+    });
   const load = () => request('get', '/admin/catalogue').then(setRows);
   useEffect(() => {
     void load().catch((e) => setError(e.message));
@@ -40,6 +46,15 @@ export default function CataloguePage() {
         />
       </label>
       <label>
+        Commission for this category (%) — leave empty to use the default
+        <input
+          value={form.commission}
+          inputMode="decimal"
+          placeholder="e.g. 2 for an introductory rate"
+          onChange={(e) => setForm({ ...form, commission: e.target.value })}
+        />
+      </label>
+      <label>
         <input
           type="checkbox"
           checked={form.active}
@@ -53,10 +68,16 @@ export default function CataloguePage() {
           void action(async () => {
             await request('put', '/admin/catalogue', {
               body: {
-                ...form,
+                name: form.name,
+                active: form.active,
+                rules: form.rules,
+                commission_bps:
+                  String(form.commission).trim() === ''
+                    ? null
+                    : Math.round(Number(form.commission) * 100),
                 prohibited_terms: form.prohibited_terms
                   .split('\n')
-                  .map((t) => t.trim())
+                  .map((t: string) => t.trim())
                   .filter(Boolean),
               },
             });
@@ -73,8 +94,20 @@ export default function CataloguePage() {
           </h3>
           <p>{c.rules || 'No additional category rules.'}</p>
           <p>{c.prohibited_terms.length} prohibited phrases</p>
+          <p>
+            Commission:{' '}
+            {c.commission_bps == null
+              ? 'default rate'
+              : `${c.commission_bps / 100}% for this category`}
+          </p>
           <button
-            onClick={() => setForm({ ...c, prohibited_terms: c.prohibited_terms.join('\n') })}
+            onClick={() =>
+              setForm({
+                ...c,
+                prohibited_terms: c.prohibited_terms.join('\n'),
+                commission: c.commission_bps == null ? '' : String(c.commission_bps / 100),
+              })
+            }
           >
             Edit
           </button>

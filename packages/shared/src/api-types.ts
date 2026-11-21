@@ -100,6 +100,70 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/admin/ads': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['revenue.adminAds'];
+    put?: never;
+    post: operations['revenue.saveAd'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/ads/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations['revenue.updateAd'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/ads/{id}/payments': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['revenue.recordAdPayment'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/ads/{id}/status': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['revenue.setAdStatus'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/admin/allergen-reports': {
     parameters: {
       query?: never;
@@ -244,6 +308,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/admin/delivery-partners': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['revenue.adminPartners'];
+    put?: never;
+    post: operations['revenue.savePartner'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/delivery-partners/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations['revenue.updatePartner'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/delivery-partners/{id}/drivers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['revenue.assignPartnerDriver'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/admin/disputes': {
     parameters: {
       query?: never;
@@ -260,6 +372,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/admin/disputes/{id}/assign': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['cases.assignCase'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/disputes/{id}/notes': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['cases.addCaseNote'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/admin/disputes/{id}/resolve': {
     parameters: {
       query?: never;
@@ -270,6 +414,38 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['support.resolveDispute'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/disputes/assignees': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['cases.caseAssignees'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/disputes/queue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['cases.caseQueue'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -334,6 +510,38 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['communications.retryEmail'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/featured-sellers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['revenue.adminFeatured'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/featured-sellers/{id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['revenue.cancelFeatured'];
     delete?: never;
     options?: never;
     head?: never;
@@ -708,6 +916,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/admin/promotion-packages': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['revenue.adminPackages'];
+    put?: never;
+    post: operations['revenue.savePackage'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/promotion-packages/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations['revenue.updatePackage'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/admin/promotions': {
     parameters: {
       query?: never;
@@ -846,6 +1086,38 @@ export interface paths {
     get: operations['returns-operations.list'];
     put?: never;
     post: operations['returns-operations.create'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/revenue/report': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['revenue.revenueReport'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/revenue/switches': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['revenue.getSwitches'];
+    put: operations['revenue.saveSwitches'];
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1102,6 +1374,86 @@ export interface paths {
     get?: never;
     put: operations['deliveries.saveVehicleType'];
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/verifications': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['business-verification.listVerifications'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/verifications/{sellerId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['business-verification.decideVerification'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/verifications/{sellerId}/history': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['business-verification.verificationHistory'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/ads': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['revenue.serveAds'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/ads/{id}/click': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['revenue.clickAd'];
     delete?: never;
     options?: never;
     head?: never;
@@ -1764,6 +2116,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/disputes/{id}/messages': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['cases.sendCaseMessage'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/disputes/{id}/return': {
     parameters: {
       query?: never;
@@ -1774,6 +2142,22 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['support.updateReturn'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/disputes/{id}/timeline': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['cases.caseTimeline'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1951,6 +2335,22 @@ export interface paths {
     put: operations['communications.addFavourite'];
     post?: never;
     delete: operations['communications.removeFavourite'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/featured-sellers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['revenue.featuredSellers'];
+    put?: never;
+    post?: never;
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -2398,6 +2798,22 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['media.uploadVideo'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/nearby-sellers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['business-verification.nearbySellers'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -2884,6 +3300,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/promotion-packages': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['revenue.listPackages'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/regions': {
     parameters: {
       query?: never;
@@ -3092,6 +3524,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/sellers/me/featured': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['revenue.myFeatured'];
+    put?: never;
+    post: operations['revenue.featureMyShop'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/sellers/me/location': {
     parameters: {
       query?: never;
@@ -3118,6 +3566,22 @@ export interface paths {
     get: operations['promotions.listMyPromotions'];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/sellers/me/verification': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['business-verification.getMyVerification'];
+    put?: never;
+    post: operations['business-verification.applyForVerification'];
     delete?: never;
     options?: never;
     head?: never;
@@ -3687,6 +4151,7 @@ export interface components {
       search_price?: number | null;
       rating_avg?: number | null;
       rating_count?: number | null;
+      seller_verified?: boolean | null;
       market_id?: string | null;
       business_name: string;
       city: string;
@@ -4187,6 +4652,227 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'revenue.adminAds': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            advertiser: string;
+            title: string;
+            body: string;
+            image_url: string | null;
+            link_url: string | null;
+            cta: string;
+            /** @enum {string} */
+            status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ENDED';
+            price_kobo: number;
+            paid_kobo: number;
+            impressions: number;
+            clicks: number;
+            click_rate: number;
+            live: boolean;
+            starts_at: string;
+            ends_at: string;
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.saveAd': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          advertiser: string;
+          /** @default  */
+          contact_name?: string;
+          /** @default  */
+          contact_phone?: string;
+          /** @default  */
+          contact_email?: string;
+          title: string;
+          /** @default  */
+          body?: string;
+          image_url?: string | null;
+          link_url?: string | null;
+          /** @default Learn more */
+          cta?: string;
+          /** @default [] */
+          states?: string[];
+          /** @default [] */
+          lgas?: string[];
+          /** @default [] */
+          categories?: string[];
+          /** Format: date-time */
+          starts_at: string;
+          /** Format: date-time */
+          ends_at: string;
+          price_kobo: number;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.updateAd': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          advertiser: string;
+          /** @default  */
+          contact_name?: string;
+          /** @default  */
+          contact_phone?: string;
+          /** @default  */
+          contact_email?: string;
+          title: string;
+          /** @default  */
+          body?: string;
+          image_url?: string | null;
+          link_url?: string | null;
+          /** @default Learn more */
+          cta?: string;
+          /** @default [] */
+          states?: string[];
+          /** @default [] */
+          lgas?: string[];
+          /** @default [] */
+          categories?: string[];
+          /** Format: date-time */
+          starts_at: string;
+          /** Format: date-time */
+          ends_at: string;
+          price_kobo: number;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.recordAdPayment': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          amount_kobo: number;
+          reference: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.setAdStatus': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          status: 'ACTIVE' | 'PAUSED' | 'ENDED';
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'planner-admin.listAllergenReports': {
     parameters: {
       query?: never;
@@ -4486,6 +5172,7 @@ export interface operations {
             rules: string;
             /** @default [] */
             prohibited_terms: string[];
+            commission_bps?: number | null;
             updated_at: string;
           }[];
         };
@@ -4511,6 +5198,7 @@ export interface operations {
           rules?: string;
           /** @default [] */
           prohibited_terms?: string[];
+          commission_bps?: number | null;
         };
       };
     };
@@ -4567,6 +5255,175 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'revenue.adminPartners': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            name: string;
+            commission_bps: number;
+            /** @enum {string} */
+            status: 'ACTIVE' | 'PAUSED';
+            drivers: number;
+            deliveries: number;
+            commission_kobo: number;
+            riders: ({
+              driver_id: string;
+              name: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.savePartner': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          name: string;
+          /** @default  */
+          contact_name?: string;
+          /** @default  */
+          phone?: string;
+          /** @default  */
+          email?: string;
+          /** @default [] */
+          states?: string[];
+          commission_bps: number;
+          /**
+           * @default ACTIVE
+           * @enum {string}
+           */
+          status?: 'ACTIVE' | 'PAUSED';
+          /** @default  */
+          notes?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.updatePartner': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          name: string;
+          /** @default  */
+          contact_name?: string;
+          /** @default  */
+          phone?: string;
+          /** @default  */
+          email?: string;
+          /** @default [] */
+          states?: string[];
+          commission_bps: number;
+          /**
+           * @default ACTIVE
+           * @enum {string}
+           */
+          status?: 'ACTIVE' | 'PAUSED';
+          /** @default  */
+          notes?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.assignPartnerDriver': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          driver_id: string;
+          /** @default false */
+          remove?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'support.listAllDisputes': {
     parameters: {
       query?: never;
@@ -4606,6 +5463,76 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'cases.assignCase': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          staff_id: string | null;
+          /** @enum {string} */
+          priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'cases.addCaseNote': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          body: string;
+          /** @default true */
+          internal?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'support.resolveDispute': {
     parameters: {
       query?: never;
@@ -4639,6 +5566,69 @@ export interface operations {
           } & {
             [key: string]: unknown;
           };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'cases.caseAssignees': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            name: string;
+            staff_role: string;
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'cases.caseQueue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            booking_id: string;
+            reason_code: string;
+            status: string;
+            /** @enum {string} */
+            priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+            assigned_to: string | null;
+            assigned_name: string | null;
+            title: string;
+            total_kobo: number;
+            buyer_name: string;
+            business_name: string;
+            note_count: number;
+            age_hours: number;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -4791,6 +5781,75 @@ export interface operations {
             ok: boolean;
           } & {
             [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.adminFeatured': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            seller_id: string;
+            days: number;
+            fee_kobo: number;
+            starts_at: string;
+            ends_at: string;
+            /** @enum {string} */
+            status: 'ACTIVE' | 'CANCELLED';
+            refund_kobo: number;
+            running: boolean;
+            business_name: string;
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.cancelFeatured': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+            refund_kobo: number;
           };
         };
       };
@@ -5822,6 +6881,113 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'revenue.adminPackages': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            /** @enum {string} */
+            kind: 'PRODUCT' | 'SELLER';
+            name: string;
+            days: number;
+            price_kobo: number;
+            active: boolean;
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.savePackage': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          kind: 'PRODUCT' | 'SELLER';
+          name: string;
+          days: number;
+          price_kobo: number;
+          /** @default true */
+          active?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.updatePackage': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          kind: 'PRODUCT' | 'SELLER';
+          name: string;
+          days: number;
+          price_kobo: number;
+          /** @default true */
+          active?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'promotions.listPromotions': {
     parameters: {
       query?: never;
@@ -6252,6 +7418,121 @@ export interface operations {
         content: {
           'application/json': {
             id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.revenueReport': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            from: string;
+            to: string;
+            total_kobo: number;
+            streams: {
+              stream: string;
+              label: string;
+              amount_kobo: number;
+              entries: number;
+              share: number;
+            }[];
+            orders: {
+              completed: number;
+              cancelled: number;
+              gross_kobo: number;
+            };
+            series: {
+              day: string;
+              amount_kobo: number;
+            }[];
+            switches: {
+              transaction_commission: boolean;
+              delivery_commission: boolean;
+              sponsored_products: boolean;
+              featured_sellers: boolean;
+              local_ads: boolean;
+            };
+            note: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.getSwitches': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            transaction_commission: boolean;
+            delivery_commission: boolean;
+            sponsored_products: boolean;
+            featured_sellers: boolean;
+            local_ads: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.saveSwitches': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          transaction_commission: boolean;
+          delivery_commission: boolean;
+          sponsored_products: boolean;
+          featured_sellers: boolean;
+          local_ads: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            transaction_commission: boolean;
+            delivery_commission: boolean;
+            sponsored_products: boolean;
+            featured_sellers: boolean;
+            local_ads: boolean;
           };
         };
       };
@@ -6912,6 +8193,181 @@ export interface operations {
             sort: number;
           } & {
             [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'business-verification.listVerifications': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            seller_id: string;
+            business_name: string;
+            /** @enum {string} */
+            verification_status:
+              | 'NONE'
+              | 'PENDING'
+              | 'INFO_REQUESTED'
+              | 'VERIFIED'
+              | 'REJECTED'
+              | 'SUSPENDED'
+              | 'EXPIRED';
+            verification_details: {
+              [key: string]: unknown;
+            };
+            verified_at: string | null;
+            verification_expires_at: string | null;
+            documents: {
+              id: string;
+              kind: string;
+              status: string;
+              filename: string;
+            }[];
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'business-verification.decideVerification': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        sellerId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          status: 'VERIFIED' | 'REJECTED' | 'INFO_REQUESTED' | 'SUSPENDED';
+          note: string;
+          /** @default 12 */
+          valid_months?: number;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'business-verification.verificationHistory': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        sellerId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            status: string;
+            note: string;
+            created_at: string;
+            actor_name: string | null;
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.serveAds': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            advertiser: string;
+            title: string;
+            body: string;
+            image_url: string | null;
+            link_url: string | null;
+            cta: string;
+            label: string;
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.clickAd': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            link_url: string | null;
           };
         };
       };
@@ -7994,6 +9450,7 @@ export interface operations {
             rules: string;
             /** @default [] */
             prohibited_terms: string[];
+            commission_bps?: number | null;
             updated_at: string;
           }[];
         };
@@ -8818,6 +10275,39 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'cases.sendCaseMessage': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          body: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'support.updateReturn': {
     parameters: {
       query?: never;
@@ -8847,6 +10337,50 @@ export interface operations {
             ok: boolean;
           } & {
             [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'cases.caseTimeline': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            status: string;
+            /** @enum {string} */
+            priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+            assigned_to: string | null;
+            assigned_name: string | null;
+            snapshot: {
+              [key: string]: unknown;
+            };
+            notes: {
+              id: string;
+              /** @enum {string} */
+              kind: 'MESSAGE' | 'INTERNAL' | 'UPDATE' | 'SYSTEM';
+              body: string;
+              created_at: string;
+              author_id: string | null;
+              author_name: string | null;
+              /** @enum {string} */
+              author_role: 'buyer' | 'seller' | 'staff' | 'system';
+            }[];
           };
         };
       };
@@ -9298,6 +10832,39 @@ export interface operations {
           } & {
             [key: string]: unknown;
           };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.featuredSellers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            seller_id: string;
+            business_name: string;
+            business_type: string;
+            area: string;
+            city: string;
+            state: string;
+            verified: boolean;
+            rating_avg: number;
+            rating_count: number;
+            products: number;
+            image_url: string | null;
+          }[];
         };
       };
       default: components['responses']['Error'];
@@ -10688,6 +12255,41 @@ export interface operations {
             media_type: 'VIDEO';
             duration_seconds: number;
           };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'business-verification.nearbySellers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            seller_id: string;
+            business_name: string;
+            business_type: string;
+            area: string;
+            city: string;
+            state: string;
+            verified: boolean;
+            featured: boolean;
+            rating_avg: number;
+            rating_count: number;
+            products: number;
+            image_url: string | null;
+            distance_km: number | null;
+          }[];
         };
       };
       default: components['responses']['Error'];
@@ -12092,6 +13694,7 @@ export interface operations {
               delivery_available: boolean;
               price_checked_at: string;
               sponsored: boolean;
+              verified: boolean;
               reasons: string[];
               allergen_note: string | null;
             }[];
@@ -12269,6 +13872,37 @@ export interface operations {
           'application/json': {
             id: string;
           };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.listPackages': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            /** @enum {string} */
+            kind: 'PRODUCT' | 'SELLER';
+            name: string;
+            days: number;
+            price_kobo: number;
+            active: boolean;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];
@@ -12892,6 +14526,73 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'revenue.myFeatured': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            seller_id: string;
+            days: number;
+            fee_kobo: number;
+            starts_at: string;
+            ends_at: string;
+            /** @enum {string} */
+            status: 'ACTIVE' | 'CANCELLED';
+            refund_kobo: number;
+            running: boolean;
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.featureMyShop': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          package_id: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            ends_in_days: number;
+            fee_kobo: number;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'geography.updateSellerLocation': {
     parameters: {
       query?: never;
@@ -12959,6 +14660,90 @@ export interface operations {
           } & {
             [key: string]: unknown;
           })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'business-verification.getMyVerification': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @enum {string} */
+            status:
+              | 'NONE'
+              | 'PENDING'
+              | 'INFO_REQUESTED'
+              | 'VERIFIED'
+              | 'REJECTED'
+              | 'SUSPENDED'
+              | 'EXPIRED';
+            details: {
+              [key: string]: unknown;
+            };
+            verified_at: string | null;
+            expires_at: string | null;
+            documents: number;
+            history: {
+              id: string;
+              status: string;
+              note: string;
+              created_at: string;
+            }[];
+            requirements: string[];
+            means: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'business-verification.applyForVerification': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          legal_name: string;
+          /** @default  */
+          registration_number?: string;
+          contact_person: string;
+          contact_phone: string;
+          business_address: string;
+          /** @default [] */
+          operating_states?: string[];
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            status: 'PENDING';
+          };
         };
       };
       default: components['responses']['Error'];

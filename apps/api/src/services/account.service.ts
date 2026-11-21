@@ -70,6 +70,14 @@ export function createAccountService(deps: AppDeps) {
         seller_types: [...sellerTypes],
         units: [...productUnits],
         conditions: [...productConditions],
+        /** Categories with their own commission rate (basis points); others use commission_bps. */
+        commission_rates: Object.fromEntries(
+          (
+            await db.query(
+              'SELECT name,commission_bps FROM catalogue_categories WHERE active AND commission_bps IS NOT NULL',
+            )
+          ).map((r: any) => [r.name, r.commission_bps]),
+        ),
       },
       payment_mode: c.demo ? 'demo' : c.payments ? 'provider' : 'disabled',
       features: c.features,

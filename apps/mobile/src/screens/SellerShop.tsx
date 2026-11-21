@@ -1,3 +1,4 @@
+import { VerifiedBadge } from '../BusinessTools';
 import PublicSellerInfo from '../PublicSellerInfo';
 import { money, statusLabel, type Listing } from '@ahia/shared';
 import { useEffect, useState } from 'react';
@@ -38,6 +39,7 @@ export default function SellerShop({ sellerId, onBack }: { sellerId: string; onB
             {seller.city.toUpperCase()}
           </Text>
           <Text style={s.heading}>{seller.business_name}</Text>
+          {(seller as any).verified && <VerifiedBadge />}
           <PublicSellerInfo sellerId={sellerId} />
           <SellerTrust sellerId={sellerId} />
           <Button

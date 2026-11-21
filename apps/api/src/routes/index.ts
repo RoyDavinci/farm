@@ -4,6 +4,9 @@ import { voiceRoutes } from './voice.routes.js';
 import { cartRoutes } from './cart.routes.js';
 import { plannerRoutes } from './planner.routes.js';
 import { plannerAdminRoutes } from './planner-admin.routes.js';
+import { businessVerificationRoutes } from './business-verification.routes.js';
+import { revenueRoutes } from './revenue.routes.js';
+import { casesRoutes } from './cases.routes.js';
 import { parcelRoutes, adminParcelRoutes } from './parcels.routes.js';
 import {
   returnsOperationsRoutes,
@@ -101,6 +104,9 @@ export function apiRoutes(
   r.use(cartRoutes(deps));
   r.use(plannerRoutes(deps));
   r.use(plannerAdminRoutes(deps));
+  r.use(businessVerificationRoutes(deps));
+  r.use(revenueRoutes(deps));
+  r.use(casesRoutes(deps));
   r.use(walletRoutes(deps));
 
   r.use('/admin', adminMarketOperationsRoutes(deps));

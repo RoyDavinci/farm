@@ -1,3 +1,4 @@
+import { caseNote, caseSnapshot, priorityFor } from './cases.service.js';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import sharp from 'sharp';
 import { z } from 'zod';
@@ -112,6 +113,13 @@ export async function resolveSupportCase(
     "UPDATE disputes SET status='RESOLVED',resolution=$1,refund_kobo=$2,resolved_at=now() WHERE id=$3",
     [data.resolution, data.refund_kobo, d.id],
   );
+  await caseNote(
+    q,
+    d.id,
+    u.id,
+    'SYSTEM',
+    `Case resolved${data.refund_kobo ? ` with a refund of ₦${(data.refund_kobo / 100).toLocaleString('en-NG')}` : ''}: ${data.resolution}`,
+  );
   await audit(q, u.id, 'dispute.resolve', d.id, data);
   for (const uid of [b.buyer_id, b.seller_id])
     await notify(q, uid, 'dispute', 'Support case resolved', data.resolution, b.id);
@@ -187,10 +195,16 @@ export function createSupportService(deps: AppDeps) {
       'INSERT INTO disputes(id,booking_id,opened_by,reason_code,description) VALUES($1,$2,$3,$4,$5) RETURNING *',
       [randomUUID(), b.id, u.id, d.reason_code, d.description],
     );
-    await q.query('UPDATE disputes SET reservation_remaining_ms=$1 WHERE id=$2', [
-      remaining,
-      record.id,
-    ]);
+    await q.query(
+      'UPDATE disputes SET reservation_remaining_ms=$1,snapshot=$2,priority=$3 WHERE id=$4',
+      [
+        remaining,
+        JSON.stringify(await caseSnapshot(q, b.id)),
+        priorityFor(d.reason_code),
+        record.id,
+      ],
+    );
+    await caseNote(q, record.id, null, 'SYSTEM', `Case opened: ${d.description}`);
     await audit(q, u.id, 'dispute.open', record.id);
     await notify(
       q,

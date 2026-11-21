@@ -16,6 +16,7 @@ const en = {
   'tab.Categories': 'Categories',
   'tab.Planner': 'My Planner',
   'tab.Cart': 'Cart',
+  'tab.Nearby': 'Nearby sellers',
   'tab.Bookings': 'Bookings',
   'tab.Sell': 'Sell',
   'tab.Drive': 'Drive',

@@ -2663,3 +2663,62 @@ export const demoSellers: DemoSeller[] = [
     ],
   },
 ];
+
+/** Sample adverts for the test environment; banners are drawn by deploy/demo/draw-ads.mjs. */
+export const demoAds = [
+  {
+    key: 'ahia-shop-local',
+    advertiser: 'Ahia',
+    title: 'Shop Local, Shop Smart!',
+    body: 'Find the best products around you.',
+    cta: 'Explore now',
+    states: [] as string[],
+    categories: [] as string[],
+  },
+  {
+    key: 'freshmart',
+    advertiser: 'FreshMart Supermarket',
+    title: 'Weekend groceries 10% off',
+    body: 'This weekend at our Lekki, Ikeja and Surulere stores.',
+    cta: 'See the offer',
+    states: ['Lagos'],
+    categories: [] as string[],
+  },
+  {
+    key: 'quickfix',
+    advertiser: 'QuickFix Phone Repairs',
+    title: 'Cracked screen? Fixed in 1 hour',
+    body: 'Computer Village, Ikeja. 3-month warranty on repairs.',
+    cta: 'Book a repair',
+    states: ['Lagos'],
+    categories: [] as string[],
+  },
+  {
+    key: 'swiftride',
+    advertiser: 'SwiftRide Logistics',
+    title: 'Free delivery over ₦20,000',
+    body: 'Same-day delivery across Lagos.',
+    cta: 'Ship with us',
+    states: ['Lagos'],
+    categories: [] as string[],
+  },
+  {
+    key: 'golden-crust',
+    advertiser: 'Golden Crust Bakery',
+    title: 'Fresh bread every morning',
+    body: 'Celebration cakes with 2 days’ notice.',
+    cta: 'Order now',
+    states: [] as string[],
+    categories: [] as string[],
+  },
+];
+
+/** Sample category commission rates (basis points); other categories use the default. */
+export const demoCommissionRates: Record<string, number> = {
+  Vegetables: 300,
+  Fruit: 300,
+  Tubers: 300,
+  'Food & groceries': 400,
+  'Phones & electronics': 700,
+  'Fashion & accessories': 600,
+};

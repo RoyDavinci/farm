@@ -292,6 +292,7 @@ export const plannerResponses: Record<string, z.ZodType> = {
         delivery_available: z.boolean(),
         price_checked_at: ts,
         sponsored: z.boolean(),
+        verified: z.boolean(),
         reasons: z.array(z.string()),
         allergen_note: z.string().nullable(),
       }),

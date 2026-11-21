@@ -32,6 +32,10 @@ export type Page =
   | 'Status boosts'
   | 'Planner'
   | 'Allergen reports'
+  | 'Verifications'
+  | 'Revenue'
+  | 'Advertising'
+  | 'Delivery partners'
   | 'Deliveries'
   | 'Staff';
 export interface AdminState {

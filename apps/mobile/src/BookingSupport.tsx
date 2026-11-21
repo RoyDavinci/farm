@@ -1,7 +1,7 @@
 import AppealPanel from './AppealPanel';
 import { type Booking, money, statusLabel } from '@ahia/shared';
 import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { uploadEvidence } from './api';
 import { request } from './request';
@@ -145,6 +145,7 @@ export default function BookingSupport({
                 )}
               </>
             )}
+            <CaseThread caseId={record.id} open={record.status === 'OPEN'} />
           </>
         ) : (
           <>
@@ -202,6 +203,9 @@ export default function BookingSupport({
   );
 }
 const s = StyleSheet.create({
+  note: { backgroundColor: '#f4f6fb', borderRadius: 10, padding: 10, gap: 3 },
+  noteStaff: { backgroundColor: '#eef1fa', borderLeftWidth: 3, borderLeftColor: '#26408f' },
+  noteHead: { fontSize: 11, fontWeight: '700', color: '#3d4563' },
   box: { gap: 12, paddingVertical: 12, borderTopWidth: 1, borderColor: '#d9deec' },
   row: { flexDirection: 'row', gap: 16, flexWrap: 'wrap' },
   link: { fontSize: 11, color: '#465c9d', paddingVertical: 6 },
@@ -225,3 +229,74 @@ const s = StyleSheet.create({
   buttonText: { fontSize: 12, color: '#e3e8f7' },
   error: { fontSize: 11, color: '#a16a4c', padding: 10, backgroundColor: '#faeee3' },
 });
+
+const roleName: Record<string, string> = {
+  buyer: 'Buyer',
+  seller: 'Seller',
+  staff: 'Ahia support',
+  system: 'Ahia',
+};
+
+/** The case conversation: buyer, seller and Ahia support updates, newest last. */
+function CaseThread({ caseId, open }: { caseId: string; open: boolean }) {
+  const [data, setData] = useState<any>(null),
+    [text, setText] = useState(''),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState('');
+  const load = () =>
+    request('get', '/disputes/{id}/timeline', { params: { id: caseId } })
+      .then(setData)
+      .catch(() => {});
+  useEffect(() => void load(), [caseId]);
+  if (!data) return null;
+  return (
+    <View style={{ gap: 8, marginTop: 8 }}>
+      <Text style={s.bold}>
+        Case conversation · {String(data.priority).toLowerCase()} priority
+        {data.assigned_name ? ' · being handled by Ahia support' : ''}
+      </Text>
+      {data.notes.map((n: any) => (
+        <View key={n.id} style={[s.note, n.author_role === 'staff' && s.noteStaff]}>
+          <Text style={s.noteHead}>
+            {roleName[n.author_role]} · {new Date(n.created_at).toLocaleString()}
+          </Text>
+          <Text style={s.small}>{n.body}</Text>
+        </View>
+      ))}
+      {open && (
+        <>
+          <TextInput
+            style={s.input}
+            value={text}
+            onChangeText={setText}
+            multiline
+            placeholder="Reply to the other side and Ahia support"
+            accessibilityLabel="Reply on this case"
+          />
+          {!!error && <Text style={s.error}>{error}</Text>}
+          <Pressable
+            disabled={busy || text.trim().length < 2}
+            onPress={async () => {
+              setBusy(true);
+              setError('');
+              try {
+                await request('post', '/disputes/{id}/messages', {
+                  params: { id: caseId },
+                  body: { body: text.trim() },
+                });
+                setText('');
+                await load();
+              } catch (e) {
+                setError((e as Error).message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <Text style={s.link}>{busy ? 'Sending…' : 'Send reply'}</Text>
+          </Pressable>
+        </>
+      )}
+    </View>
+  );
+}

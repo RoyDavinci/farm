@@ -82,12 +82,22 @@ beforeAll(async () => {
 beforeEach(async () => {
   await db.transaction(async (q) => {
     const tables = await q.query<{ tablename: string }>(
-      "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename NOT IN ('_prisma_migrations','settings','vehicle_types','catalogue_categories','market_regions','marketplace_policies')",
+      "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename NOT IN ('_prisma_migrations','settings','vehicle_types','catalogue_categories','market_regions','marketplace_policies','promotion_packages')",
     );
     await q.query(`TRUNCATE ${tables.map((t) => `"${t.tablename}"`).join(',')} CASCADE`);
     await q.query(
-      'UPDATE settings SET reservation_hours=168,commission_bps=500,payout_min_kobo=100000,payout_fee_kobo=5000',
+      `UPDATE settings SET reservation_hours=168,commission_bps=500,payout_min_kobo=100000,payout_fee_kobo=5000,
+         monetisation='{"transaction_commission":true,"delivery_commission":true,"sponsored_products":true,"featured_sellers":true,"local_ads":true}'`,
     );
+    await q.query('UPDATE catalogue_categories SET commission_bps=NULL');
+    await q.query(
+      `INSERT INTO promotion_packages(id,kind,name,days,price_kobo,active) VALUES
+         ('pkg-product-7','PRODUCT','7-day boost',7,350000,true),('pkg-product-14','PRODUCT','14-day boost',14,600000,true),
+         ('pkg-product-30','PRODUCT','30-day boost',30,1100000,true),('pkg-seller-7','SELLER','Featured shop, 7 days',7,500000,true),
+         ('pkg-seller-14','SELLER','Featured shop, 14 days',14,900000,true),('pkg-seller-30','SELLER','Featured shop, 30 days',30,1600000,true)
+       ON CONFLICT(id) DO UPDATE SET kind=EXCLUDED.kind,name=EXCLUDED.name,days=EXCLUDED.days,price_kobo=EXCLUDED.price_kobo,active=true`,
+    );
+    await q.query("DELETE FROM promotion_packages WHERE id NOT LIKE 'pkg-%'");
     for (const [i, actor] of actors.entries()) {
       await q.query(
         'INSERT INTO users(id,name,email,phone,password_hash,admin,staff_role) VALUES($1,$2,$3,$4,$5,$6,$7)',
@@ -2070,6 +2080,283 @@ describe('smart planner', () => {
     expect(usage.allergen_reports).toMatchObject({ open: 1, urgent: 0, total: 2 });
     expect(usage.daily).toHaveLength(14);
     expect(JSON.stringify(usage)).not.toMatch(/buyer@|Buyer/);
+  });
+});
+
+describe('verified businesses', () => {
+  it('verifies a business after a document review, shows the badge, suspends and expires it', async () => {
+    const listing = await setup(10);
+    const details = {
+      legal_name: 'Ada Farms Limited',
+      registration_number: 'RC 1234567',
+      contact_person: 'Ada Okafor',
+      contact_phone: '+2348000000002',
+      business_address: '12 Harvest Lane, Ikorodu',
+    };
+    expect(
+      (await call('seller', 'post', '/sellers/me/verification', details)).body.error.code,
+    ).toBe('DOCUMENTS_REQUIRED');
+    await db.query(
+      "INSERT INTO seller_documents(id,seller_id,subject,kind,filename,mime_type,storage_provider,storage_key,status) VALUES('doc-1','seller','seller','business_registration','cac.pdf','application/pdf','local','docs/cac.pdf','PENDING')",
+    );
+    expect((await call('seller', 'post', '/sellers/me/verification', details)).body).toEqual({
+      status: 'PENDING',
+    });
+    expect(
+      (await call('seller', 'post', '/sellers/me/verification', details)).body.error.code,
+    ).toBe('VERIFICATION_IN_PROGRESS');
+    // Finance staff can't review businesses; operations can.
+    await db.query("UPDATE users SET staff_role='finance' WHERE id='admin'");
+    expect((await call('admin', 'get', '/admin/verifications')).status).toBe(403);
+    await db.query("UPDATE users SET staff_role='operations' WHERE id='admin'");
+    const queue = (await call('admin', 'get', '/admin/verifications')).body;
+    expect(queue[0]).toMatchObject({ seller_id: 'seller', verification_status: 'PENDING' });
+    expect(queue[0].documents[0].kind).toBe('business_registration');
+    expect(
+      (
+        await call('admin', 'post', '/admin/verifications/seller', {
+          status: 'SUSPENDED',
+          note: 'Trying to suspend a pending application.',
+        })
+      ).body.error.code,
+    ).toBe('INVALID_TRANSITION');
+    await call('admin', 'post', '/admin/verifications/seller', {
+      status: 'VERIFIED',
+      note: 'CAC certificate matches; phone and location confirmed.',
+      valid_months: 12,
+    });
+    const found = (await call('buyer', 'get', '/search')).body.items.find(
+      (l: any) => l.id === listing,
+    );
+    expect(found.seller_verified).toBe(true);
+    expect((await call('buyer', 'get', '/sellers/seller')).body.verified).toBe(true);
+    const nearby = (await call('buyer', 'get', '/nearby-sellers?lat=6.6&lng=3.5')).body;
+    expect(nearby[0]).toMatchObject({ seller_id: 'seller', verified: true, products: 1 });
+    const settings = (await call('buyer', 'get', '/settings')).body;
+    expect(settings.catalog.commission_rates).toEqual({});
+    const mine = (await call('seller', 'get', '/sellers/me/verification')).body;
+    expect(mine.status).toBe('VERIFIED');
+    expect(mine.history.map((h: any) => h.status)).toEqual(['VERIFIED', 'PENDING']);
+    // Paying for promotion never changes verification; suspension removes the badge.
+    await call('admin', 'post', '/admin/verifications/seller', {
+      status: 'SUSPENDED',
+      note: 'Complaints about counterfeit goods are under review.',
+    });
+    expect((await call('buyer', 'get', '/sellers/seller')).body.verified).toBe(false);
+    await call('admin', 'post', '/admin/verifications/seller', {
+      status: 'VERIFIED',
+      note: 'Review closed; seller cleared after checks.',
+    });
+    await db.query(
+      "UPDATE sellers SET verification_expires_at=now()-interval '1 day' WHERE user_id='seller'",
+    );
+    expect((await call('seller', 'get', '/sellers/me/verification')).body.status).toBe('EXPIRED');
+    const history = (await call('admin', 'get', '/admin/verifications/seller/history')).body;
+    expect(history[0]).toMatchObject({ status: 'EXPIRED' });
+    expect(history.find((h: any) => h.status === 'SUSPENDED').actor_name).toBe('admin');
+  });
+});
+
+describe('commission rules and revenue features', () => {
+  it('uses category commission, honours the owner switch and shows the fee to the seller', async () => {
+    const listing = await setup(20);
+    await call('admin', 'put', '/admin/catalogue', {
+      name: 'Vegetables',
+      active: true,
+      commission_bps: 200,
+    });
+    const reduced = await call('buyer', 'post', '/bookings', { listing_id: listing, quantity: 2 });
+    expect(reduced.body).toMatchObject({ commission_bps: 200, commission_kobo: 4000 });
+    const switches = (await call('admin', 'get', '/admin/revenue/switches')).body;
+    await call('admin', 'put', '/admin/revenue/switches', {
+      ...switches,
+      transaction_commission: false,
+    });
+    const free = await call('other', 'post', '/bookings', { listing_id: listing, quantity: 1 });
+    expect(free.body).toMatchObject({ commission_bps: 0, commission_kobo: 0 });
+    await call('admin', 'put', '/admin/revenue/switches', { ...switches });
+  });
+
+  it('sells packages, featured shops and local adverts, and reports income by stream', async () => {
+    const sale = await completedSale();
+    const [{ listing_id: listing }] = await db.query(
+      'SELECT listing_id FROM bookings WHERE id=$1',
+      [sale],
+    );
+    // Packages are admin-priced; make them affordable from this seller's ₦1,900 proceeds.
+    const packages = (await call('seller', 'get', '/promotion-packages?kind=PRODUCT')).body;
+    expect(packages.map((p: any) => p.days)).toEqual([7, 14, 30]);
+    await call('admin', 'put', '/admin/promotion-packages/pkg-product-7', {
+      kind: 'PRODUCT',
+      name: '7-day boost',
+      days: 7,
+      price_kobo: 50000,
+    });
+    await call('admin', 'put', '/admin/promotion-packages/pkg-seller-7', {
+      kind: 'SELLER',
+      name: 'Featured shop, 7 days',
+      days: 7,
+      price_kobo: 70000,
+    });
+    const promoted = await call('seller', 'post', `/listings/${listing}/promote`, {
+      package_id: 'pkg-product-7',
+    });
+    expect(promoted.body).toMatchObject({ days: 7, fee_kobo: 50000, package_id: 'pkg-product-7' });
+    const featured = await call('seller', 'post', '/sellers/me/featured', {
+      package_id: 'pkg-seller-7',
+    });
+    expect(featured.body).toMatchObject({ ends_in_days: 7, fee_kobo: 70000 });
+    expect(
+      (await call('seller', 'post', '/sellers/me/featured', { package_id: 'pkg-seller-7' })).body
+        .error.code,
+    ).toBe('ALREADY_FEATURED');
+    const rail = (await call('buyer', 'get', '/featured-sellers?state=Lagos')).body;
+    expect(rail[0]).toMatchObject({ seller_id: 'seller', verified: false });
+    expect((await call('seller', 'get', '/sellers/me/featured')).body[0].running).toBe(true);
+
+    // An advertiser who doesn't sell on Ahia pays by transfer; staff record it.
+    const ad = await call('admin', 'post', '/admin/ads', {
+      advertiser: 'Lagos Supermarket',
+      title: 'Weekend groceries 10% off',
+      body: 'Visit our Ikeja store this weekend.',
+      link_url: 'https://example.com/offer',
+      states: ['Lagos'],
+      starts_at: new Date(Date.now() - 3600000).toISOString(),
+      ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+      price_kobo: 2000000,
+    });
+    expect(
+      (await call('admin', 'post', `/admin/ads/${ad.body.id}/status`, { status: 'ACTIVE' })).body
+        .error.code,
+    ).toBe('NOT_PAID');
+    expect(
+      (
+        await call('admin', 'post', `/admin/ads/${ad.body.id}/payments`, {
+          amount_kobo: 3000000,
+          reference: 'TRF-001',
+        })
+      ).body.error.code,
+    ).toBe('OVERPAYMENT');
+    await call('admin', 'post', `/admin/ads/${ad.body.id}/payments`, {
+      amount_kobo: 2000000,
+      reference: 'TRF-001',
+    });
+    await call('admin', 'post', `/admin/ads/${ad.body.id}/status`, { status: 'ACTIVE' });
+    expect((await call('buyer', 'get', '/ads?state=Abuja')).body).toEqual([]);
+    const served = (await call('buyer', 'get', '/ads?state=Lagos')).body;
+    expect(served[0]).toMatchObject({ title: 'Weekend groceries 10% off', label: 'Advertisement' });
+    expect((await call('buyer', 'post', `/ads/${ad.body.id}/click`)).body.link_url).toBe(
+      'https://example.com/offer',
+    );
+    const ads = (await call('admin', 'get', '/admin/ads')).body;
+    expect(ads[0]).toMatchObject({ impressions: 1, clicks: 1, live: true, click_rate: 100 });
+    // Owners can pause a paid feature everywhere.
+    const switches = (await call('admin', 'get', '/admin/revenue/switches')).body;
+    await call('admin', 'put', '/admin/revenue/switches', { ...switches, local_ads: false });
+    expect((await call('buyer', 'get', '/ads?state=Lagos')).body).toEqual([]);
+    await call('admin', 'put', '/admin/revenue/switches', switches);
+
+    // Stopping a featured shop refunds unused whole days.
+    const stop = await call('admin', 'post', `/admin/featured-sellers/${featured.body.id}/cancel`, {
+      reason: 'Seller asked to stop',
+    });
+    expect(stop.body.refund_kobo).toBe(60000);
+
+    const report = (await call('admin', 'get', '/admin/revenue/report')).body;
+    const stream = (k: string) => report.streams.find((s: any) => s.stream === k)?.amount_kobo;
+    expect(stream('transaction_commission')).toBe(10000);
+    expect(stream('sponsored_products')).toBe(50000);
+    expect(stream('featured_sellers')).toBe(10000);
+    expect(stream('local_ads')).toBe(2000000);
+    const [ledgerTotal] = await db.query(
+      "SELECT COALESCE(SUM(amount_kobo),0)::bigint AS n FROM ledger WHERE account='platform_revenue'",
+    );
+    expect(report.total_kobo).toBe(Number(ledgerTotal.n));
+    expect(report.orders.completed).toBe(1);
+  });
+
+  it('applies a delivery partner company’s agreed rate to its riders', async () => {
+    const partner = await call('admin', 'post', '/admin/delivery-partners', {
+      name: 'Swift Logistics',
+      commission_bps: 1500,
+      states: ['Lagos'],
+    });
+    await db.query(
+      "INSERT INTO drivers(user_id,vehicle_type,plate_number,licence_number,city,status) VALUES('other','motorcycle','LAG-123','LIC-1','Lagos','APPROVED')",
+    );
+    expect(
+      (
+        await call('admin', 'post', `/admin/delivery-partners/${partner.body.id}/drivers`, {
+          driver_id: 'other',
+        })
+      ).status,
+    ).toBe(200);
+    const list = (await call('admin', 'get', '/admin/delivery-partners')).body;
+    expect(list[0]).toMatchObject({ name: 'Swift Logistics', drivers: 1, commission_bps: 1500 });
+    expect(list[0].riders[0].driver_id).toBe('other');
+    await call('admin', 'post', `/admin/delivery-partners/${partner.body.id}/drivers`, {
+      driver_id: 'other',
+      remove: true,
+    });
+    expect((await call('admin', 'get', '/admin/delivery-partners')).body[0].drivers).toBe(0);
+  });
+});
+
+describe('complaint case management', () => {
+  it('keeps a shared timeline, internal notes, assignment and a snapshot of the order', async () => {
+    const sale = await completedSale();
+    const opened = await call('buyer', 'post', `/bookings/${sale}/dispute`, {
+      reason_code: 'DAMAGED',
+      description: 'Half of the tomatoes were crushed when I opened the basket.',
+    });
+    const id = opened.body.id;
+    let timeline = (await call('buyer', 'get', `/disputes/${id}/timeline`)).body;
+    expect(timeline).toMatchObject({ priority: 'HIGH', status: 'OPEN' });
+    expect(timeline.snapshot).toMatchObject({
+      business_name: 'Ada’s Farm',
+      title: 'Fresh tomatoes',
+    });
+    expect(timeline.notes[0]).toMatchObject({ kind: 'SYSTEM', author_role: 'system' });
+    await call('seller', 'post', `/disputes/${id}/messages`, {
+      body: 'Sorry about that. I can replace the crushed ones tomorrow.',
+    });
+    expect(
+      (await call('other', 'post', `/disputes/${id}/messages`, { body: 'hello' })).status,
+    ).toBe(404);
+    // Staff: assign, internal note, and an update both parties see.
+    const staff = (await call('admin', 'get', '/admin/disputes/assignees')).body;
+    expect(staff.map((s: any) => s.id)).toContain('admin');
+    await call('admin', 'post', `/admin/disputes/${id}/assign`, {
+      staff_id: 'admin',
+      priority: 'URGENT',
+    });
+    await call('admin', 'post', `/admin/disputes/${id}/notes`, {
+      body: 'Seller has a history of good ratings; propose replacement.',
+      internal: true,
+    });
+    await call('admin', 'post', `/admin/disputes/${id}/notes`, {
+      body: 'We have asked the seller to replace the damaged tomatoes.',
+      internal: false,
+    });
+    timeline = (await call('buyer', 'get', `/disputes/${id}/timeline`)).body;
+    expect(timeline.notes.map((n: any) => n.kind)).toEqual(['SYSTEM', 'MESSAGE', 'UPDATE']);
+    expect(timeline.notes[2].author_name).toBe('Ahia support');
+    expect(timeline.assigned_name).toBe('admin');
+    const staffView = (await call('admin', 'get', `/disputes/${id}/timeline`)).body;
+    expect(staffView.notes.filter((n: any) => n.kind === 'INTERNAL')).toHaveLength(2);
+    const mine = (await call('admin', 'get', '/admin/disputes/queue?view=MINE')).body;
+    expect(mine[0]).toMatchObject({ id, priority: 'URGENT', business_name: 'Ada’s Farm' });
+    expect((await call('admin', 'get', '/admin/disputes/queue?view=UNASSIGNED')).body).toEqual([]);
+    await call('admin', 'post', `/admin/disputes/${id}/resolve`, {
+      resolution: 'Seller replaced the damaged tomatoes.',
+      refund_kobo: 0,
+    });
+    timeline = (await call('seller', 'get', `/disputes/${id}/timeline`)).body;
+    expect(timeline.notes.at(-1).body).toMatch(/^Case resolved: Seller replaced/);
+    expect(
+      (await call('buyer', 'post', `/disputes/${id}/messages`, { body: 'Thanks!' })).body.error
+        .code,
+    ).toBe('CASE_CLOSED');
   });
 });
 

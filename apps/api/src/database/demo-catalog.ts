@@ -20,7 +20,7 @@ import { config } from '../config/index.js';
 import { storage } from '../lib/storage.js';
 import { publicPin } from '../services/geography.service.js';
 import { connect } from './client.js';
-import { demoSellers } from './demo-catalog-data.js';
+import { demoAds, demoCommissionRates, demoSellers } from './demo-catalog-data.js';
 
 if (process.env.DEMO_CATALOG !== 'yes')
   throw new Error('Set DEMO_CATALOG=yes to confirm this is a test environment.');
@@ -52,6 +52,9 @@ async function remove() {
     [ids],
   );
   await db.transaction(async (q) => {
+    await q.query('DELETE FROM featured_sellers WHERE seller_id=ANY($1)', [ids]);
+    await q.query('DELETE FROM verification_events WHERE seller_id=ANY($1)', [ids]);
+    await q.query("DELETE FROM ad_campaigns WHERE id LIKE 'demo-ad-%'");
     await q.query('DELETE FROM ratings WHERE seller_id=ANY($1) OR buyer_id=ANY($1)', [ids]);
     await q.query('DELETE FROM bookings WHERE seller_id=ANY($1) OR buyer_id=ANY($1)', [ids]);
     await q.query('DELETE FROM local_statuses WHERE seller_id=ANY($1)', [ids]);
@@ -329,6 +332,78 @@ async function addReviews() {
   console.log(`Reviews: ${total} new (demo buyers' past orders are marked completed and unpaid).`);
 }
 
+/** Verified badges for some demo shops, three featured shops and one sample advert (no money moves). */
+async function addBusinessDemo() {
+  const verify = [
+    'gadget-hub',
+    'mama-nkechi',
+    'home-comfort',
+    'alaba-electronics',
+    'oshodi-provisions',
+    'glow-beauty',
+    'ikorodu-farm',
+    'banex-gadgets',
+    'sleepwell',
+    'office-plus',
+    'kitchen-pro',
+    'balogun-style',
+    'mushin-meat',
+    'wuse-market',
+  ];
+  let verified = 0;
+  for (const key of verify) {
+    const [row] = await db.query(
+      `UPDATE sellers s SET verification_status='VERIFIED',verified_at=now(),verification_expires_at=now()+interval '12 months',
+         verification_details=$2 FROM users u WHERE u.id=s.user_id AND u.email=$1 AND s.verification_status='NONE' RETURNING s.user_id,s.business_name`,
+      [`${key}@${DOMAIN}`, JSON.stringify({ demo: true })],
+    );
+    if (!row) continue;
+    await db.query(
+      "INSERT INTO verification_events(id,seller_id,status,note) VALUES($1,$2,'VERIFIED','Demo data: marked verified for the test environment.')",
+      [randomUUID(), row.user_id],
+    );
+    verified++;
+  }
+  for (const key of ['home-comfort', 'sweet-crumbs', 'gadget-hub']) {
+    await db.query(
+      `INSERT INTO featured_sellers(id,seller_id,days,fee_kobo,ends_at)
+       SELECT $1,u.id,30,0,now()+interval '30 days' FROM users u WHERE u.email=$2
+         AND NOT EXISTS(SELECT 1 FROM featured_sellers f WHERE f.seller_id=u.id AND f.status='ACTIVE' AND f.ends_at>now())`,
+      [randomUUID(), `${key}@${DOMAIN}`],
+    );
+  }
+  // Sample adverts: banner images stored like uploads, campaigns live for 30 days, no money recorded.
+  await db.query("UPDATE ad_campaigns SET status='ENDED' WHERE id='demo-ad-1'");
+  const adsFolder = args[1];
+  const [owner] = await db.query('SELECT id FROM users WHERE email=$1', [
+    `oshodi-provisions@${DOMAIN}`,
+  ]);
+  let ads = 0;
+  for (const a of demoAds) {
+    const id = `demo-ad-${a.key}`;
+    const [existing] = await db.query('SELECT image_url FROM ad_campaigns WHERE id=$1', [id]);
+    const file = adsFolder ? join(adsFolder, `${a.key}.jpg`) : '';
+    const image =
+      existing?.image_url ??
+      (owner && file && existsSync(file) ? (await savePhoto(owner.id, file)).url : null);
+    await db.query(
+      `INSERT INTO ad_campaigns(id,advertiser,title,body,cta,link_url,image_url,states,categories,starts_at,ends_at,price_kobo,paid_kobo,status)
+       VALUES($1,$2,$3,$4,$5,'https://example.com',$6,$7,$8,now()-interval '1 hour',now()+interval '30 days',0,0,'ACTIVE')
+       ON CONFLICT(id) DO UPDATE SET image_url=COALESCE(ad_campaigns.image_url,EXCLUDED.image_url),states=EXCLUDED.states,status='ACTIVE',ends_at=now()+interval '30 days'`,
+      [id, a.advertiser, a.title, a.body, a.cta, image, a.states, a.categories],
+    );
+    ads++;
+  }
+  for (const [name, bps] of Object.entries(demoCommissionRates))
+    await db.query(
+      'UPDATE catalogue_categories SET commission_bps=$1 WHERE name=$2 AND commission_bps IS NULL',
+      [bps, name],
+    );
+  console.log(
+    `Business demo: ${verified} shops verified, 3 featured shops, ${ads} sample adverts and sample category commission rates.`,
+  );
+}
+
 try {
   if (args.includes('--remove')) await remove();
   else if (args.includes('--refresh-stories')) await refreshStories();
@@ -336,6 +411,7 @@ try {
     if (!args[0]) throw new Error('Pass the folder that holds the demo photos.');
     await add(args[0]);
     await addReviews();
+    await addBusinessDemo();
   }
 } finally {
   await db.close();

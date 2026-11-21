@@ -9,7 +9,8 @@ import { useI18n } from '../i18n';
 import { LocationPicker, SellerLocationPanel } from '../LocationEditor';
 import { request } from '../request';
 import SellerAnalytics from '../SellerAnalytics';
-import { PromoteListing, VerificationDocuments } from '../SellerTools';
+import { VerificationDocuments } from '../SellerTools';
+import { FeatureShop, PromoteWithPackage, VerificationPanel } from '../BusinessTools';
 import { shareOnWhatsApp, shopMessage } from '../share';
 import { Badge, Button, Chip, Empty, Field, s } from '../ui';
 import BookingCard from './BookingCard';
@@ -47,6 +48,8 @@ export default function SellScreen({
       {seller && <SellerLocationPanel seller={seller} onSaved={refresh} />}
       {seller && <ProfileDetailsPanel subject="seller" />}
       {seller && seller.status !== 'REJECTED' && <VerificationDocuments />}
+      {seller?.status === 'APPROVED' && <VerificationPanel />}
+      {seller?.status === 'APPROVED' && featureOn(settings, 'promotions') && <FeatureShop />}
       {!seller || seller.status === 'REJECTED' ? (
         <>
           <Text style={s.subtitle}>
@@ -227,7 +230,14 @@ export default function SellScreen({
                     }, 'Pre-order payment preference updated; enabling advances is simulation-only until provider approval.')
                   }
                 />
-                {featureOn(settings, 'promotions') && <PromoteListing listing={l} />}
+                <Text style={s.small}>
+                  Ahia fee for {l.category}:{' '}
+                  {((settings?.catalog as any)?.commission_rates?.[l.category] ??
+                    settings?.commission_bps ??
+                    500) / 100}
+                  % of each completed order
+                </Text>
+                {featureOn(settings, 'promotions') && <PromoteWithPackage listing={l} />}
               </View>
             ))
           ) : (

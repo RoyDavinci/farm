@@ -23,6 +23,7 @@ import {
 } from '../config/recipes.js';
 import { unitPrice } from './catalog.service.js';
 import { activePromotion } from './promotions.service.js';
+import { verifiedSql } from './business-verification.service.js';
 
 const tiers = ['BASIC', 'STANDARD', 'PREMIUM'] as const;
 const priorities = ['ESSENTIAL', 'IMPORTANT', 'OPTIONAL'] as const;
@@ -630,6 +631,7 @@ export function createPlannerService(deps: AppDeps) {
          v.id AS variant_id,v.name AS variant_name,v.unit,v.price_kobo,v.wholesale_tiers,v.stock,v.min_quantity,
          COALESCE((SELECT AVG(r.score) FROM ratings r WHERE r.seller_id=s.user_id),0)::float8 AS rating_avg,
          (SELECT COUNT(*)::int FROM ratings r WHERE r.seller_id=s.user_id) AS rating_count,
+         ${verifiedSql()} AS verified,
          ${distance} AS distance_km,
          ${c.features.promotions ? activePromotion : 'FALSE'} AS sponsored,
          (SELECT COUNT(*)::int FROM unnest($2::text[]) w WHERE l.title ILIKE w) AS title_hits,
@@ -678,10 +680,12 @@ export function createPlannerService(deps: AppDeps) {
           );
         if (r.distance_km != null)
           reasons.push(`About ${Math.max(1, Math.round(r.distance_km))} km away`);
+        if (r.verified) reasons.push('Verified business');
         if (r.title_hits > 0) reasons.push('Matches your item');
         const score =
           r.title_hits * 4 +
           (r.desc_hits > 0 ? 1 : 0) +
+          (r.verified ? 1 : 0) +
           (r.category === item.category ? 2 : 0) +
           (inBudget ? 2 : 0) +
           (inStock ? 2 : -6) +
@@ -711,6 +715,7 @@ export function createPlannerService(deps: AppDeps) {
           delivery_available: r.delivery_available,
           price_checked_at: r.confirmed_at,
           sponsored: !!r.sponsored,
+          verified: !!r.verified,
           reasons,
           allergen_note: food && allergyProfile ? ALLERGEN_UNKNOWN : null,
           score,

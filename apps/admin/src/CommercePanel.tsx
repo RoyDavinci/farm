@@ -1,6 +1,7 @@
 import { money, statusLabel } from '@ahia/shared';
 import { useEffect, useState } from 'react';
 import { request } from './api';
+import CaseManagement from './pages/CaseManagement';
 export default function CommercePanel({
   page,
 }: {
@@ -14,7 +15,8 @@ export default function CommercePanel({
     [busy, setBusy] = useState(false),
     [resolution, setResolution] = useState(''),
     [refund, setRefund] = useState('0'),
-    [restock, setRestock] = useState(false);
+    [restock, setRestock] = useState(false),
+    [view, setView] = useState<'OPEN' | 'MINE' | 'UNASSIGNED' | 'ALL'>('OPEN');
   const endpoint =
     page === 'Markets'
       ? '/markets'
@@ -27,7 +29,11 @@ export default function CommercePanel({
       setRows(data.funding);
       setExceptions(data.exceptions);
     } else {
-      setRows(await request('get', page === 'Markets' ? '/markets' : '/admin/disputes'));
+      setRows(
+        page === 'Markets'
+          ? await request('get', '/markets')
+          : await request('get', '/admin/disputes/queue', { query: { view } }),
+      );
       setExceptions([]);
     }
   }
@@ -36,7 +42,7 @@ export default function CommercePanel({
     setSelected(null);
     setError('');
     void load().catch((e) => setError(e.message));
-  }, [endpoint]);
+  }, [endpoint, view]);
   async function run(fn: () => Promise<void>, message: string) {
     setBusy(true);
     setError('');
@@ -99,6 +105,19 @@ export default function CommercePanel({
             Refresh
           </button>
         </div>
+        {page === 'Disputes' && (
+          <div className="row-actions" style={{ marginBottom: 12 }}>
+            {(['OPEN', 'MINE', 'UNASSIGNED', 'ALL'] as const).map((v) => (
+              <button
+                key={v}
+                className={view === v ? 'compact' : 'secondary compact'}
+                onClick={() => setView(v)}
+              >
+                {{ OPEN: 'Open', MINE: 'Assigned to me', UNASSIGNED: 'Unassigned', ALL: 'All' }[v]}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="table-scroll">
           <table>
             <thead>
@@ -106,7 +125,7 @@ export default function CommercePanel({
                 {(page === 'Markets'
                   ? ['Market', 'City / area', 'Pin', '']
                   : page === 'Disputes'
-                    ? ['Case', 'Produce', 'Reason', 'Status', '']
+                    ? ['Case', 'Order', 'Reason', 'Priority / owner', 'Status', '']
                     : ['Reference', 'Payer', 'Provider', 'Amount', 'Status', '']
                 ).map((label, i) => (
                   <th key={i}>{label}</th>
@@ -140,7 +159,21 @@ export default function CommercePanel({
                           {r.booking_status} · {money(r.total_kobo)}
                         </small>
                       </td>
-                      <td>{statusLabel(r.reason_code)}</td>
+                      <td>
+                        {statusLabel(r.reason_code)}
+                        <small>
+                          {r.buyer_name} vs {r.business_name}
+                        </small>
+                      </td>
+                      <td>
+                        <span className={`badge priority-${String(r.priority).toLowerCase()}`}>
+                          {String(r.priority).toLowerCase()}
+                        </span>
+                        <small>
+                          {r.assigned_name || 'Unassigned'} · {r.note_count} entries · {r.age_hours}
+                          h old
+                        </small>
+                      </td>
                       <td>
                         {r.status}
                         <small>Return: {statusLabel(r.return_status)}</small>
@@ -289,6 +322,7 @@ export default function CommercePanel({
             <dt>Return</dt>
             <dd>{statusLabel(selected.return_status)}</dd>
           </dl>
+          <CaseManagement id={selected.id} onChanged={() => void load()} />
           <h2>Private evidence</h2>
           {selected.evidence.map((file: any) => (
             <p key={file.id}>

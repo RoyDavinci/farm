@@ -10,6 +10,7 @@ import { searchInput } from '../validators/geography.validators.js';
 import { audit } from './audit.service.js';
 import { attachVariants } from './catalog.service.js';
 import { activePromotion } from './promotions.service.js';
+import { verifiedSql } from './business-verification.service.js';
 import { bookableSql } from './retention.service.js';
 export const coordinates = z.object({
   latitude: z.number().min(-90).max(90),
@@ -145,15 +146,17 @@ export async function searchListings(db: Database, d: SearchInput) {
     price_desc: 'search_price DESC,l.id DESC',
     rating: 'rating_avg DESC,l.id DESC',
   }[d.sort];
-  const columns = `SELECT l.*,s.business_name,s.city,s.area,s.business_type,s.market_id,s.public_latitude,s.public_longitude,${rating}::float8 AS rating_avg,(SELECT COUNT(*)::int FROM ratings r WHERE r.seller_id=s.user_id) AS rating_count,${distance} AS distance_km,COALESCE((SELECT MIN(v.price_kobo) FROM listing_variants v WHERE v.listing_id=l.id AND v.active AND v.stock>=v.min_quantity),(SELECT MIN(v.price_kobo) FROM listing_variants v WHERE v.listing_id=l.id AND v.active)) AS search_price,(SELECT m.thumbnail_url FROM media m WHERE m.url=l.image_url) AS thumbnail_url`;
+  const columns = `SELECT l.*,s.business_name,s.city,s.area,s.business_type,s.market_id,s.public_latitude,s.public_longitude,${rating}::float8 AS rating_avg,${verifiedSql()} AS seller_verified,(SELECT COUNT(*)::int FROM ratings r WHERE r.seller_id=s.user_id) AS rating_count,${distance} AS distance_km,COALESCE((SELECT MIN(v.price_kobo) FROM listing_variants v WHERE v.listing_id=l.id AND v.active AND v.stock>=v.min_quantity),(SELECT MIN(v.price_kobo) FROM listing_variants v WHERE v.listing_id=l.id AND v.active)) AS search_price,(SELECT m.thumbnail_url FROM media m WHERE m.url=l.image_url) AS thumbnail_url`;
   const from = `FROM listings l JOIN sellers s ON s.user_id=l.seller_id JOIN users u ON u.id=s.user_id WHERE ${conditions.join(' AND ')}`;
   // Sponsored placements match the same filters, appear only on the first page and are labelled.
-  const sponsored = d.cursor
-    ? []
-    : await db.query(
-        `${columns},TRUE AS sponsored ${from} AND ${activePromotion} ORDER BY random() LIMIT 2`,
-        [...args],
-      );
+  const [switches] = await db.query('SELECT monetisation FROM settings WHERE id=1');
+  const sponsored =
+    d.cursor || switches?.monetisation?.sponsored_products === false
+      ? []
+      : await db.query(
+          `${columns},TRUE AS sponsored ${from} AND ${activePromotion} ORDER BY random() LIMIT 2`,
+          [...args],
+        );
   const rows = await db.query(
     `${columns} ${from} ORDER BY ${order} LIMIT ${param(d.limit + 1)} OFFSET ${param(offset)}`,
     args,

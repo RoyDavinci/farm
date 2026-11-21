@@ -268,6 +268,597 @@
         }
       }
     },
+    "/v1/admin/ads": {
+      "get": {
+        "operationId": "revenue.adminAds",
+        "tags": [
+          "revenue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "advertiser": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "body": {
+                        "type": "string"
+                      },
+                      "image_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "link_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "cta": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "DRAFT",
+                          "ACTIVE",
+                          "PAUSED",
+                          "ENDED"
+                        ]
+                      },
+                      "price_kobo": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "paid_kobo": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "impressions": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "clicks": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "click_rate": {
+                        "type": "number"
+                      },
+                      "live": {
+                        "type": "boolean"
+                      },
+                      "starts_at": {
+                        "type": "string"
+                      },
+                      "ends_at": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "advertiser",
+                      "title",
+                      "body",
+                      "image_url",
+                      "link_url",
+                      "cta",
+                      "status",
+                      "price_kobo",
+                      "paid_kobo",
+                      "impressions",
+                      "clicks",
+                      "click_rate",
+                      "live",
+                      "starts_at",
+                      "ends_at"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "revenue.saveAd",
+        "tags": [
+          "revenue"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "advertiser": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "contact_name": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "contact_phone": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "contact_email": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 80
+                  },
+                  "body": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 240
+                  },
+                  "image_url": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500,
+                        "format": "uri"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "link_url": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500,
+                        "format": "uri"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "cta": {
+                    "default": "Learn more",
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 24
+                  },
+                  "states": {
+                    "default": [],
+                    "maxItems": 37,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 40
+                    }
+                  },
+                  "lgas": {
+                    "default": [],
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 60
+                    }
+                  },
+                  "categories": {
+                    "default": [],
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 60
+                    }
+                  },
+                  "starts_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "ends_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "price_kobo": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000000
+                  }
+                },
+                "required": [
+                  "advertiser",
+                  "title",
+                  "starts_at",
+                  "ends_at",
+                  "price_kobo"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/ads/{id}": {
+      "put": {
+        "operationId": "revenue.updateAd",
+        "tags": [
+          "revenue"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "advertiser": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "contact_name": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "contact_phone": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "contact_email": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 80
+                  },
+                  "body": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 240
+                  },
+                  "image_url": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500,
+                        "format": "uri"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "link_url": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500,
+                        "format": "uri"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "cta": {
+                    "default": "Learn more",
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 24
+                  },
+                  "states": {
+                    "default": [],
+                    "maxItems": 37,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 40
+                    }
+                  },
+                  "lgas": {
+                    "default": [],
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 60
+                    }
+                  },
+                  "categories": {
+                    "default": [],
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 60
+                    }
+                  },
+                  "starts_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "ends_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "price_kobo": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000000
+                  }
+                },
+                "required": [
+                  "advertiser",
+                  "title",
+                  "starts_at",
+                  "ends_at",
+                  "price_kobo"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/ads/{id}/payments": {
+      "post": {
+        "operationId": "revenue.recordAdPayment",
+        "tags": [
+          "revenue"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "amount_kobo": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000000000
+                  },
+                  "reference": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 120
+                  }
+                },
+                "required": [
+                  "amount_kobo",
+                  "reference"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/ads/{id}/status": {
+      "post": {
+        "operationId": "revenue.setAdStatus",
+        "tags": [
+          "revenue"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ACTIVE",
+                      "PAUSED",
+                      "ENDED"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/allergen-reports": {
       "get": {
         "operationId": "planner-admin.listAllergenReports",
@@ -1010,6 +1601,18 @@
                           "maxLength": 80
                         }
                       },
+                      "commission_bps": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 3000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "updated_at": {
                         "type": "string"
                       }
@@ -1097,6 +1700,18 @@
                       "minLength": 2,
                       "maxLength": 80
                     }
+                  },
+                  "commission_bps": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 3000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -1206,6 +1821,380 @@
         }
       }
     },
+    "/v1/admin/delivery-partners": {
+      "get": {
+        "operationId": "revenue.adminPartners",
+        "tags": [
+          "revenue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "commission_bps": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "ACTIVE",
+                          "PAUSED"
+                        ]
+                      },
+                      "drivers": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "deliveries": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "commission_kobo": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "riders": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "driver_id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "driver_id",
+                            "name"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "commission_bps",
+                      "status",
+                      "drivers",
+                      "deliveries",
+                      "commission_kobo",
+                      "riders"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "revenue.savePartner",
+        "tags": [
+          "revenue"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "contact_name": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "phone": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "email": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "states": {
+                    "default": [],
+                    "maxItems": 37,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 40
+                    }
+                  },
+                  "commission_bps": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5000
+                  },
+                  "status": {
+                    "default": "ACTIVE",
+                    "type": "string",
+                    "enum": [
+                      "ACTIVE",
+                      "PAUSED"
+                    ]
+                  },
+                  "notes": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "name",
+                  "commission_bps"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/delivery-partners/{id}": {
+      "put": {
+        "operationId": "revenue.updatePartner",
+        "tags": [
+          "revenue"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "contact_name": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "phone": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "email": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "states": {
+                    "default": [],
+                    "maxItems": 37,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 40
+                    }
+                  },
+                  "commission_bps": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5000
+                  },
+                  "status": {
+                    "default": "ACTIVE",
+                    "type": "string",
+                    "enum": [
+                      "ACTIVE",
+                      "PAUSED"
+                    ]
+                  },
+                  "notes": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "name",
+                  "commission_bps"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/delivery-partners/{id}/drivers": {
+      "post": {
+        "operationId": "revenue.assignPartnerDriver",
+        "tags": [
+          "revenue"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "driver_id": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "remove": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "driver_id"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/disputes": {
       "get": {
         "operationId": "support.listAllDisputes",
@@ -1307,6 +2296,159 @@
         }
       }
     },
+    "/v1/admin/disputes/{id}/assign": {
+      "post": {
+        "operationId": "cases.assignCase",
+        "tags": [
+          "cases"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "staff_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 64
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      "LOW",
+                      "NORMAL",
+                      "HIGH",
+                      "URGENT"
+                    ]
+                  }
+                },
+                "required": [
+                  "staff_id"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/disputes/{id}/notes": {
+      "post": {
+        "operationId": "cases.addCaseNote",
+        "tags": [
+          "cases"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 4000
+                  },
+                  "internal": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "body"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/disputes/{id}/resolve": {
       "post": {
         "operationId": "support.resolveDispute",
@@ -1380,6 +2522,152 @@
                 ]
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/admin/disputes/assignees": {
+      "get": {
+        "operationId": "cases.caseAssignees",
+        "tags": [
+          "cases"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "staff_role": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "staff_role"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/admin/disputes/queue": {
+      "get": {
+        "operationId": "cases.caseQueue",
+        "tags": [
+          "cases"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "booking_id": {
+                        "type": "string"
+                      },
+                      "reason_code": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "priority": {
+                        "type": "string",
+                        "enum": [
+                          "LOW",
+                          "NORMAL",
+                          "HIGH",
+                          "URGENT"
+                        ]
+                      },
+                      "assigned_to": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "assigned_name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "total_kobo": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "buyer_name": {
+                        "type": "string"
+                      },
+                      "business_name": {
+                        "type": "string"
+                      },
+                      "note_count": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "age_hours": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "booking_id",
+                      "reason_code",
+                      "status",
+                      "priority",
+                      "assigned_to",
+                      "assigned_name",
+                      "title",
+                      "total_kobo",
+                      "buyer_name",
+                      "business_name",
+                      "note_count",
+                      "age_hours"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
           }
         }
       }
@@ -1707,6 +2995,151 @@
                     "ok"
                   ],
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/featured-sellers": {
+      "get": {
+        "operationId": "revenue.adminFeatured",
+        "tags": [
+          "revenue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "seller_id": {
+                        "type": "string"
+                      },
+                      "days": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "fee_kobo": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "starts_at": {
+                        "type": "string"
+                      },
+                      "ends_at": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "ACTIVE",
+                          "CANCELLED"
+                        ]
+                      },
+                      "refund_kobo": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "running": {
+                        "type": "boolean"
+                      },
+                      "business_name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "seller_id",
+                      "days",
+                      "fee_kobo",
+                      "starts_at",
+                      "ends_at",
+                      "status",
+                      "refund_kobo",
+                      "running",
+                      "business_name"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/admin/featured-sellers/{id}/cancel": {
+      "post": {
+        "operationId": "revenue.cancelFeatured",
+        "tags": [
+          "revenue"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "refund_kobo": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "refund_kobo"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -4269,6 +5702,242 @@
         }
       }
     },
+    "/v1/admin/promotion-packages": {
+      "get": {
+        "operationId": "revenue.adminPackages",
+        "tags": [
+          "revenue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "PRODUCT",
+                          "SELLER"
+                        ]
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "days": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "price_kobo": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "active": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "name",
+                      "days",
+                      "price_kobo",
+                      "active"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "revenue.savePackage",
+        "tags": [
+          "revenue"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "PRODUCT",
+                      "SELLER"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 60
+                  },
+                  "days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365
+                  },
+                  "price_kobo": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000000
+                  },
+                  "active": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name",
+                  "days",
+                  "price_kobo"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/promotion-packages/{id}": {
+      "put": {
+        "operationId": "revenue.updatePackage",
+        "tags": [
+          "revenue"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "PRODUCT",
+                      "SELLER"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 60
+                  },
+                  "days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365
+                  },
+                  "price_kobo": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000000
+                  },
+                  "active": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name",
+                  "days",
+                  "price_kobo"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/promotions": {
       "get": {
         "operationId": "promotions.listPromotions",
@@ -5306,6 +6975,303 @@
                   "driver_kobo",
                   "payer",
                   "reason"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/revenue/report": {
+      "get": {
+        "operationId": "revenue.revenueReport",
+        "tags": [
+          "revenue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "type": "string"
+                    },
+                    "to": {
+                      "type": "string"
+                    },
+                    "total_kobo": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "streams": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "stream": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "amount_kobo": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "entries": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "share": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "stream",
+                          "label",
+                          "amount_kobo",
+                          "entries",
+                          "share"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "orders": {
+                      "type": "object",
+                      "properties": {
+                        "completed": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "cancelled": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "gross_kobo": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "completed",
+                        "cancelled",
+                        "gross_kobo"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "series": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "day": {
+                            "type": "string"
+                          },
+                          "amount_kobo": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "day",
+                          "amount_kobo"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "switches": {
+                      "type": "object",
+                      "properties": {
+                        "transaction_commission": {
+                          "type": "boolean"
+                        },
+                        "delivery_commission": {
+                          "type": "boolean"
+                        },
+                        "sponsored_products": {
+                          "type": "boolean"
+                        },
+                        "featured_sellers": {
+                          "type": "boolean"
+                        },
+                        "local_ads": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "transaction_commission",
+                        "delivery_commission",
+                        "sponsored_products",
+                        "featured_sellers",
+                        "local_ads"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "to",
+                    "total_kobo",
+                    "streams",
+                    "orders",
+                    "series",
+                    "switches",
+                    "note"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/admin/revenue/switches": {
+      "get": {
+        "operationId": "revenue.getSwitches",
+        "tags": [
+          "revenue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "transaction_commission": {
+                      "type": "boolean"
+                    },
+                    "delivery_commission": {
+                      "type": "boolean"
+                    },
+                    "sponsored_products": {
+                      "type": "boolean"
+                    },
+                    "featured_sellers": {
+                      "type": "boolean"
+                    },
+                    "local_ads": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "transaction_commission",
+                    "delivery_commission",
+                    "sponsored_products",
+                    "featured_sellers",
+                    "local_ads"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "put": {
+        "operationId": "revenue.saveSwitches",
+        "tags": [
+          "revenue"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "transaction_commission": {
+                      "type": "boolean"
+                    },
+                    "delivery_commission": {
+                      "type": "boolean"
+                    },
+                    "sponsored_products": {
+                      "type": "boolean"
+                    },
+                    "featured_sellers": {
+                      "type": "boolean"
+                    },
+                    "local_ads": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "transaction_commission",
+                    "delivery_commission",
+                    "sponsored_products",
+                    "featured_sellers",
+                    "local_ads"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "transaction_commission": {
+                    "type": "boolean"
+                  },
+                  "delivery_commission": {
+                    "type": "boolean"
+                  },
+                  "sponsored_products": {
+                    "type": "boolean"
+                  },
+                  "featured_sellers": {
+                    "type": "boolean"
+                  },
+                  "local_ads": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "transaction_commission",
+                  "delivery_commission",
+                  "sponsored_products",
+                  "featured_sellers",
+                  "local_ads"
                 ]
               }
             }
@@ -6736,6 +8702,384 @@
                     "sort"
                   ],
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/verifications": {
+      "get": {
+        "operationId": "business-verification.listVerifications",
+        "tags": [
+          "business-verification"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "seller_id": {
+                        "type": "string"
+                      },
+                      "business_name": {
+                        "type": "string"
+                      },
+                      "verification_status": {
+                        "type": "string",
+                        "enum": [
+                          "NONE",
+                          "PENDING",
+                          "INFO_REQUESTED",
+                          "VERIFIED",
+                          "REJECTED",
+                          "SUSPENDED",
+                          "EXPIRED"
+                        ]
+                      },
+                      "verification_details": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      },
+                      "verified_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "verification_expires_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "documents": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "filename": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "kind",
+                            "status",
+                            "filename"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "seller_id",
+                      "business_name",
+                      "verification_status",
+                      "verification_details",
+                      "verified_at",
+                      "verification_expires_at",
+                      "documents"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/admin/verifications/{sellerId}": {
+      "post": {
+        "operationId": "business-verification.decideVerification",
+        "tags": [
+          "business-verification"
+        ],
+        "parameters": [
+          {
+            "name": "sellerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "VERIFIED",
+                      "REJECTED",
+                      "INFO_REQUESTED",
+                      "SUSPENDED"
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 1000
+                  },
+                  "valid_months": {
+                    "default": 12,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 36
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/verifications/{sellerId}/history": {
+      "get": {
+        "operationId": "business-verification.verificationHistory",
+        "tags": [
+          "business-verification"
+        ],
+        "parameters": [
+          {
+            "name": "sellerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "note": {
+                        "type": "string"
+                      },
+                      "created_at": {
+                        "type": "string"
+                      },
+                      "actor_name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "status",
+                      "note",
+                      "created_at",
+                      "actor_name"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/ads": {
+      "get": {
+        "operationId": "revenue.serveAds",
+        "tags": [
+          "revenue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "advertiser": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "body": {
+                        "type": "string"
+                      },
+                      "image_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "link_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "cta": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "advertiser",
+                      "title",
+                      "body",
+                      "image_url",
+                      "link_url",
+                      "cta",
+                      "label"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/ads/{id}/click": {
+      "post": {
+        "operationId": "revenue.clickAd",
+        "tags": [
+          "revenue"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "link_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "link_url"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -9159,6 +11503,18 @@
                           "maxLength": 80
                         }
                       },
+                      "commission_bps": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 3000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "updated_at": {
                         "type": "string"
                       }
@@ -10938,6 +13294,73 @@
         }
       }
     },
+    "/v1/disputes/{id}/messages": {
+      "post": {
+        "operationId": "cases.sendCaseMessage",
+        "tags": [
+          "cases"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 4000
+                  }
+                },
+                "required": [
+                  "body"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/disputes/{id}/return": {
       "post": {
         "operationId": "support.updateReturn",
@@ -10991,6 +13414,143 @@
                 "additionalProperties": true
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/disputes/{id}/timeline": {
+      "get": {
+        "operationId": "cases.caseTimeline",
+        "tags": [
+          "cases"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "priority": {
+                      "type": "string",
+                      "enum": [
+                        "LOW",
+                        "NORMAL",
+                        "HIGH",
+                        "URGENT"
+                      ]
+                    },
+                    "assigned_to": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "assigned_name": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "snapshot": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    },
+                    "notes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "MESSAGE",
+                              "INTERNAL",
+                              "UPDATE",
+                              "SYSTEM"
+                            ]
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "author_name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "author_role": {
+                            "type": "string",
+                            "enum": [
+                              "buyer",
+                              "seller",
+                              "staff",
+                              "system"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "body",
+                          "created_at",
+                          "author_id",
+                          "author_name",
+                          "author_role"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "status",
+                    "priority",
+                    "assigned_to",
+                    "assigned_name",
+                    "snapshot",
+                    "notes"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
           }
         }
       }
@@ -11933,6 +14493,89 @@
                 "additionalProperties": true
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/featured-sellers": {
+      "get": {
+        "operationId": "revenue.featuredSellers",
+        "tags": [
+          "revenue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "seller_id": {
+                        "type": "string"
+                      },
+                      "business_name": {
+                        "type": "string"
+                      },
+                      "business_type": {
+                        "type": "string"
+                      },
+                      "area": {
+                        "type": "string"
+                      },
+                      "city": {
+                        "type": "string"
+                      },
+                      "state": {
+                        "type": "string"
+                      },
+                      "verified": {
+                        "type": "boolean"
+                      },
+                      "rating_avg": {
+                        "type": "number"
+                      },
+                      "rating_count": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "products": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "image_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "seller_id",
+                      "business_name",
+                      "business_type",
+                      "area",
+                      "city",
+                      "state",
+                      "verified",
+                      "rating_avg",
+                      "rating_count",
+                      "products",
+                      "image_url"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
           }
         }
       }
@@ -15003,6 +17646,100 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/nearby-sellers": {
+      "get": {
+        "operationId": "business-verification.nearbySellers",
+        "tags": [
+          "business-verification"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "seller_id": {
+                        "type": "string"
+                      },
+                      "business_name": {
+                        "type": "string"
+                      },
+                      "business_type": {
+                        "type": "string"
+                      },
+                      "area": {
+                        "type": "string"
+                      },
+                      "city": {
+                        "type": "string"
+                      },
+                      "state": {
+                        "type": "string"
+                      },
+                      "verified": {
+                        "type": "boolean"
+                      },
+                      "featured": {
+                        "type": "boolean"
+                      },
+                      "rating_avg": {
+                        "type": "number"
+                      },
+                      "rating_count": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "products": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "image_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "distance_km": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "seller_id",
+                      "business_name",
+                      "business_type",
+                      "area",
+                      "city",
+                      "state",
+                      "verified",
+                      "featured",
+                      "rating_avg",
+                      "rating_count",
+                      "products",
+                      "image_url",
+                      "distance_km"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
           }
         }
       }
@@ -18662,6 +21399,9 @@
                           "sponsored": {
                             "type": "boolean"
                           },
+                          "verified": {
+                            "type": "boolean"
+                          },
                           "reasons": {
                             "type": "array",
                             "items": {
@@ -18698,6 +21438,7 @@
                           "delivery_available",
                           "price_checked_at",
                           "sponsored",
+                          "verified",
                           "reasons",
                           "allergen_note"
                         ],
@@ -19081,6 +21822,70 @@
                 "additionalProperties": true
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/promotion-packages": {
+      "get": {
+        "operationId": "revenue.listPackages",
+        "tags": [
+          "revenue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "PRODUCT",
+                          "SELLER"
+                        ]
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "days": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "price_kobo": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "active": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "name",
+                      "days",
+                      "price_kobo",
+                      "active"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
           }
         }
       }
@@ -20688,6 +23493,152 @@
         }
       }
     },
+    "/v1/sellers/me/featured": {
+      "get": {
+        "operationId": "revenue.myFeatured",
+        "tags": [
+          "revenue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "seller_id": {
+                        "type": "string"
+                      },
+                      "days": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "fee_kobo": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "starts_at": {
+                        "type": "string"
+                      },
+                      "ends_at": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "ACTIVE",
+                          "CANCELLED"
+                        ]
+                      },
+                      "refund_kobo": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "running": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "seller_id",
+                      "days",
+                      "fee_kobo",
+                      "starts_at",
+                      "ends_at",
+                      "status",
+                      "refund_kobo",
+                      "running"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "revenue.featureMyShop",
+        "tags": [
+          "revenue"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "ends_in_days": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "fee_kobo": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "ends_in_days",
+                    "fee_kobo"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "package_id": {
+                    "type": "string",
+                    "maxLength": 64
+                  }
+                },
+                "required": [
+                  "package_id"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sellers/me/location": {
       "patch": {
         "operationId": "geography.updateSellerLocation",
@@ -20828,6 +23779,206 @@
           },
           "default": {
             "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/sellers/me/verification": {
+      "get": {
+        "operationId": "business-verification.getMyVerification",
+        "tags": [
+          "business-verification"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "NONE",
+                        "PENDING",
+                        "INFO_REQUESTED",
+                        "VERIFIED",
+                        "REJECTED",
+                        "SUSPENDED",
+                        "EXPIRED"
+                      ]
+                    },
+                    "details": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    },
+                    "verified_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "expires_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "documents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "history": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "note",
+                          "created_at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "requirements": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "means": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "details",
+                    "verified_at",
+                    "expires_at",
+                    "documents",
+                    "history",
+                    "requirements",
+                    "means"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "business-verification.applyForVerification",
+        "tags": [
+          "business-verification"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "const": "PENDING"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "legal_name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 160
+                  },
+                  "registration_number": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "contact_person": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "contact_phone": {
+                    "type": "string",
+                    "minLength": 7,
+                    "maxLength": 20
+                  },
+                  "business_address": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 300
+                  },
+                  "operating_states": {
+                    "default": [],
+                    "maxItems": 37,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 40
+                    }
+                  }
+                },
+                "required": [
+                  "legal_name",
+                  "contact_person",
+                  "contact_phone",
+                  "business_address"
+                ]
+              }
+            }
           }
         }
       }
@@ -23515,6 +26666,12 @@
               {
                 "type": "null"
               }
+            ]
+          },
+          "seller_verified": {
+            "type": [
+              "boolean",
+              "null"
             ]
           },
           "market_id": {

@@ -12,7 +12,8 @@ export type Tab =
   | 'Inbox'
   | 'Account'
   | 'Cart'
-  | 'Planner';
+  | 'Planner'
+  | 'Nearby';
 
 export interface AppState {
   me: any;
@@ -31,6 +32,8 @@ export interface AppState {
   /** Opens a seller's shop page (their listings, reviews and share link). */
   openSeller: (sellerId: string) => void;
   setTab: (tab: Tab) => void;
+  /** Items in the cart, for badges. */
+  cartCount: number;
 }
 
 export const AppContext = createContext<AppState | null>(null);

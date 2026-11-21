@@ -195,6 +195,15 @@ export function createBookingsService(deps: AppDeps) {
     );
     const price = unitPrice(variant as any, d.quantity);
     const [s] = await q.query('SELECT * FROM settings WHERE id=1');
+    // Commission: the category's own rate when set, else the default; none while switched off.
+    const [category] = await q.query(
+      'SELECT commission_bps FROM catalogue_categories WHERE name=$1',
+      [l.category],
+    );
+    const commissionBps =
+      s.monetisation?.transaction_commission === false
+        ? 0
+        : (category?.commission_bps ?? s.commission_bps);
     const total = price * d.quantity;
     ensure(total <= 100000000, 400, 'ORDER_LIMIT', 'Order exceeds the current ₦1,000,000 limit.');
     const [b] = await q.query(
@@ -209,8 +218,8 @@ export function createBookingsService(deps: AppDeps) {
         d.quantity,
         price,
         total,
-        s.commission_bps,
-        Math.round((total * s.commission_bps) / 10000),
+        commissionBps,
+        Math.round((total * commissionBps) / 10000),
         String(randomInt(100000, 1000000)),
       ],
     );

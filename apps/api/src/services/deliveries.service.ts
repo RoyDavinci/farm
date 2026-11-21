@@ -655,7 +655,20 @@ export function createDeliveriesService(deps: AppDeps) {
         await q.query("UPDATE deliveries SET status='DELIVERED',delivered_at=now() WHERE id=$1", [
           d.id,
         ]);
-        const driverShare = Math.round((Number(d.fare_kobo) * (10000 - d.commission_bps)) / 10000);
+        // A delivery partner company's agreed rate applies to its riders; the owner can switch
+        // delivery commission off entirely.
+        const [partner] = await q.query(
+          "SELECT p.id,p.commission_bps FROM drivers dr JOIN delivery_partners p ON p.id=dr.partner_id AND p.status='ACTIVE' WHERE dr.user_id=$1",
+          [d.driver_id],
+        );
+        const [switches] = await q.query('SELECT monetisation FROM settings WHERE id=1');
+        const deliveryBps =
+          switches?.monetisation?.delivery_commission === false
+            ? 0
+            : (partner?.commission_bps ?? d.commission_bps);
+        if (partner)
+          await q.query('UPDATE deliveries SET partner_id=$1 WHERE id=$2', [partner.id, d.id]);
+        const driverShare = Math.round((Number(d.fare_kobo) * (10000 - deliveryBps)) / 10000);
         await ledger(q, b.id, [
           { account: 'escrow', owner: b.id, amount: -Number(b.total_kobo) },
           {

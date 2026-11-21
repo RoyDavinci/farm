@@ -30,6 +30,7 @@ import DiscoveryPanel from './src/DiscoveryPanel';
 import CategoriesScreen from './src/CategoriesScreen';
 import CartScreen from './src/screens/CartScreen';
 import PlannerScreen from './src/screens/PlannerScreen';
+import NearbySellersScreen from './src/screens/NearbySellersScreen';
 import { LanguageProvider, useI18n } from './src/i18n';
 import { onConnectivity } from './src/offline';
 import { onNotificationTap, registerForPush } from './src/push';
@@ -202,6 +203,7 @@ function Main() {
     setNotice('');
   };
   const ctx: AppState = {
+    cartCount,
     me,
     seller,
     settings,
@@ -320,6 +322,7 @@ function Main() {
     );
   else if (tab === 'Drive') screen = <DriveScreen />;
   else if (tab === 'Cart') screen = <CartScreen onChanged={refreshCart} />;
+  else if (tab === 'Nearby') screen = <NearbySellersScreen />;
   else if (tab === 'Planner') screen = <PlannerScreen onCartChanged={refreshCart} />;
   else
     screen = (

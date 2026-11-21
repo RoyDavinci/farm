@@ -97,10 +97,27 @@ export default function BookingCard({
         </View>
       )}
       {isSeller && (
-        <Text style={s.small}>
-          Platform fee: {money(b.commission_kobo)} ({b.commission_bps / 100}
-          %). Your proceeds: {money(b.total_kobo - b.commission_kobo)}.
-        </Text>
+        <View style={s.locationBox}>
+          <View style={s.rowBetween}>
+            <Text style={s.small}>Order total</Text>
+            <Text style={s.small}>{money(b.total_kobo)}</Text>
+          </View>
+          <View style={s.rowBetween}>
+            <Text style={s.small}>
+              Ahia fee {b.commission_bps ? `(${b.commission_bps / 100}%)` : ''}
+            </Text>
+            <Text style={s.small}>
+              {b.commission_kobo ? `− ${money(b.commission_kobo)}` : 'No fee'}
+            </Text>
+          </View>
+          <View style={s.rowBetween}>
+            <Text style={s.bold}>You receive</Text>
+            <Text style={s.bold}>{money(b.total_kobo - b.commission_kobo)}</Text>
+          </View>
+          {b.status === 'REQUESTED' && (
+            <Text style={s.fine}>The fee is only charged if the order completes.</Text>
+          )}
+        </View>
       )}
       {['ACCEPTED', 'READY_FOR_PICKUP', 'COMPLETED'].includes(b.status) && (
         <>

@@ -31,6 +31,21 @@ import { searchInput } from '../src/validators/geography.validators.js';
 import { listingSchema, sellerSchema } from '../src/validators/marketplace.validators.js';
 import { resolveDisputeInput } from '../src/validators/support.validators.js';
 import { checkoutInput } from '../src/services/checkout.service.js';
+import {
+  verificationApplyInput,
+  verificationDecisionInput,
+} from '../src/services/business-verification.service.js';
+import {
+  adInput,
+  adPaymentInput,
+  adStatusInput,
+  featureShopInput,
+  packageInput,
+  partnerDriverInput,
+  partnerInput,
+  switchesInput,
+} from '../src/services/revenue.service.js';
+import { caseAssignInput, caseMessageInput, caseNoteInput } from '../src/services/cases.service.js';
 import { allergenReportInput, allergenReviewInput } from '../src/services/planner-admin.service.js';
 import { cartAddInput, cartCheckoutInput, cartUpdateInput } from '../src/services/cart.service.js';
 import {
@@ -124,6 +139,22 @@ const json = (schema: z.ZodType, io: 'input' | 'output' = 'input') =>
 const bodies: Record<string, Record<string, unknown>> = {
   'wallet.startCheckout': json(checkoutInput),
   'cart.addToCart': json(cartAddInput),
+  'business-verification.applyForVerification': json(verificationApplyInput),
+  'business-verification.decideVerification': json(verificationDecisionInput),
+  'revenue.saveSwitches': json(switchesInput),
+  'revenue.savePackage': json(packageInput),
+  'revenue.updatePackage': json(packageInput),
+  'revenue.featureMyShop': json(featureShopInput),
+  'revenue.saveAd': json(adInput),
+  'revenue.updateAd': json(adInput),
+  'revenue.setAdStatus': json(adStatusInput),
+  'revenue.recordAdPayment': json(adPaymentInput),
+  'revenue.savePartner': json(partnerInput),
+  'revenue.updatePartner': json(partnerInput),
+  'revenue.assignPartnerDriver': json(partnerDriverInput),
+  'cases.sendCaseMessage': json(caseMessageInput),
+  'cases.assignCase': json(caseAssignInput),
+  'cases.addCaseNote': json(caseNoteInput),
   'planner-admin.reportAllergen': json(allergenReportInput),
   'planner-admin.reviewAllergenReport': json(allergenReviewInput),
   'cart.updateLine': json(cartUpdateInput),

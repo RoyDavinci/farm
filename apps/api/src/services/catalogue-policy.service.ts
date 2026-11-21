@@ -10,6 +10,8 @@ export const categoryInput = z.object({
   active: z.boolean(),
   rules: z.string().trim().max(4000).default(''),
   prohibited_terms: z.array(z.string().trim().min(2).max(80)).max(100).default([]),
+  /** Commission for this category in basis points (500 = 5%); null uses the default. */
+  commission_bps: z.number().int().min(0).max(3000).nullable().optional(),
 });
 export const policyInput = z
   .object({
@@ -75,8 +77,8 @@ export function createCataloguePolicyService({ db }: AppDeps) {
   async function saveCategory(q: Query, u: any, i: RequestInput) {
     const d = categoryInput.parse(i.body);
     await q.query(
-      'INSERT INTO catalogue_categories(name,active,rules,prohibited_terms) VALUES($1,$2,$3,$4) ON CONFLICT(name) DO UPDATE SET active=$2,rules=$3,prohibited_terms=$4,updated_at=now()',
-      [d.name, d.active, d.rules, JSON.stringify(d.prohibited_terms)],
+      'INSERT INTO catalogue_categories(name,active,rules,prohibited_terms,commission_bps) VALUES($1,$2,$3,$4,$5) ON CONFLICT(name) DO UPDATE SET active=$2,rules=$3,prohibited_terms=$4,commission_bps=$5,updated_at=now()',
+      [d.name, d.active, d.rules, JSON.stringify(d.prohibited_terms), d.commission_bps ?? null],
     );
     await audit(q, u.id, 'catalogue.category', d.name, d);
     return { ok: true };

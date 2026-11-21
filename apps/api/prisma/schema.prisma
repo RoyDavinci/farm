@@ -150,6 +150,7 @@ model Delivery {
   users_deliveries_driver_idTousers User?                 @relation("deliveries_driver_idTousers", fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users_deliveries_seller_idTousers User                  @relation("deliveries_seller_idTousers", fields: [seller_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vehicle_types                     VehicleType           @relation(fields: [vehicle_type], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  partner_id                        String?
 
   @@index([driver_id, created_at], map: "deliveries_driver_idx")
   @@index([status], map: "deliveries_open_idx", where: raw("(status = 'OPEN'::text)"))
@@ -190,6 +191,12 @@ model Dispute {
   dispute_evidence         DisputeEvidence[]
   bookings                 Booking           @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users                    User              @relation(fields: [opened_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assigned_to              String?
+  /// LOW, NORMAL, HIGH or URGENT.
+  priority                 String            @default("NORMAL")
+  /// Seller, listing and price frozen when the case was opened.
+  snapshot                 Json              @default("{}")
+  updated_at               DateTime          @default(now()) @db.Timestamptz(6)
 
   @@map("disputes")
 }
@@ -212,6 +219,7 @@ model Driver {
   created_at          DateTime    @default(now()) @db.Timestamptz(6)
   users               User        @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vehicle_types       VehicleType @relation(fields: [vehicle_type], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  partner_id          String?
 
   @@map("drivers")
 }
@@ -576,6 +584,7 @@ model Promotion {
   created_at    DateTime @default(now()) @db.Timestamptz(6)
   listings      Listing  @relation(fields: [listing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users         User     @relation(fields: [seller_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  package_id    String?
 
   @@index([listing_id, ends_at], map: "promotions_active_idx", where: raw("(status = 'ACTIVE'::text)"))
   @@map("promotions")
@@ -676,33 +685,39 @@ model VerificationDocument {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model Seller {
-  profile_details  Json              @default("{}")
-  status_boosts    StatusBoost[]
-  local_statuses   LocalStatus[]
-  state            String            @default("")
-  lga              String            @default("")
-  user_id          String            @id
-  business_name    String
-  business_type    String
-  city             String
-  area             String
-  address          String
-  status           String            @default("PENDING")
-  reason           String?
-  created_at       DateTime          @default(now()) @db.Timestamptz(6)
-  latitude         Float?
-  longitude        Float?
-  public_latitude  Float?
-  public_longitude Float?
-  market_id        String?
-  bookings         Booking[]
-  conversations    Conversation[]
-  favourites       Favourite[]
-  listings         Listing[]
-  location_history LocationHistory[]
-  ratings          Rating[]
-  markets          Market?           @relation(fields: [market_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users            User              @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_details          Json              @default("{}")
+  status_boosts            StatusBoost[]
+  local_statuses           LocalStatus[]
+  state                    String            @default("")
+  lga                      String            @default("")
+  user_id                  String            @id
+  business_name            String
+  business_type            String
+  city                     String
+  area                     String
+  address                  String
+  status                   String            @default("PENDING")
+  reason                   String?
+  created_at               DateTime          @default(now()) @db.Timestamptz(6)
+  latitude                 Float?
+  longitude                Float?
+  public_latitude          Float?
+  public_longitude         Float?
+  market_id                String?
+  bookings                 Booking[]
+  conversations            Conversation[]
+  favourites               Favourite[]
+  listings                 Listing[]
+  location_history         LocationHistory[]
+  ratings                  Rating[]
+  markets                  Market?           @relation(fields: [market_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                    User              @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// NONE, PENDING, INFO_REQUESTED, VERIFIED, REJECTED, SUSPENDED or EXPIRED. Never set by payment.
+  verification_status      String            @default("NONE")
+  verification_details     Json              @default("{}")
+  verified_at              DateTime?         @db.Timestamptz(6)
+  verification_expires_at  DateTime?         @db.Timestamptz(6)
+  verification_reviewed_by String?
 
   @@index([public_latitude, public_longitude], map: "seller_public_geo_idx")
   @@map("sellers")
@@ -738,6 +753,8 @@ model Setting {
   delivery_commission_bps  Int     @default(1000)
   delivery_radius_km       Int     @default(15)
   pay_on_delivery_enabled  Boolean @default(false)
+  /// Owner switches for commissions and paid features.
+  monetisation             Json    @default("{\"transaction_commission\":true,\"delivery_commission\":true,\"sponsored_products\":true,\"featured_sellers\":true,\"local_ads\":true}")
 
   @@map("settings")
 }
@@ -1068,6 +1085,8 @@ model catalogue_categories {
   rules            String   @default("")
   prohibited_terms Json     @default("[]")
   updated_at       DateTime @default(now()) @db.Timestamptz(6)
+  /// Category commission in basis points; null uses the default rate.
+  commission_bps   Int?
 }
 
 model delivery_incidents {
@@ -1457,4 +1476,117 @@ model AllergenReport {
   @@index([status, created_at], map: "allergen_reports_status_idx")
   @@index([reporter_id, created_at(sort: Desc)], map: "allergen_reports_reporter_idx")
   @@map("allergen_reports")
+}
+
+// Revenue, verification and case management (migration 20261122120000). Raw-SQL tables; foreign
+// keys live in SQL.
+model VerificationEvent {
+  id         String   @id
+  seller_id  String
+  status     String
+  note       String   @default("")
+  actor_id   String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([seller_id, created_at(sort: Desc)], map: "verification_events_seller_idx")
+  @@map("verification_events")
+}
+
+model PromotionPackage {
+  id         String   @id
+  /// PRODUCT or SELLER.
+  kind       String
+  name       String
+  days       Int
+  price_kobo BigInt
+  active     Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("promotion_packages")
+}
+
+model FeaturedSeller {
+  id            String   @id
+  seller_id     String
+  package_id    String?
+  days          Int
+  fee_kobo      BigInt
+  starts_at     DateTime @default(now()) @db.Timestamptz(6)
+  ends_at       DateTime @db.Timestamptz(6)
+  status        String   @default("ACTIVE")
+  cancel_reason String?
+  refund_kobo   BigInt   @default(0)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([status, ends_at], map: "featured_sellers_active_idx")
+  @@map("featured_sellers")
+}
+
+model AdCampaign {
+  id            String   @id
+  advertiser    String
+  contact_name  String   @default("")
+  contact_phone String   @default("")
+  contact_email String   @default("")
+  title         String
+  body          String   @default("")
+  image_url     String?
+  link_url      String?
+  cta           String   @default("Learn more")
+  states        String[] @default([])
+  lgas          String[] @default([])
+  categories    String[] @default([])
+  starts_at     DateTime @db.Timestamptz(6)
+  ends_at       DateTime @db.Timestamptz(6)
+  price_kobo    BigInt
+  paid_kobo     BigInt   @default(0)
+  /// DRAFT, ACTIVE, PAUSED or ENDED.
+  status        String   @default("DRAFT")
+  impressions   Int      @default(0)
+  clicks        Int      @default(0)
+  created_by    String?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([status, starts_at, ends_at], map: "ad_campaigns_live_idx")
+  @@map("ad_campaigns")
+}
+
+model AdPayment {
+  id          String   @id
+  campaign_id String
+  amount_kobo BigInt
+  reference   String
+  recorded_by String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("ad_payments")
+}
+
+model DeliveryPartner {
+  id             String   @id
+  name           String
+  contact_name   String   @default("")
+  phone          String   @default("")
+  email          String   @default("")
+  states         String[] @default([])
+  commission_bps Int
+  /// ACTIVE or PAUSED.
+  status         String   @default("ACTIVE")
+  notes          String   @default("")
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("delivery_partners")
+}
+
+model CaseNote {
+  id         String   @id
+  dispute_id String
+  author_id  String?
+  /// MESSAGE, INTERNAL, UPDATE or SYSTEM.
+  kind       String
+  body       String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([dispute_id, created_at], map: "case_notes_dispute_idx")
+  @@map("case_notes")
 }

@@ -19,6 +19,10 @@ import {
   type Seller,
 } from '@ahia/shared';
 import {
+  Handshake,
+  Newspaper,
+  ChartColumn,
+  BadgeCheck,
   ClipboardList,
   ShieldAlert,
   ArrowLeftRight,
@@ -78,6 +82,12 @@ import OverviewPage from './pages/OverviewPage';
 import PayoutsPage from './pages/PayoutsPage';
 import RefundsPage from './pages/RefundsPage';
 import { AllergenReportsPage, PlannerUsagePage } from './pages/PlannerPages';
+import {
+  AdvertisingPage,
+  DeliveryPartnersPage,
+  RevenuePage,
+  VerificationsPage,
+} from './pages/BusinessPages';
 import PromotionsPage from './pages/PromotionsPage';
 import SellersPage from './pages/SellersPage';
 import SettingsPage from './pages/SettingsPage';
@@ -123,6 +133,10 @@ const pageArea: Record<Page, string> = {
   Refunds: 'refunds',
   Planner: 'planner',
   'Allergen reports': 'allergen-reports',
+  Verifications: 'verifications',
+  Revenue: 'revenue',
+  Advertising: 'ads',
+  'Delivery partners': 'delivery-partners',
   Promotions: 'promotions',
   Drivers: 'drivers',
   Deliveries: 'deliveries',
@@ -138,6 +152,7 @@ const pageFeature: Partial<Record<Page, keyof NonNullable<MarketSettings['featur
   'Local Status': 'local_status',
   'Status boosts': 'local_status',
   Promotions: 'promotions',
+  Advertising: 'promotions',
   Markets: 'market_maps',
 };
 // Sidebar sections, in order. Overview first; each page has a distinct icon.
@@ -160,6 +175,7 @@ const navGroups: { label: string; items: (readonly [Page, LucideIcon])[] }[] = [
     items: [
       ['Drivers', Bike],
       ['Deliveries', Truck],
+      ['Delivery partners', Handshake],
       ['Parcels', Boxes],
       ['Shopping', ShoppingCart],
       ['Returns', Undo2],
@@ -171,17 +187,20 @@ const navGroups: { label: string; items: (readonly [Page, LucideIcon])[] }[] = [
   {
     label: 'Money',
     items: [
+      ['Revenue', ChartColumn],
       ['Payouts', Banknote],
       ['Refunds', RotateCcw],
       ['Reconciliation', ArrowLeftRight],
       ['Ledger', Wallet],
       ['Promotions', Megaphone],
+      ['Advertising', Newspaper],
     ],
   },
   {
     label: 'Trust & community',
     items: [
       ['Users', Users],
+      ['Verifications', BadgeCheck],
       ['Reports', Flag],
       ['Allergen reports', ShieldAlert],
       ['Disputes', Gavel],
@@ -466,6 +485,10 @@ function App() {
                       Payouts: 'Review seller withdrawals and send bank transfers.',
                       Refunds: 'Refunds sent back to buyers’ cards, and any that need a check.',
                       Planner: 'How customers plan: types, products matched, orders and budgets.',
+                      Verifications: 'Check businesses before they get the Verified badge.',
+                      Revenue: 'Income by stream, revenue switches and promotion prices.',
+                      Advertising: 'Adverts from local businesses and featured shops.',
+                      'Delivery partners': 'Logistics companies, their riders and agreed rates.',
                       'Allergen reports':
                         'Missing or wrong allergen information reported by buyers.',
                       Promotions: 'Sponsored listings, clearly labelled for buyers.',
@@ -530,6 +553,10 @@ function App() {
             {page === 'Payouts' && <PayoutsPage />}
             {page === 'Refunds' && <RefundsPage />}
             {page === 'Planner' && <PlannerUsagePage />}
+            {page === 'Verifications' && <VerificationsPage />}
+            {page === 'Revenue' && <RevenuePage />}
+            {page === 'Advertising' && <AdvertisingPage />}
+            {page === 'Delivery partners' && <DeliveryPartnersPage />}
             {page === 'Allergen reports' && <AllergenReportsPage />}
             {page === 'Promotions' && <PromotionsPage />}
             {page === 'Staff' && <StaffPage />}

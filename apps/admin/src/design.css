@@ -534,3 +534,128 @@ tr.urgent-row td {
   max-width: 46ch;
   white-space: pre-wrap;
 }
+
+/* Complaint case management */
+.case-management {
+  display: grid;
+  gap: 14px;
+  margin: 14px 0 22px;
+}
+.case-controls {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.case-controls label {
+  min-width: 200px;
+}
+.case-snapshot {
+  background: var(--brand-tint, #eef1fa);
+  border-radius: 14px;
+  padding: 12px 16px;
+}
+.case-snapshot dl {
+  margin: 0;
+}
+.case-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.case-note {
+  border-left: 4px solid #c9d2ea;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.case-note span {
+  color: #6b7390;
+  font-size: 12px;
+}
+.case-note p {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+}
+.case-note.internal {
+  border-left-color: var(--accent);
+  background: #fff8ec;
+}
+.case-note.update {
+  border-left-color: var(--brand);
+}
+.case-note.system {
+  border-left-color: #9aa1b5;
+  background: #f6f7fb;
+}
+label.inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-direction: row;
+}
+.badge.priority-urgent {
+  background: #fbe1dd;
+  color: #a33e32;
+}
+.badge.priority-high {
+  background: #fff1d6;
+  color: #8a5a00;
+}
+.badge.priority-normal {
+  background: #e6eaf6;
+  color: #26408f;
+}
+.badge.priority-low {
+  background: #eef0f4;
+  color: #5d6684;
+}
+
+/* Revenue and business pages */
+.share-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: #eef0f5;
+  overflow: hidden;
+  min-width: 120px;
+}
+.share-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand), var(--accent));
+}
+.switch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+.switch-row {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid #e2e6f0;
+  border-radius: 14px;
+  background: #fff;
+}
+.switch-row input {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+}
+.switch-row span {
+  display: grid;
+  gap: 2px;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.form-grid .row-actions {
+  grid-column: 1 / -1;
+}

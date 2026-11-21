@@ -124,6 +124,8 @@ export const Listing = z
     search_price: kobo.nullish(),
     rating_avg: z.number().nullish(),
     rating_count: z.number().int().nullish(),
+    /** The seller passed business verification (identity, contact, location). Never paid for. */
+    seller_verified: z.boolean().nullish(),
     market_id: z.string().nullish(),
     business_name: z.string(),
     city: z.string(),

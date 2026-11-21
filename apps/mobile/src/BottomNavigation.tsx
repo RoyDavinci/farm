@@ -17,7 +17,9 @@ import type { Tab } from './AppContext';
 import { useI18n } from './i18n';
 
 const primary: Tab[] = ['Market', 'Categories', 'Bookings', 'Wallet'];
-const extra: { tab: Exclude<Tab, 'Market' | 'Categories' | 'Bookings' | 'Wallet' | 'Cart'> }[] = [
+const extra: {
+  tab: Exclude<Tab, 'Market' | 'Categories' | 'Bookings' | 'Wallet' | 'Cart' | 'Nearby'>;
+}[] = [
   { tab: 'Planner' },
   { tab: 'Sell' },
   { tab: 'Riders' },

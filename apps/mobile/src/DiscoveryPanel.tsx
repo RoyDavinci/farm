@@ -1,5 +1,7 @@
 import LocalStatusFeed from './LocalStatusFeed';
 import { FadeIn, PressScale, produceIcon } from './ui';
+import { VerifiedBadge } from './BusinessTools';
+import { Linking } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useApp } from './AppContext';
 import { featureOn } from './features';
@@ -22,7 +24,20 @@ export default function DiscoveryPanel({
   category: string;
   onCategory: (category: string) => void;
 }) {
-  const { settings, setTab } = useApp();
+  const { settings, setTab, openSeller, cartCount, run } = useApp();
+  const [featured, setFeatured] = useState<any[]>([]),
+    [ads, setAds] = useState<any[]>([]),
+    [adPage, setAdPage] = useState(0),
+    [adWidth, setAdWidth] = useState(0);
+  useEffect(() => {
+    if (!featureOn(settings, 'promotions')) return;
+    void request('get', '/featured-sellers', { query: {} })
+      .then(setFeatured)
+      .catch(() => {});
+    void request('get', '/ads', { query: { limit: 3, ...(category ? { category } : {}) } })
+      .then(setAds)
+      .catch(() => {});
+  }, [settings, refreshVersion, category]);
   const [q, setQ] = useState(''),
     [city, setCity] = useState(''),
     [area, setArea] = useState(''),
@@ -228,6 +243,48 @@ export default function DiscoveryPanel({
         </Pressable>
       </View>
 
+      <View style={s.quickRow}>
+        {(
+          [
+            ['🛒', 'My cart', '#e9f6ef', () => setTab('Cart'), cartCount],
+            ['📍', 'Nearby sellers', '#e6ecfb', () => setTab('Nearby'), 0],
+            [
+              '🛵',
+              'Request delivery',
+              '#fde9d9',
+              () =>
+                featureOn(settings, 'parcels') || featureOn(settings, 'shopping')
+                  ? setTab('Riders')
+                  : void run(
+                      async () => setTab('Bookings'),
+                      'To get an order delivered, open it here and tap Request delivery once the seller accepts.',
+                    ),
+              0,
+            ],
+            ['🏪', 'Start selling', BRAND, () => setTab('Sell'), 0],
+          ] as const
+        ).map(([icon, label, bg, go, count], i) => (
+          <PressScale
+            key={label}
+            accessibilityRole="button"
+            accessibilityLabel={count ? `${label}, ${count} items` : label}
+            onPress={go}
+            wrapStyle={{ flex: 1 }}
+            style={[s.quick, { backgroundColor: bg }]}
+          >
+            <Text style={s.quickIcon}>{icon}</Text>
+            <Text style={[s.quickText, i === 3 && { color: '#fff' }]} numberOfLines={2}>
+              {label}
+            </Text>
+            {count > 0 && (
+              <View style={s.quickBadge}>
+                <Text style={s.quickBadgeText}>{count > 99 ? '99+' : count}</Text>
+              </View>
+            )}
+          </PressScale>
+        ))}
+      </View>
+
       {featureOn(settings, 'local_status') ? (
         <LocalStatusFeed
           point={point}
@@ -237,6 +294,61 @@ export default function DiscoveryPanel({
         />
       ) : (
         aside && <View style={{ height: 230 }}>{aside}</View>
+      )}
+
+      {!!ads.length && (
+        <View style={{ gap: 8 }}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e) =>
+              setAdPage(
+                Math.round(
+                  e.nativeEvent.contentOffset.x /
+                    Math.max(1, e.nativeEvent.layoutMeasurement.width),
+                ),
+              )
+            }
+            onLayout={(e) => setAdWidth(e.nativeEvent.layout.width)}
+            style={s.adScroller}
+          >
+            {ads.map((a) => (
+              <Pressable
+                key={a.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Advertisement from ${a.advertiser}: ${a.title}`}
+                onPress={() =>
+                  void request('post', '/ads/{id}/click', { params: { id: a.id } })
+                    .then((r) => {
+                      if (r.link_url) void Linking.openURL(r.link_url);
+                    })
+                    .catch(() => {})
+                }
+                style={[s.adSlide, { width: adWidth || 340 }]}
+              >
+                {a.image_url ? (
+                  <Image source={{ uri: a.image_url }} style={s.adBanner} resizeMode="cover" />
+                ) : (
+                  <View style={[s.adBanner, s.adFallback]}>
+                    <Text style={s.adTitle}>{a.title}</Text>
+                    {!!a.body && <Text style={s.adBody}>{a.body}</Text>}
+                  </View>
+                )}
+                <View style={s.adPill}>
+                  <Text style={s.adPillText}>Ad · {a.advertiser}</Text>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+          {ads.length > 1 && (
+            <View style={s.dots}>
+              {ads.map((a, i) => (
+                <View key={a.id} style={[s.dot, i === adPage && s.dotOn]} />
+              ))}
+            </View>
+          )}
+        </View>
       )}
 
       {error && (
@@ -404,6 +516,62 @@ export default function DiscoveryPanel({
         </Text>
       )}
 
+      {!!featured.length && (
+        <>
+          <View style={s.sectionHead}>
+            <Text style={s.sectionTitle}>⭐ Featured shops</Text>
+            <Text style={s.small}>Paid placement</Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.dealRail}
+          >
+            {featured.map((f, i) => (
+              <FadeIn key={f.seller_id} delay={Math.min(i, 6) * 60}>
+                <PressScale
+                  accessibilityRole="button"
+                  accessibilityLabel={`Featured shop ${f.business_name}`}
+                  onPress={() => openSeller(f.seller_id)}
+                  style={s.shopCard}
+                >
+                  <View style={s.shopPicture}>
+                    {f.image_url ? (
+                      <Image
+                        source={{ uri: f.image_url }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Text style={{ fontSize: 34 }}>🏪</Text>
+                    )}
+                    <View style={s.featuredTag}>
+                      <Text style={s.featuredTagText}>Featured</Text>
+                    </View>
+                  </View>
+                  <View style={{ padding: 10, gap: 3 }}>
+                    <Text numberOfLines={1} style={s.dealTitle}>
+                      {f.business_name}
+                    </Text>
+                    <Text numberOfLines={1} style={s.small}>
+                      {f.area}, {f.city} · {f.products} products
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {f.rating_count > 0 && (
+                        <Text style={s.rating}>
+                          <Text style={{ color: ACCENT }}>★</Text> {Number(f.rating_avg).toFixed(1)}
+                        </Text>
+                      )}
+                      {f.verified && <VerifiedBadge small />}
+                    </View>
+                  </View>
+                </PressScale>
+              </FadeIn>
+            ))}
+          </ScrollView>
+        </>
+      )}
+
       <PressScale
         accessibilityRole="button"
         accessibilityLabel="Open My Planner"
@@ -512,6 +680,7 @@ function DealCard({
           <Text style={s.dealUnit}>{unitLabel(l.unit)}</Text>
         </Text>
         <View style={s.dealFoot}>
+          {l.seller_verified && <VerifiedBadge small />}
           <Text numberOfLines={1} style={s.rating}>
             {l.rating_count ? (
               <>
@@ -721,6 +890,74 @@ const s = StyleSheet.create({
     borderColor: '#f8dca6',
   },
   riderEmoji: { fontSize: 30 },
+  quickRow: { flexDirection: 'row', gap: 8 },
+  quick: {
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 86,
+    justifyContent: 'center',
+  },
+  quickIcon: { fontSize: 26 },
+  quickText: { fontSize: 12, fontWeight: '800', color: INK, textAlign: 'center' },
+  quickBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 8,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#d63a2c',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  quickBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
+  adScroller: { borderRadius: 18 },
+  adSlide: { borderRadius: 18, overflow: 'hidden' },
+  adBanner: { width: '100%', aspectRatio: 2, borderRadius: 18, backgroundColor: '#eef1fa' },
+  adFallback: { padding: 18, justifyContent: 'center', gap: 6 },
+  adPill: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: 'rgba(12,18,40,0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  adPillText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#cfd5e6' },
+  dotOn: { width: 18, backgroundColor: BRAND },
+  shopCard: {
+    width: 170,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e2e6f0',
+    overflow: 'hidden',
+  },
+  shopPicture: {
+    height: 96,
+    backgroundColor: '#eef1fa',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featuredTag: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: ACCENT,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  featuredTagText: { fontSize: 10, fontWeight: '900', color: '#3b2600' },
+  adTitle: { fontSize: 15, fontWeight: '800', color: INK },
+  adBody: { fontSize: 12, color: '#5d6684', lineHeight: 17 },
   plannerPromo: {
     flexDirection: 'row',
     alignItems: 'center',

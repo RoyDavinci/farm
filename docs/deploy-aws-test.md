@@ -35,8 +35,8 @@ aws ec2 authorize-security-group-ingress --region eu-west-2 --group-id sg-05df7c
 Docker Compose runs `postgres`, `redis`, `migrate` (runs before each release), `api`, `worker`,
 `caddy` and `coturn`. Uploads, the database, Redis and certificates live in Docker volumes and survive releases.
 
-Settings: `NODE_ENV=production`, `PILOT_MODE=true` with voice calls and Local Status (stories) switched
-back on (`FEATURE_VOICE`, `FEATURE_LOCAL_STATUS`), Paystack/Flutterwave **test** keys, Gmail SMTP,
+Settings: `NODE_ENV=production`, `PILOT_MODE=true` with voice calls, Local Status (stories) and paid promotions
+switched back on (`FEATURE_VOICE`, `FEATURE_LOCAL_STATUS`, `FEATURE_PROMOTIONS`), Paystack/Flutterwave **test** keys, Gmail SMTP,
 uploads on the server disk. Secrets are generated once into `deploy/.env.test` (git-ignored) by
 `node deploy/make-env.mjs`.
 

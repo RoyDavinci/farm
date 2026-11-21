@@ -313,7 +313,7 @@ export function createCommunicationsService(deps: AppDeps) {
   }
   async function getSellerProfile(user: any, input: RequestInput) {
     const [s] = await db.query(
-      "SELECT s.user_id,s.business_name,s.business_type,s.city,s.area,(SELECT ROUND(AVG(score),1) FROM ratings WHERE seller_id=s.user_id) AS rating_avg,(SELECT COUNT(*)::int FROM ratings WHERE seller_id=s.user_id) AS rating_count FROM sellers s WHERE s.user_id=$1 AND s.status='APPROVED'",
+      "SELECT s.user_id,s.business_name,s.business_type,s.city,s.area,(s.verification_status='VERIFIED' AND s.verification_expires_at>now()) AS verified,(SELECT ROUND(AVG(score),1) FROM ratings WHERE seller_id=s.user_id) AS rating_avg,(SELECT COUNT(*)::int FROM ratings WHERE seller_id=s.user_id) AS rating_count FROM sellers s WHERE s.user_id=$1 AND s.status='APPROVED'",
       [input.params.id],
     );
     ensure(s, 404, 'NOT_FOUND', 'Seller not found.');
