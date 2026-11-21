@@ -1,7 +1,9 @@
 /**
  * Loads the demo catalogue (sellers, products with photos, stories) into a TEST environment.
  *
- *   DEMO_CATALOG=yes node dist/database/demo-catalog.js <photos folder>     add (safe to re-run)
+ *   DEMO_CATALOG=yes node dist/database/demo-catalog.js <photos folder>     add sellers, products,
+ *                                                                          stories and reviews
+ *                                                                          (safe to re-run)
  *   DEMO_CATALOG=yes node dist/database/demo-catalog.js --refresh-stories   bring stories back
  *   DEMO_CATALOG=yes node dist/database/demo-catalog.js --remove            delete all demo data
  *
@@ -50,6 +52,8 @@ async function remove() {
     [ids],
   );
   await db.transaction(async (q) => {
+    await q.query('DELETE FROM ratings WHERE seller_id=ANY($1) OR buyer_id=ANY($1)', [ids]);
+    await q.query('DELETE FROM bookings WHERE seller_id=ANY($1) OR buyer_id=ANY($1)', [ids]);
     await q.query('DELETE FROM local_statuses WHERE seller_id=ANY($1)', [ids]);
     await q.query(
       'DELETE FROM listing_variants WHERE listing_id IN (SELECT id FROM listings WHERE seller_id=ANY($1))',
@@ -63,7 +67,9 @@ async function remove() {
   for (const m of media)
     for (const key of [m.storage_key, m.thumbnail_key])
       if (key) await store.remove(key).catch(() => {});
-  console.log(`Removed ${ids.length} demo sellers, their products, photos and stories.`);
+  console.log(
+    `Removed ${ids.length} demo accounts with their products, photos, stories, orders and reviews.`,
+  );
 }
 
 async function savePhoto(owner: string, file: string) {
@@ -221,12 +227,115 @@ async function add(photos: string) {
   );
 }
 
+const buyers = [
+  'Tunde Adebayo',
+  'Chioma Okeke',
+  'Ibrahim Sani',
+  'Yetunde Ogunleye',
+  'Obinna Nnaji',
+  'Halima Yusuf',
+  'Femi Ajayi',
+  'Ngozi Ibe',
+  'Kunle Afolabi',
+  'Aisha Mohammed',
+  'Uche Okafor',
+  'Bukola Salami',
+];
+const praise: Record<number, string[]> = {
+  5: [
+    'Exactly as described. Fast response and very polite seller.',
+    'Top quality! I will definitely buy again.',
+    'Delivered same day, well packed. Thank you!',
+    'Fair price and honest seller. Highly recommended.',
+    'Very fresh and neat. My family loved it.',
+    'Seller even added a little extra. God bless your business!',
+    'Smooth pickup, everything was ready when I arrived.',
+    'Original product, no stories. Five stars.',
+  ],
+  4: [
+    'Good quality, delivery was a bit late but the seller kept me updated.',
+    'Nice product. Price is fair for the quality.',
+    'Happy with it. Packaging could be better.',
+    'Good seller, responds quickly on chat.',
+    'Satisfied. Will patronise again.',
+  ],
+  3: ['Okay, but not as big as I expected.', 'Product was fine, pickup took longer than planned.'],
+};
+
+/** Demo buyers, past orders and reviews, so sellers show star ratings. Skips sellers already rated. */
+async function addReviews() {
+  const hash = await bcrypt.hash(randomBytes(24).toString('hex'), 12);
+  const buyerIds: string[] = [];
+  for (const [i, name] of buyers.entries()) {
+    const email = `buyer-${i + 1}@${DOMAIN}`;
+    await db.query(
+      'INSERT INTO users(id,name,email,phone,password_hash,email_verified_at) VALUES($1,$2,$3,$4,$5,now()) ON CONFLICT(email) DO NOTHING',
+      [randomUUID(), name, email, `+2348098${String(100000 + i).slice(-6)}`, hash],
+    );
+    const [u] = await db.query('SELECT id FROM users WHERE email=$1', [email]);
+    buyerIds.push(u.id);
+  }
+  let total = 0;
+  for (const [index, s] of demoSellers.entries()) {
+    const [seller] = await db.query('SELECT id FROM users WHERE email=$1', [`${s.key}@${DOMAIN}`]);
+    if (!seller) continue;
+    const [rated] = await db.query('SELECT 1 FROM ratings WHERE seller_id=$1 LIMIT 1', [seller.id]);
+    if (rated) continue;
+    const listings = await db.query(
+      'SELECT l.id,l.title,l.unit,v.id AS variant_id,v.name AS variant_name,v.price_kobo FROM listings l JOIN listing_variants v ON v.listing_id=l.id AND v.is_primary WHERE l.seller_id=$1 ORDER BY l.created_at',
+      [seller.id],
+    );
+    if (!listings.length) continue;
+    // 5 to 12 reviews per seller; mostly 5 and 4 stars, the odd 3.
+    const count = 5 + ((index * 7) % 8);
+    await db.transaction(async (q) => {
+      for (let k = 0; k < count; k++) {
+        const l = listings[(k * 3 + index) % listings.length];
+        const buyer = buyerIds[(k + index * 5) % buyerIds.length];
+        const roll = (k * 13 + index * 5) % 10;
+        const score = roll < 6 ? 5 : roll < 9 ? 4 : 3;
+        const pool = praise[score];
+        const quantity = 1 + ((k + index) % 3);
+        const days = 2 + ((k * 11 + index * 3) % 60);
+        const booking = randomUUID();
+        await q.query(
+          `INSERT INTO bookings(id,buyer_id,seller_id,listing_id,title,unit,quantity,price_kobo,total_kobo,commission_bps,commission_kobo,
+             status,paid,pickup_code,created_at,variant_id,variant_name)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,0,0,'COMPLETED',FALSE,$10,now()-$11::int*interval '1 day',$12,$13)`,
+          [
+            booking,
+            buyer,
+            seller.id,
+            l.id,
+            l.title,
+            l.unit,
+            quantity,
+            l.price_kobo,
+            l.price_kobo * quantity,
+            String(100000 + ((k * 7919 + index * 104729) % 900000)),
+            days,
+            l.variant_id,
+            l.variant_name,
+          ],
+        );
+        await q.query(
+          "INSERT INTO ratings(id,booking_id,buyer_id,seller_id,score,comment,created_at) VALUES($1,$2,$3,$4,$5,$6,now()-$7::int*interval '1 day'+interval '20 hours')",
+          [randomUUID(), booking, buyer, seller.id, score, pool[(k + index) % pool.length], days],
+        );
+        total++;
+      }
+    });
+  }
+  console.log(`Reviews: ${total} new (demo buyers' past orders are marked completed and unpaid).`);
+}
+
 try {
   if (args.includes('--remove')) await remove();
   else if (args.includes('--refresh-stories')) await refreshStories();
   else {
     if (!args[0]) throw new Error('Pass the folder that holds the demo photos.');
     await add(args[0]);
+    await addReviews();
   }
 } finally {
   await db.close();

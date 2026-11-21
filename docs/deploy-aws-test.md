@@ -116,8 +116,10 @@ aws ec2 delete-key-pair --region $REGION --key-name zuru-test
 
 ## Demo catalogue
 
-13 demo sellers around Lagos with 104 products (drawn product pictures) and 19 stories, so the app
-has something to show. Demo accounts use `@demo.ahia.example` and cannot sign in.
+13 demo sellers around Lagos with 104 products (drawn product pictures), 19 stories and 115 reviews
+from 12 demo buyers, so the app has something to show. Each review belongs to a past order that is
+marked completed and unpaid (no money moved). Demo accounts use `@demo.ahia.example` and cannot sign
+in.
 
 ```bash
 node deploy/demo/draw-photos.mjs   # draws deploy/demo/photos/*.jpg (git-ignored)
