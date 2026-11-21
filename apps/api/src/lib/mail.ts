@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import nodemailer from 'nodemailer';
 import type { Config } from '../config/index.js';
+import { emailLogoAttachment, type Email } from './email-templates.js';
 import { AppError } from './errors.js';
 import { logger } from './logger.js';
 export function mailer(c: Config) {
@@ -21,7 +22,9 @@ export function mailer(c: Config) {
       : { streamTransport: true, buffer: true, newline: 'unix' },
   );
   return {
-    async send(to: string, subject: string, text: string) {
+    /** Sends a branded email (HTML with a plain-text alternative). */
+    async send(to: string, email: Email) {
+      const { subject, text, html } = email;
       if (smtp && (!c.smtpHost || !c.mailFrom))
         throw new AppError(
           503,
@@ -36,6 +39,8 @@ export function mailer(c: Config) {
           to,
           subject,
           text,
+          html,
+          attachments: [emailLogoAttachment()],
         });
         if (!smtp) {
           const folder = join(c.dataDir, 'mail');

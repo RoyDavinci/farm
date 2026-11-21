@@ -1194,6 +1194,56 @@ describe('operations', () => {
     expect(ready.body.backlog.email_late).toBe(0);
   });
 });
+describe('password reset', () => {
+  const newestMail = () => {
+    const folder = join(mailDir, 'mail');
+    // Undo quoted-printable soft line breaks.
+    return readFileSync(join(folder, readdirSync(folder).sort().at(-1)!), 'utf8').replace(
+      /=\r?\n/g,
+      '',
+    );
+  };
+  it('tells an address with no account so, instead of pretending to reset it', async () => {
+    const r = await request(app)
+      .post('/v1/auth/password/forgot')
+      .send({ email: 'nobody@test.com' });
+    // Same response as for a real account, so the form can't be used to find accounts.
+    expect(r.status).toBe(202);
+    expect(r.body.challenge_id).toBeTruthy();
+    const mail = newestMail();
+    expect(mail).toContain('no Zuru account uses this email address');
+    expect(mail).not.toMatch(/code is \d{6}/);
+    // Even with a guessed code, completing it never reports a reset.
+    const [otp] = await db.query('SELECT id FROM otp_challenges WHERE id=$1', [
+      r.body.challenge_id,
+    ]);
+    await db.query('UPDATE otp_challenges SET code_hash=$1 WHERE id=$2', [
+      createHmac('sha256', c.otpSecret).update(`${otp.id}:123456`).digest('hex'),
+      otp.id,
+    ]);
+    const done = await request(app)
+      .post('/v1/auth/otp/verify')
+      .send({ challenge_id: otp.id, code: '123456', new_password: 'another-password-123' });
+    expect(done.status).toBe(404);
+    expect(done.body.error.code).toBe('NO_ACCOUNT');
+  });
+  it('resets a real account and lets it sign in with the new password', async () => {
+    const r = await request(app).post('/v1/auth/password/forgot').send({ email: 'buyer@test.com' });
+    expect(r.status).toBe(202);
+    const done = await request(app).post('/v1/auth/otp/verify').send({
+      challenge_id: r.body.challenge_id,
+      code: latestCode(),
+      new_password: 'brand-new-password-1',
+    });
+    expect(done.body.password_reset).toBe(true);
+    const login = await request(app)
+      .post('/v1/auth/login')
+      .send({ email: 'buyer@test.com', password: 'brand-new-password-1' });
+    // The new password is accepted (a code cooldown may apply right after the reset email).
+    expect(login.status).not.toBe(401);
+    expect(login.ok || login.body.error?.code === 'OTP_COOLDOWN').toBe(true);
+  });
+});
 describe('pilot mode', () => {
   const pilotFeatures = () => readFeatures({ PILOT_MODE: 'true' });
   const pilot = (extra: object = {}) =>

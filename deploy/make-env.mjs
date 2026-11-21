@@ -33,6 +33,7 @@ const env = {
   DATABASE_URL: `postgresql://zuru:${pg}@postgres:5432/zuru`,
   REDIS_URL: 'redis://redis:6379',
   PUBLIC_API_URL: `https://api.${host}`,
+  PUBLIC_WEB_URL: `https://app.${host}`,
   CORS_ORIGINS: `https://admin.${host},https://app.${host}`,
   TRUST_PROXY: '1',
   OTP_SECRET: secret(),

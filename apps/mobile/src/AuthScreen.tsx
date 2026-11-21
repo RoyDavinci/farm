@@ -133,7 +133,7 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
                         ...(mode === 'reset' ? { new_password: newPassword } : {}),
                       },
                     });
-                    if (d.password_reset) {
+                    if ('password_reset' in d) {
                       switchMode('login');
                       setNotice('Password reset. Sign in with your new password.');
                       return;

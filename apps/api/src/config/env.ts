@@ -38,6 +38,8 @@ export const envSchema = z.object({
   CORS_ALLOWED_HOSTS_WEB: str(),
   // Render sets RENDER_EXTERNAL_URL for web services.
   PUBLIC_API_URL: z.string().optional(),
+  /** Public web app address, used for “Open Zuru” buttons in emails (optional). */
+  PUBLIC_WEB_URL: str(),
   RENDER_EXTERNAL_URL: str(),
   /** Deployed commit, reported by /health (Render sets RENDER_GIT_COMMIT). */
   GIT_COMMIT: str(),

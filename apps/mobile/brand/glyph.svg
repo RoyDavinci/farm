@@ -1,4 +1,5 @@
-<!-- Zuru mark: a courier running with a shopping bag. White on transparent, 1024×1024. -->
+<!-- Zuru mark: a courier running with a shopping bag. White on transparent, 1024×1024.
+     The cart colour (#F0954E) is replaced with the background colour by build-icons.mjs. -->
 <g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round">
   <!-- speed lines -->
   <path d="M150 400 H330" stroke-width="34"/>

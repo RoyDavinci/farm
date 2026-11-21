@@ -7,6 +7,7 @@ import type { Database, Query } from '../database/client.js';
 import { ensure } from '../lib/errors.js';
 import type { RequestInput } from '../lib/http.js';
 import { mailer } from '../lib/mail.js';
+import { notificationEmail } from '../lib/email-templates.js';
 import type { AppDeps } from '../types/deps.js';
 import { audit } from './audit.service.js';
 export async function notify(
@@ -68,8 +69,7 @@ export async function deliverNotifications(db: Database, c: Config) {
       )
         await mail.send(
           job.email,
-          `Zuru: ${job.title}`,
-          `${job.body}\n\nOpen the Zuru app for details.\nManage email alerts in Account → Notifications.`,
+          notificationEmail(job.title, job.body, c.publicWebUrl || undefined),
         );
       await db.query(
         "UPDATE notification_outbox SET status='SENT',locked_until=NULL,last_error=NULL WHERE id=$1",

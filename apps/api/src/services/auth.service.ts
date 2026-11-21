@@ -12,6 +12,7 @@ import type { Query } from '../database/client.js';
 import { ensure } from '../lib/errors.js';
 import type { RequestInput } from '../lib/http.js';
 import { mailer } from '../lib/mail.js';
+import { codeEmail, noAccountEmail, type Email } from '../lib/email-templates.js';
 import type { AppDeps } from '../types/deps.js';
 export const tokenHash = (s: string) => createHash('sha256').update(s).digest('hex');
 export interface AuthenticatedUser {
@@ -51,9 +52,13 @@ export function createAuthService(deps: AppDeps) {
   const mail = mailer(c);
   const digest = (id: string, code: string) =>
     createHmac('sha256', c.otpSecret).update(`${id}:${code}`).digest('hex');
-  const codeMessage = (purpose: string, code: string) =>
-    `Your Zuru ${purpose === 'reset' ? 'password reset' : purpose === 'register' ? 'email verification' : 'sign-in'} code is ${code}.\n\nIt expires in 10 minutes and can only be used once. Do not share it. If you did not request this, ignore this email.\n\nZuru`;
-  async function challenge(to: string, purpose: string, uid: string | null, payload: object = {}) {
+  async function challenge(
+    to: string,
+    purpose: string,
+    uid: string | null,
+    payload: object = {},
+    email?: Email,
+  ) {
     const cid = randomUUID(),
       code = String(randomInt(100000, 1000000));
     await db.transaction(async (q) => {
@@ -92,7 +97,7 @@ export function createAuthService(deps: AppDeps) {
         ],
       );
       // No challenge is committed if delivery fails.
-      await mail.send(to, 'Your Zuru verification code', codeMessage(purpose, code));
+      await mail.send(to, email ?? codeEmail(purpose, code));
     });
     return {
       challenge_id: cid,
@@ -151,7 +156,7 @@ export function createAuthService(deps: AppDeps) {
         'UPDATE otp_challenges SET code_hash=$1,sent_at=now(),send_count=send_count+1 WHERE id=$2',
         [digest(otp.id, code), otp.id],
       );
-      await mail.send(otp.email, 'Your Zuru verification code', codeMessage(otp.purpose, code));
+      await mail.send(otp.email, codeEmail(otp.purpose, code));
       return { ok: true, resend_after: 60 };
     });
     return result;
@@ -192,8 +197,15 @@ export function createAuthService(deps: AppDeps) {
   async function forgotPassword(input: RequestInput) {
     const d = z.object({ email }).parse(input.body);
     const [u] = await db.query("SELECT * FROM users WHERE email=$1 AND status='ACTIVE'", [d.email]);
-    // Unknown addresses get a challenge with no user. Verification can never reset an account.
-    return await challenge(d.email, 'reset', u?.id || null);
+    // Unknown addresses get the same response (so the form can't be used to find accounts), but
+    // their email explains that no account uses the address instead of sending a useless code.
+    return await challenge(
+      d.email,
+      'reset',
+      u?.id || null,
+      {},
+      u ? undefined : noAccountEmail(d.email),
+    );
   }
   /** Completes registration, sign-in or password reset with an emailed code. */
   async function verifyCode(input: RequestInput) {
@@ -234,7 +246,17 @@ export function createAuthService(deps: AppDeps) {
       }
       if (otp.purpose === 'reset') {
         ensure(d.new_password, 400, 'PASSWORD_REQUIRED', 'Enter your new password.');
-        if (otp.user_id) {
+        if (!otp.user_id) {
+          await q.query('UPDATE otp_challenges SET consumed_at=now() WHERE id=$1', [otp.id]);
+          return {
+            error: {
+              status: 404,
+              code: 'NO_ACCOUNT',
+              message: 'There’s no Zuru account for this email. Create an account first.',
+            },
+          };
+        }
+        {
           await q.query(
             'UPDATE users SET password_hash=$1,email_verified_at=COALESCE(email_verified_at,now()) WHERE id=$2',
             [await bcrypt.hash(d.new_password, 12), otp.user_id],

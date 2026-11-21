@@ -313,20 +313,24 @@ export const operationResponses: Record<string, z.ZodType> = {
     ok: z.boolean(),
     resend_after: z.number(),
   }),
-  'auth.verifyCode': z.looseObject({
-    expires_in: z.number(),
-    refresh_token: z.string(),
-    token: z.string(),
-    user: z.looseObject({
-      admin: z.boolean(),
-      email: z.string(),
-      email_verified_at: z.string(),
-      id: z.string(),
-      name: z.string(),
-      phone: z.string(),
-      staff_role: z.string().nullable(),
+  // A sign-in or registration returns a session; a completed password reset returns a confirmation.
+  'auth.verifyCode': z.union([
+    z.object({ ok: z.literal(true), password_reset: z.literal(true) }),
+    z.looseObject({
+      expires_in: z.number(),
+      refresh_token: z.string(),
+      token: z.string(),
+      user: z.looseObject({
+        admin: z.boolean(),
+        email: z.string(),
+        email_verified_at: z.string(),
+        id: z.string(),
+        name: z.string(),
+        phone: z.string(),
+        staff_role: z.string().nullable(),
+      }),
     }),
-  }),
+  ]),
   'bookings.createBooking': z.looseObject({
     buyer_id: z.string(),
     commission_bps: z.number(),

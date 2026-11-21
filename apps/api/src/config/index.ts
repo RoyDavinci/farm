@@ -14,6 +14,7 @@ const returnUrl =
 export const config = {
   env: env.NODE_ENV,
   features: readFeatures(process.env),
+  publicWebUrl: env.PUBLIC_WEB_URL.replace(/\/$/, ''),
   voiceEnabled: env.VOICE_CALLS_ENABLED,
   voiceStunUrl: env.VOICE_STUN_URL,
   voiceTurnUrl: env.VOICE_TURN_URL,

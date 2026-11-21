@@ -29,6 +29,8 @@ export default function AuthPanel({ onSignedIn }: { onSignedIn: (u: any) => void
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
+    // A new attempt replaces any earlier message (e.g. "Password reset").
+    setNotice('');
     await run(async () => {
       if (challenge) {
         const d = await request('post', '/auth/otp/verify', {
@@ -38,7 +40,7 @@ export default function AuthPanel({ onSignedIn }: { onSignedIn: (u: any) => void
             ...(reset ? { new_password: f.get('new_password') } : {}),
           },
         });
-        if (d.password_reset) {
+        if ('password_reset' in d) {
           setChallenge(null);
           setReset(false);
           setNotice('Password reset. Sign in with your new password.');

@@ -19,8 +19,32 @@ import {
   type Seller,
 } from '@zuru/shared';
 import {
+  ArrowLeftRight,
   ArrowUpRight,
+  Banknote,
+  Bike,
+  Boxes,
+  ChartLine,
   Check,
+  CircleDot,
+  FileText,
+  Flag,
+  Gavel,
+  Globe,
+  Mail,
+  MapPinned,
+  Megaphone,
+  Rocket,
+  RotateCcw,
+  Route,
+  Scale,
+  ShoppingCart,
+  Tags,
+  TriangleAlert,
+  Truck,
+  Undo2,
+  Users,
+  type LucideIcon,
   ChevronRight,
   Clock,
   LayoutDashboard,
@@ -32,7 +56,6 @@ import {
   Settings,
   ShieldCheck,
   ShoppingBag,
-  Sprout,
   Store,
   Wallet,
 } from 'lucide-react';
@@ -57,6 +80,7 @@ import SellersPage from './pages/SellersPage';
 import SettingsPage from './pages/SettingsPage';
 import StaffPage from './pages/StaffPage';
 import './styles.css';
+import './design.css';
 
 /** Contract paths that the console loads with GET and no parameters. */
 type GetPath = Extract<
@@ -111,39 +135,65 @@ const pageFeature: Partial<Record<Page, keyof NonNullable<MarketSettings['featur
   Promotions: 'promotions',
   Markets: 'market_maps',
 };
-const navigation = [
-  ['Regional fares', Wallet],
-  ['Delivery incidents', ShieldCheck],
-  ['Analytics', LayoutDashboard],
-  ['Returns', Package],
-  ['Appeals', ShieldCheck],
-  ['Parcels', Package],
-  ['Regions', Store],
-  ['Catalogue', Package],
-  ['Policies', Settings],
-  ['Overview', LayoutDashboard],
-  ['Sellers', Store],
-  ['Bookings', ShoppingBag],
-  ['Listings', Package],
-  ['Ledger', Wallet],
-  ['Audit log', ScrollText],
-  ['Settings', Settings],
-  ['Users', ShieldCheck],
-  ['Reports', ScrollText],
-  ['Email queue', Clock],
-  ['Markets', Store],
-  ['Disputes', ShieldCheck],
-  ['Reconciliation', Wallet],
-  ['Payouts', Wallet],
-  ['Refunds', Wallet],
-  ['Promotions', ArrowUpRight],
-  ['Drivers', ShieldCheck],
-  ['Deliveries', Package],
-  ['Shopping', Package],
-  ['Local Status', Store],
-  ['Status boosts', ArrowUpRight],
-  ['Staff', ShieldCheck],
-] as const;
+// Sidebar sections, in order. Overview first; each page has a distinct icon.
+const navGroups: { label: string; items: (readonly [Page, LucideIcon])[] }[] = [
+  { label: '', items: [['Overview', LayoutDashboard]] },
+  {
+    label: 'Marketplace',
+    items: [
+      ['Sellers', Store],
+      ['Listings', Package],
+      ['Bookings', ShoppingBag],
+      ['Catalogue', Tags],
+      ['Markets', MapPinned],
+      ['Regions', Globe],
+      ['Policies', FileText],
+    ],
+  },
+  {
+    label: 'Delivery',
+    items: [
+      ['Drivers', Bike],
+      ['Deliveries', Truck],
+      ['Parcels', Boxes],
+      ['Shopping', ShoppingCart],
+      ['Returns', Undo2],
+      ['Appeals', Scale],
+      ['Regional fares', Route],
+      ['Delivery incidents', TriangleAlert],
+    ],
+  },
+  {
+    label: 'Money',
+    items: [
+      ['Payouts', Banknote],
+      ['Refunds', RotateCcw],
+      ['Reconciliation', ArrowLeftRight],
+      ['Ledger', Wallet],
+      ['Promotions', Megaphone],
+    ],
+  },
+  {
+    label: 'Trust & community',
+    items: [
+      ['Users', Users],
+      ['Reports', Flag],
+      ['Disputes', Gavel],
+      ['Local Status', CircleDot],
+      ['Status boosts', Rocket],
+    ],
+  },
+  {
+    label: 'Insights & admin',
+    items: [
+      ['Analytics', ChartLine],
+      ['Audit log', ScrollText],
+      ['Email queue', Mail],
+      ['Staff', ShieldCheck],
+      ['Settings', Settings],
+    ],
+  },
+];
 function App() {
   const [user, setUser] = useState<any>(null),
     [checking, setChecking] = useState(true),
@@ -245,7 +295,7 @@ function App() {
       <div className="login">
         <div className="login-story">
           <div className="brand">
-            <Sprout size={32} />
+            <img className="brand-logo large" src="/apple-touch-icon.png" alt="" />
             zuru<span>OPERATIONS</span>
           </div>
           <div>
@@ -291,15 +341,13 @@ function App() {
       <div className="shell">
         <aside className={menu ? 'sidebar open' : 'sidebar'}>
           <div className="brand">
-            <span className="brand-icon">
-              <Sprout />
-            </span>
+            <img className="brand-logo" src="/apple-touch-icon.png" alt="" />
             <div>
               zuru<small>OPERATIONS CONSOLE</small>
             </div>
           </div>
           <div className="workspace">
-            <span className="market-avatar">FM</span>
+            <span className="market-avatar">NG</span>
             <div>
               Nigeria marketplace
               <small>
@@ -307,35 +355,43 @@ function App() {
               </small>
             </div>
           </div>
-          <span className="nav-label">WORKSPACE</span>
           <nav>
-            {navigation
-              .filter(([name]) => !staffAreas || staffAreas.includes(pageArea[name]))
-              .filter(([name]) => {
-                const feature = pageFeature[name];
-                if (feature) return settings?.features?.[feature] ?? true;
-                // Card refunds only exist when the wallet feature is off.
-                return name !== 'Refunds' || settings?.features?.wallet === false;
-              })
-              .map(([name, Icon]) => (
-                <button
-                  key={name}
-                  className={page === name ? 'nav active' : 'nav'}
-                  onClick={() => go(name)}
-                >
-                  <Icon size={19} />
-                  {name}
-                  {name === 'Sellers' && pending.length > 0 && (
-                    <span className="count">{pending.length}</span>
-                  )}
-                </button>
-              ))}
+            {navGroups.map((group) => {
+              const items = group.items
+                .filter(([name]) => !staffAreas || staffAreas.includes(pageArea[name]))
+                .filter(([name]) => {
+                  const feature = pageFeature[name];
+                  if (feature) return settings?.features?.[feature] ?? true;
+                  // Card refunds only exist when the wallet feature is off.
+                  return name !== 'Refunds' || settings?.features?.wallet === false;
+                });
+              if (!items.length) return null;
+              return (
+                <div className="nav-group" key={group.label || 'home'}>
+                  {group.label && <span className="nav-label">{group.label}</span>}
+                  {items.map(([name, Icon]) => (
+                    <button
+                      key={name}
+                      className={page === name ? 'nav active' : 'nav'}
+                      aria-current={page === name ? 'page' : undefined}
+                      onClick={() => go(name)}
+                    >
+                      <Icon size={18} strokeWidth={1.9} />
+                      <span>{name}</span>
+                      {name === 'Sellers' && pending.length > 0 && (
+                        <span className="count">{pending.length}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
           </nav>
           <div className="sidebar-bottom">
             <div className="pilot">
-              <Sprout size={20} />
-              <b>Built for local growth</b>
-              <p>One market. Many possibilities.</p>
+              <ShoppingBag size={20} />
+              <b>Shop. Send. Receive.</b>
+              <p>Buying, selling and delivery near you.</p>
             </div>
             <button
               className="profile"

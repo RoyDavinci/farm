@@ -6386,64 +6386,86 @@
               "application/json": {
                 "schema": {
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
-                  "type": "object",
-                  "properties": {
-                    "expires_in": {
-                      "type": "number"
-                    },
-                    "refresh_token": {
-                      "type": "string"
-                    },
-                    "token": {
-                      "type": "string"
-                    },
-                    "user": {
+                  "anyOf": [
+                    {
                       "type": "object",
                       "properties": {
-                        "admin": {
-                          "type": "boolean"
+                        "ok": {
+                          "type": "boolean",
+                          "const": true
                         },
-                        "email": {
-                          "type": "string"
-                        },
-                        "email_verified_at": {
-                          "type": "string"
-                        },
-                        "id": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "phone": {
-                          "type": "string"
-                        },
-                        "staff_role": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
+                        "password_reset": {
+                          "type": "boolean",
+                          "const": true
                         }
                       },
                       "required": [
-                        "admin",
-                        "email",
-                        "email_verified_at",
-                        "id",
-                        "name",
-                        "phone",
-                        "staff_role"
+                        "ok",
+                        "password_reset"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "expires_in": {
+                          "type": "number"
+                        },
+                        "refresh_token": {
+                          "type": "string"
+                        },
+                        "token": {
+                          "type": "string"
+                        },
+                        "user": {
+                          "type": "object",
+                          "properties": {
+                            "admin": {
+                              "type": "boolean"
+                            },
+                            "email": {
+                              "type": "string"
+                            },
+                            "email_verified_at": {
+                              "type": "string"
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "phone": {
+                              "type": "string"
+                            },
+                            "staff_role": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "admin",
+                            "email",
+                            "email_verified_at",
+                            "id",
+                            "name",
+                            "phone",
+                            "staff_role"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "expires_in",
+                        "refresh_token",
+                        "token",
+                        "user"
                       ],
                       "additionalProperties": {}
                     }
-                  },
-                  "required": [
-                    "expires_in",
-                    "refresh_token",
-                    "token",
-                    "user"
-                  ],
-                  "additionalProperties": {}
+                  ]
                 }
               }
             }

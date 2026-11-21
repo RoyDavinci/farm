@@ -28,6 +28,7 @@ echo "▸ Uploading the image"
 docker save zuru-api:$RELEASE | gzip -1 | "${SSH[@]}" 'gunzip | docker load' >/dev/null
 
 echo "▸ Uploading configuration and sites"
+# Caddy bind-mounts /opt/zuru/sites: replace its contents in place, never the folder itself.
 grep -vE '^(HOST_SUFFIX|POSTGRES_PASSWORD)=' deploy/.env.test > $BUILD/api.env
 {
   echo "RELEASE=$RELEASE"
@@ -37,7 +38,7 @@ grep -vE '^(HOST_SUFFIX|POSTGRES_PASSWORD)=' deploy/.env.test > $BUILD/api.env
 chmod 600 $BUILD/api.env $BUILD/.env
 cp deploy/compose.yaml deploy/Caddyfile $BUILD/
 COPYFILE_DISABLE=1 tar --no-mac-metadata --no-xattrs -C $BUILD -czf - compose.yaml Caddyfile api.env .env sites | "${SSH[@]}" 'rm -rf /opt/zuru/next && mkdir -p /opt/zuru/next && tar -C /opt/zuru/next -xzf - 2>/dev/null &&
-  cd /opt/zuru && rm -rf sites && mv next/sites sites && mv next/compose.yaml next/Caddyfile next/api.env next/.env . && rm -rf next && chmod 600 api.env .env'
+  cd /opt/zuru && mkdir -p sites && find sites -mindepth 1 -delete && cp -a next/sites/. sites/ && mv next/compose.yaml next/Caddyfile next/api.env next/.env . && rm -rf next && chmod 600 api.env .env'
 
 echo "▸ Starting release $RELEASE"
 "${SSH[@]}" 'cd /opt/zuru && docker compose up -d --remove-orphans --wait api worker caddy && docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true

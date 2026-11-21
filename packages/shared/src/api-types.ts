@@ -6577,24 +6577,31 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': {
-            expires_in: number;
-            refresh_token: string;
-            token: string;
-            user: {
-              admin: boolean;
-              email: string;
-              email_verified_at: string;
-              id: string;
-              name: string;
-              phone: string;
-              staff_role: string | null;
-            } & {
-              [key: string]: unknown;
-            };
-          } & {
-            [key: string]: unknown;
-          };
+          'application/json':
+            | {
+                /** @constant */
+                ok: true;
+                /** @constant */
+                password_reset: true;
+              }
+            | ({
+                expires_in: number;
+                refresh_token: string;
+                token: string;
+                user: {
+                  admin: boolean;
+                  email: string;
+                  email_verified_at: string;
+                  id: string;
+                  name: string;
+                  phone: string;
+                  staff_role: string | null;
+                } & {
+                  [key: string]: unknown;
+                };
+              } & {
+                [key: string]: unknown;
+              });
         };
       };
       default: components['responses']['Error'];
