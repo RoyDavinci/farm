@@ -16,3 +16,7 @@ artifacts/
 
 # Deployment build output
 deploy/.build/
+
+# Firebase app config (kept out of the public repo; EAS builds get it from a file variable)
+apps/mobile/google-services.json
+apps/mobile/GoogleService-Info.plist

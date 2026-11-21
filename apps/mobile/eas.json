@@ -10,7 +10,8 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.35-177-195-6.sslip.io/v1",
         "EXPO_PUBLIC_WEB_URL": "https://app.35-177-195-6.sslip.io"
-      }
+      },
+      "environment": "development"
     },
     "preview": {
       "distribution": "internal",
@@ -20,14 +21,16 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.35-177-195-6.sslip.io/v1",
         "EXPO_PUBLIC_WEB_URL": "https://app.35-177-195-6.sslip.io"
-      }
+      },
+      "environment": "preview"
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.example.com/v1",
         "EXPO_PUBLIC_WEB_URL": "https://example.com"
-      }
+      },
+      "environment": "production"
     }
   },
   "submit": {
