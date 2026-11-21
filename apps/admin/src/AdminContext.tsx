@@ -30,6 +30,8 @@ export type Page =
   | 'Shopping'
   | 'Local Status'
   | 'Status boosts'
+  | 'Planner'
+  | 'Allergen reports'
   | 'Deliveries'
   | 'Staff';
 export interface AdminState {

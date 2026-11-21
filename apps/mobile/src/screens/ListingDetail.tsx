@@ -6,6 +6,7 @@ import { useApp } from '../AppContext';
 import { useI18n } from '../i18n';
 import { request } from '../request';
 import { SellerTrust } from '../TrustPanels';
+import AllergenReport, { isFood } from '../AllergenReport';
 import { Back, Button, Chip, Field, produceIcon, s } from '../ui';
 
 export default function ListingDetail({
@@ -232,6 +233,15 @@ export default function ListingDetail({
         />
       )}
       <Text style={s.fine}>{t('listing.noCharge')}</Text>
+      {!own && isFood(selected.category) && (
+        <>
+          <Text style={s.fine}>
+            Allergen information comes from the seller. Check the label or ask the seller before
+            buying.
+          </Text>
+          <AllergenReport listingId={selected.id} />
+        </>
+      )}
       {!own && (
         <Button
           secondary

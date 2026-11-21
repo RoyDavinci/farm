@@ -100,6 +100,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/admin/allergen-reports': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['planner-admin.listAllergenReports'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/allergen-reports/{id}/review': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['planner-admin.reviewAllergenReport'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/admin/analytics': {
     parameters: {
       query?: never;
@@ -622,6 +654,22 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['payouts.resolvePayout'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/planner/usage': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['planner-admin.plannerUsage'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -2564,6 +2612,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/planner/allergen-reports': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['planner-admin.myAllergenReports'];
+    put?: never;
+    post: operations['planner-admin.reportAllergen'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/planner/diet-profile': {
     parameters: {
       query?: never;
@@ -4123,6 +4187,84 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'planner-admin.listAllergenReports': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            listing_id: string | null;
+            listing_title: string | null;
+            recipe: string | null;
+            /** @enum {string} */
+            issue: 'MISSING' | 'INCORRECT' | 'REACTION' | 'OTHER';
+            allergens: string[];
+            details: string;
+            /** @enum {string} */
+            status: 'OPEN' | 'REVIEWING' | 'RESOLVED' | 'DISMISSED';
+            resolution: string | null;
+            created_at: string;
+            reviewed_at: string | null;
+            category: string | null;
+            business_name: string | null;
+            seller_id: string | null;
+            reporter_name: string;
+            reviewer_name: string | null;
+            recipe_name: string | null;
+            allergen_labels: string[];
+            urgent: boolean;
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner-admin.reviewAllergenReport': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          status: 'REVIEWING' | 'RESOLVED' | 'DISMISSED';
+          resolution: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'discovery-operations.metrics': {
     parameters: {
       query?: never;
@@ -5484,6 +5626,93 @@ export interface operations {
             updated_at: string;
           } & {
             [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner-admin.plannerUsage': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            plans: {
+              total: number;
+              last30: number;
+              active: number;
+              completed: number;
+              planners: number;
+              repeat_planners: number;
+              completion_rate: number;
+            };
+            by_template: {
+              template: string | null;
+              kind: string;
+              title: string;
+              plans: number;
+              completed: number;
+            }[];
+            items: {
+              total: number;
+              linked: number;
+              purchased: number;
+              owned: number;
+              not_needed: number;
+              from_recipes: number;
+              linked_rate: number;
+            };
+            conversion: {
+              plans_with_cart: number;
+              plans_with_orders: number;
+              plan_to_order_rate: number;
+              orders: number;
+              completed_orders: number;
+              confirmed_kobo: number;
+              average_order_kobo: number;
+            };
+            budgets: {
+              with_budget: number;
+              within_budget: number;
+              adherence_rate: number;
+            };
+            top_recipes: {
+              recipe: string;
+              name: string;
+              meals: number;
+              servings: number;
+            }[];
+            diet: {
+              profiles: string;
+              with_allergies: string;
+              with_diet: string;
+              allergens: {
+                allergen: string;
+                profiles: string;
+              }[];
+            };
+            allergen_reports: {
+              open: number;
+              urgent: number;
+              total: number;
+              hours_to_close: number;
+            };
+            daily: {
+              day: string;
+              plans: number;
+            }[];
+            privacy: string;
           };
         };
       };
@@ -11069,6 +11298,80 @@ export interface operations {
             provider: string;
           } & {
             [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner-admin.myAllergenReports': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            listing_id: string | null;
+            listing_title: string | null;
+            recipe: string | null;
+            /** @enum {string} */
+            issue: 'MISSING' | 'INCORRECT' | 'REACTION' | 'OTHER';
+            allergens: string[];
+            details: string;
+            /** @enum {string} */
+            status: 'OPEN' | 'REVIEWING' | 'RESOLVED' | 'DISMISSED';
+            resolution: string | null;
+            created_at: string;
+            reviewed_at: string | null;
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner-admin.reportAllergen': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          listing_id?: string;
+          recipe?: string;
+          /** @enum {string} */
+          issue: 'MISSING' | 'INCORRECT' | 'REACTION' | 'OTHER';
+          /** @default [] */
+          allergens?: string[];
+          details: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            message: string;
           };
         };
       };

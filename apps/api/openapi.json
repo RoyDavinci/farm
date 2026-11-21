@@ -268,6 +268,238 @@
         }
       }
     },
+    "/v1/admin/allergen-reports": {
+      "get": {
+        "operationId": "planner-admin.listAllergenReports",
+        "tags": [
+          "planner-admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "listing_id": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "listing_title": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "recipe": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "issue": {
+                        "type": "string",
+                        "enum": [
+                          "MISSING",
+                          "INCORRECT",
+                          "REACTION",
+                          "OTHER"
+                        ]
+                      },
+                      "allergens": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "details": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "OPEN",
+                          "REVIEWING",
+                          "RESOLVED",
+                          "DISMISSED"
+                        ]
+                      },
+                      "resolution": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "created_at": {
+                        "type": "string"
+                      },
+                      "reviewed_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "category": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "business_name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "seller_id": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "reporter_name": {
+                        "type": "string"
+                      },
+                      "reviewer_name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "recipe_name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "allergen_labels": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "urgent": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "listing_id",
+                      "listing_title",
+                      "recipe",
+                      "issue",
+                      "allergens",
+                      "details",
+                      "status",
+                      "resolution",
+                      "created_at",
+                      "reviewed_at",
+                      "category",
+                      "business_name",
+                      "seller_id",
+                      "reporter_name",
+                      "reviewer_name",
+                      "recipe_name",
+                      "allergen_labels",
+                      "urgent"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/admin/allergen-reports/{id}/review": {
+      "post": {
+        "operationId": "planner-admin.reviewAllergenReport",
+        "tags": [
+          "planner-admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "REVIEWING",
+                      "RESOLVED",
+                      "DISMISSED"
+                    ]
+                  },
+                  "resolution": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "status",
+                  "resolution"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/analytics": {
       "get": {
         "operationId": "discovery-operations.metrics",
@@ -3456,6 +3688,378 @@
                 "additionalProperties": true
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/admin/planner/usage": {
+      "get": {
+        "operationId": "planner-admin.plannerUsage",
+        "tags": [
+          "planner-admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "plans": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "last30": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "active": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "completed": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "planners": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "repeat_planners": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "completion_rate": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "last30",
+                        "active",
+                        "completed",
+                        "planners",
+                        "repeat_planners",
+                        "completion_rate"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "by_template": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "template": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "plans": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "completed": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "template",
+                          "kind",
+                          "title",
+                          "plans",
+                          "completed"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "linked": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "purchased": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "owned": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "not_needed": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "from_recipes": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "linked_rate": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "linked",
+                        "purchased",
+                        "owned",
+                        "not_needed",
+                        "from_recipes",
+                        "linked_rate"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "conversion": {
+                      "type": "object",
+                      "properties": {
+                        "plans_with_cart": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "plans_with_orders": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "plan_to_order_rate": {
+                          "type": "number"
+                        },
+                        "orders": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "completed_orders": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "confirmed_kobo": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "average_order_kobo": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "plans_with_cart",
+                        "plans_with_orders",
+                        "plan_to_order_rate",
+                        "orders",
+                        "completed_orders",
+                        "confirmed_kobo",
+                        "average_order_kobo"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "budgets": {
+                      "type": "object",
+                      "properties": {
+                        "with_budget": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "within_budget": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "adherence_rate": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "with_budget",
+                        "within_budget",
+                        "adherence_rate"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "top_recipes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "recipe": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "meals": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "servings": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "recipe",
+                          "name",
+                          "meals",
+                          "servings"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "diet": {
+                      "type": "object",
+                      "properties": {
+                        "profiles": {
+                          "type": "string"
+                        },
+                        "with_allergies": {
+                          "type": "string"
+                        },
+                        "with_diet": {
+                          "type": "string"
+                        },
+                        "allergens": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "allergen": {
+                                "type": "string"
+                              },
+                              "profiles": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "allergen",
+                              "profiles"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "profiles",
+                        "with_allergies",
+                        "with_diet",
+                        "allergens"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "allergen_reports": {
+                      "type": "object",
+                      "properties": {
+                        "open": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "urgent": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "total": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "hours_to_close": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "open",
+                        "urgent",
+                        "total",
+                        "hours_to_close"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "daily": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "day": {
+                            "type": "string"
+                          },
+                          "plans": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "day",
+                          "plans"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "privacy": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "plans",
+                    "by_template",
+                    "items",
+                    "conversion",
+                    "budgets",
+                    "top_recipes",
+                    "diet",
+                    "allergen_reports",
+                    "daily",
+                    "privacy"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
           }
         }
       }
@@ -15702,6 +16306,201 @@
           },
           "default": {
             "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/planner/allergen-reports": {
+      "get": {
+        "operationId": "planner-admin.myAllergenReports",
+        "tags": [
+          "planner-admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "listing_id": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "listing_title": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "recipe": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "issue": {
+                        "type": "string",
+                        "enum": [
+                          "MISSING",
+                          "INCORRECT",
+                          "REACTION",
+                          "OTHER"
+                        ]
+                      },
+                      "allergens": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "details": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "OPEN",
+                          "REVIEWING",
+                          "RESOLVED",
+                          "DISMISSED"
+                        ]
+                      },
+                      "resolution": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "created_at": {
+                        "type": "string"
+                      },
+                      "reviewed_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "listing_id",
+                      "listing_title",
+                      "recipe",
+                      "issue",
+                      "allergens",
+                      "details",
+                      "status",
+                      "resolution",
+                      "created_at",
+                      "reviewed_at"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "planner-admin.reportAllergen",
+        "tags": [
+          "planner-admin"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "listing_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "recipe": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "issue": {
+                    "type": "string",
+                    "enum": [
+                      "MISSING",
+                      "INCORRECT",
+                      "REACTION",
+                      "OTHER"
+                    ]
+                  },
+                  "allergens": {
+                    "default": [],
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 40
+                    }
+                  },
+                  "details": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "issue",
+                  "details"
+                ]
+              }
+            }
           }
         }
       }

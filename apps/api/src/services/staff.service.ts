@@ -43,6 +43,8 @@ export const permissions: Record<string, StaffRole[]> = {
   funding: ['finance'],
   ledger: ['finance'],
   audit: ['operations', 'finance'],
+  planner: ['operations', 'finance', 'support'],
+  'allergen-reports': ['operations', 'support'],
   // settings, staff and vehicle-types (fares) are owner-only.
 };
 

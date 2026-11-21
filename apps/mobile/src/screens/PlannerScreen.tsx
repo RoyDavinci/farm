@@ -12,6 +12,7 @@ import {
 import { useApp } from '../AppContext';
 import { request } from '../request';
 import { Back, Button, FadeIn, PressScale, produceIcon } from '../ui';
+import AllergenReport, { isFood } from '../AllergenReport';
 
 const BRAND = '#26408f',
   ACCENT = '#f5a524',
@@ -810,6 +811,7 @@ function ItemRow({
                       {m.reasons.join(' · ')}
                     </Text>
                     {m.allergen_note && <Text style={styles.allergy}>{m.allergen_note}</Text>}
+                    {isFood(m.category) && <AllergenReport listingId={m.listing_id} />}
                     <View style={styles.rowGap}>
                       <SmallButton
                         label="Add to cart"
@@ -993,6 +995,7 @@ function RecipePicker({
             {r.diet_status === 'WARNING' && (
               <Text style={styles.allergy}>⚠️ {r.diet_reasons.join('; ')}</Text>
             )}
+            <AllergenReport recipe={r.key} />
           </View>
           <Text style={styles.add}>＋</Text>
         </Pressable>

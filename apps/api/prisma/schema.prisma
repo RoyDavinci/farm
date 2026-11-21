@@ -1436,3 +1436,25 @@ model CartItem {
   @@index([user_id, created_at], map: "cart_items_user_idx")
   @@map("cart_items")
 }
+
+/// Buyer reports of missing or wrong allergen information; reviewed by staff.
+model AllergenReport {
+  id          String    @id
+  reporter_id String
+  listing_id  String?
+  recipe      String?
+  /// MISSING, INCORRECT, REACTION or OTHER.
+  issue       String
+  allergens   String[]  @default([])
+  details     String
+  /// OPEN, REVIEWING, RESOLVED or DISMISSED.
+  status      String    @default("OPEN")
+  resolution  String?
+  reviewed_by String?
+  reviewed_at DateTime? @db.Timestamptz(6)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([status, created_at], map: "allergen_reports_status_idx")
+  @@index([reporter_id, created_at(sort: Desc)], map: "allergen_reports_reporter_idx")
+  @@map("allergen_reports")
+}

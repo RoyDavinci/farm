@@ -1998,6 +1998,79 @@ describe('smart planner', () => {
     const rebuilt = await call('buyer', 'post', `/plans/${planId}/grocery-list`, {});
     expect(rebuilt.body.removed).toBeGreaterThan(0);
   });
+
+  it('takes allergen reports for staff review and shows aggregate planner usage', async () => {
+    const listing = await setup(10);
+    expect(
+      (
+        await call('buyer', 'post', '/planner/allergen-reports', {
+          issue: 'MISSING',
+          details: 'short',
+        })
+      ).status,
+    ).toBe(400);
+    const sent = await call('buyer', 'post', '/planner/allergen-reports', {
+      listing_id: listing,
+      issue: 'REACTION',
+      allergens: ['peanut'],
+      details: 'My son reacted after eating this; the seller said it had no groundnut.',
+    });
+    expect(sent.status).toBe(200);
+    expect(sent.body.message).toMatch(/medical help/);
+    await call('buyer', 'post', '/planner/allergen-reports', {
+      recipe: 'egusi-soup',
+      issue: 'INCORRECT',
+      details: 'The recipe should say it contains crayfish (shellfish).',
+    });
+    expect((await call('buyer', 'get', '/planner/allergen-reports')).body).toHaveLength(2);
+    // Support staff see urgent reports first; finance staff cannot open them.
+    await db.query("UPDATE users SET staff_role='finance' WHERE id='admin'");
+    expect((await call('admin', 'get', '/admin/allergen-reports')).status).toBe(403);
+    expect((await call('admin', 'get', '/admin/planner/usage')).status).toBe(200);
+    await db.query("UPDATE users SET staff_role='support' WHERE id='admin'");
+    const queue = (await call('admin', 'get', '/admin/allergen-reports')).body;
+    expect(queue[0]).toMatchObject({
+      urgent: true,
+      issue: 'REACTION',
+      business_name: 'Ada’s Farm',
+    });
+    expect(
+      (
+        await call('admin', 'post', `/admin/allergen-reports/${queue[0].id}/review`, {
+          status: 'RESOLVED',
+          resolution: 'Seller confirmed groundnut oil is used; listing paused until relabelled.',
+        })
+      ).status,
+    ).toBe(200);
+    const closed = await call('admin', 'post', `/admin/allergen-reports/${queue[0].id}/review`, {
+      status: 'DISMISSED',
+      resolution: 'Trying to change a closed report again.',
+    });
+    expect(closed.body.error.code).toBe('ALREADY_CLOSED');
+    const [logged] = await db.query(
+      "SELECT action FROM audit WHERE entity_id=$1 AND action='allergen_report.resolved'",
+      [queue[0].id],
+    );
+    expect(logged).toBeTruthy();
+    const [note] = await db.query(
+      "SELECT title FROM notifications WHERE user_id='buyer' AND title='Allergen report reviewed'",
+    );
+    expect(note).toBeTruthy();
+
+    // Usage is aggregate; small health counts are masked.
+    await call('buyer', 'post', '/plans', { template: 'party', people: 30 });
+    await call('buyer', 'put', '/planner/diet-profile', { allergies: ['peanut'], consent: true });
+    const usage = (await call('admin', 'get', '/admin/planner/usage')).body;
+    expect(usage.plans.total).toBe(1);
+    expect(usage.by_template[0]).toMatchObject({
+      template: 'party',
+      title: 'Party or celebration',
+    });
+    expect(usage.diet.with_allergies).toBe('<5');
+    expect(usage.allergen_reports).toMatchObject({ open: 1, urgent: 0, total: 2 });
+    expect(usage.daily).toHaveLength(14);
+    expect(JSON.stringify(usage)).not.toMatch(/buyer@|Buyer/);
+  });
 });
 
 describe('API contract', () => {

@@ -85,7 +85,89 @@ const PlanItem = z.object({
   orders: z.array(z.object({ id: z.string(), status: z.string(), total_kobo: kobo })),
 });
 
+const AllergenReport = z.object({
+  id: z.string(),
+  listing_id: z.string().nullable(),
+  listing_title: z.string().nullable(),
+  recipe: z.string().nullable(),
+  issue: z.enum(['MISSING', 'INCORRECT', 'REACTION', 'OTHER']),
+  allergens: z.array(z.string()),
+  details: z.string(),
+  status: z.enum(['OPEN', 'REVIEWING', 'RESOLVED', 'DISMISSED']),
+  resolution: z.string().nullable(),
+  created_at: ts,
+  reviewed_at: ts.nullable(),
+});
+const count = z.number().int();
+const masked = z.string();
+
 export const plannerResponses: Record<string, z.ZodType> = {
+  'planner-admin.reportAllergen': z.object({ id: z.string(), message: z.string() }),
+  'planner-admin.myAllergenReports': z.array(AllergenReport),
+  'planner-admin.listAllergenReports': z.array(
+    AllergenReport.extend({
+      category: z.string().nullable(),
+      business_name: z.string().nullable(),
+      seller_id: z.string().nullable(),
+      reporter_name: z.string(),
+      reviewer_name: z.string().nullable(),
+      recipe_name: z.string().nullable(),
+      allergen_labels: z.array(z.string()),
+      urgent: z.boolean(),
+    }),
+  ),
+  'planner-admin.reviewAllergenReport': ok,
+  'planner-admin.plannerUsage': z.object({
+    plans: z.object({
+      total: count,
+      last30: count,
+      active: count,
+      completed: count,
+      planners: count,
+      repeat_planners: count,
+      completion_rate: z.number(),
+    }),
+    by_template: z.array(
+      z.object({
+        template: z.string().nullable(),
+        kind: z.string(),
+        title: z.string(),
+        plans: count,
+        completed: count,
+      }),
+    ),
+    items: z.object({
+      total: count,
+      linked: count,
+      purchased: count,
+      owned: count,
+      not_needed: count,
+      from_recipes: count,
+      linked_rate: z.number(),
+    }),
+    conversion: z.object({
+      plans_with_cart: count,
+      plans_with_orders: count,
+      plan_to_order_rate: z.number(),
+      orders: count,
+      completed_orders: count,
+      confirmed_kobo: kobo,
+      average_order_kobo: kobo,
+    }),
+    budgets: z.object({ with_budget: count, within_budget: count, adherence_rate: z.number() }),
+    top_recipes: z.array(
+      z.object({ recipe: z.string(), name: z.string(), meals: count, servings: count }),
+    ),
+    diet: z.object({
+      profiles: masked,
+      with_allergies: masked,
+      with_diet: masked,
+      allergens: z.array(z.object({ allergen: z.string(), profiles: masked })),
+    }),
+    allergen_reports: z.object({ open: count, urgent: count, total: count, hours_to_close: count }),
+    daily: z.array(z.object({ day: z.string(), plans: count })),
+    privacy: z.string(),
+  }),
   'cart.getCart': z.object({
     sellers: z.array(
       z.object({

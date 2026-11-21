@@ -31,6 +31,7 @@ import { searchInput } from '../src/validators/geography.validators.js';
 import { listingSchema, sellerSchema } from '../src/validators/marketplace.validators.js';
 import { resolveDisputeInput } from '../src/validators/support.validators.js';
 import { checkoutInput } from '../src/services/checkout.service.js';
+import { allergenReportInput, allergenReviewInput } from '../src/services/planner-admin.service.js';
 import { cartAddInput, cartCheckoutInput, cartUpdateInput } from '../src/services/cart.service.js';
 import {
   dietProfileInput,
@@ -123,6 +124,8 @@ const json = (schema: z.ZodType, io: 'input' | 'output' = 'input') =>
 const bodies: Record<string, Record<string, unknown>> = {
   'wallet.startCheckout': json(checkoutInput),
   'cart.addToCart': json(cartAddInput),
+  'planner-admin.reportAllergen': json(allergenReportInput),
+  'planner-admin.reviewAllergenReport': json(allergenReviewInput),
   'cart.updateLine': json(cartUpdateInput),
   'cart.checkout': json(cartCheckoutInput),
   'planner.readText': json(planReadInput),

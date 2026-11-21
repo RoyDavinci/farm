@@ -8,6 +8,7 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { demoSellers } from '../../apps/api/src/database/demo-catalog-data.ts';
+import { moreArt } from './draw-more.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const sharp = createRequire(join(here, '../../apps/api/package.json'))('sharp');
@@ -1459,7 +1460,7 @@ const tableTennis = (x, y, s) =>
     `translate(${x} ${y - 30}) scale(${s})`,
   );
 
-// ---------- the 104 products ----------
+// ---------- the first 104 products (more in draw-more.mjs) ----------
 const C = 500;
 const art = {
   'tomatoes-basket': () =>
@@ -1631,6 +1632,52 @@ const art = {
   boots: () => sneaker(C, 520, 1.3, '#2b2f3a', '#f2c230', true),
   'table-tennis': () => tableTennis(C, 500, 1.1),
 };
+
+Object.assign(
+  art,
+  moreArt({
+    g,
+    circle,
+    ell,
+    rect,
+    path,
+    line,
+    text,
+    shine,
+    shade,
+    lg,
+    rg,
+    vg,
+    hg,
+    sack,
+    bowlPile,
+    bottle,
+    carton,
+    jar,
+    fabricStack,
+    shirt,
+    sneaker,
+    sandal,
+    flask,
+    plates,
+    phone,
+    laptop,
+    speaker,
+    earbuds,
+    powerBank,
+    leafBunch,
+    bellPepper,
+    yam,
+    tomato,
+    basket,
+    onion,
+    bananaBunch,
+    pepperBonnet,
+    jerrycan,
+    pencils,
+    backpack,
+  }),
+);
 
 const backdrop = {
   Vegetables: ['#eef7e8', '#cfe6c2'],

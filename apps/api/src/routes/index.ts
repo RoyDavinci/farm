@@ -3,6 +3,7 @@ import { adminRefundRoutes } from './refunds.routes.js';
 import { voiceRoutes } from './voice.routes.js';
 import { cartRoutes } from './cart.routes.js';
 import { plannerRoutes } from './planner.routes.js';
+import { plannerAdminRoutes } from './planner-admin.routes.js';
 import { parcelRoutes, adminParcelRoutes } from './parcels.routes.js';
 import {
   returnsOperationsRoutes,
@@ -99,6 +100,7 @@ export function apiRoutes(
   r.use(bookingsRoutes(deps));
   r.use(cartRoutes(deps));
   r.use(plannerRoutes(deps));
+  r.use(plannerAdminRoutes(deps));
   r.use(walletRoutes(deps));
 
   r.use('/admin', adminMarketOperationsRoutes(deps));

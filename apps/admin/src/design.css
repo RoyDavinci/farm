@@ -497,3 +497,40 @@ form.fare-row {
   letter-spacing: -0.5px;
   color: var(--ink);
 }
+
+/* Planner usage chart and allergen report rows */
+.planner-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 160px;
+  padding: 8px 0 0;
+}
+.planner-bar {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+.planner-bar span {
+  width: 100%;
+  min-height: 3px;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, var(--accent), var(--brand));
+  animation: rise 0.5s ease both;
+}
+.planner-bar small {
+  font-size: 11px;
+  color: var(--muted, #6b7390);
+}
+tr.urgent-row td {
+  background: #fff4f1;
+}
+.report-text {
+  margin: 6px 0;
+  max-width: 46ch;
+  white-space: pre-wrap;
+}

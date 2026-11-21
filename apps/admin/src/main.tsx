@@ -19,6 +19,8 @@ import {
   type Seller,
 } from '@ahia/shared';
 import {
+  ClipboardList,
+  ShieldAlert,
   ArrowLeftRight,
   ArrowUpRight,
   Banknote,
@@ -75,6 +77,7 @@ import { SellerReviewModal, TimelineModal } from './pages/Modals';
 import OverviewPage from './pages/OverviewPage';
 import PayoutsPage from './pages/PayoutsPage';
 import RefundsPage from './pages/RefundsPage';
+import { AllergenReportsPage, PlannerUsagePage } from './pages/PlannerPages';
 import PromotionsPage from './pages/PromotionsPage';
 import SellersPage from './pages/SellersPage';
 import SettingsPage from './pages/SettingsPage';
@@ -118,6 +121,8 @@ const pageArea: Record<Page, string> = {
   Reconciliation: 'reconciliation',
   Payouts: 'payouts',
   Refunds: 'refunds',
+  Planner: 'planner',
+  'Allergen reports': 'allergen-reports',
   Promotions: 'promotions',
   Drivers: 'drivers',
   Deliveries: 'deliveries',
@@ -178,6 +183,7 @@ const navGroups: { label: string; items: (readonly [Page, LucideIcon])[] }[] = [
     items: [
       ['Users', Users],
       ['Reports', Flag],
+      ['Allergen reports', ShieldAlert],
       ['Disputes', Gavel],
       ['Local Status', CircleDot],
       ['Status boosts', Rocket],
@@ -187,6 +193,7 @@ const navGroups: { label: string; items: (readonly [Page, LucideIcon])[] }[] = [
     label: 'Insights & admin',
     items: [
       ['Analytics', ChartLine],
+      ['Planner', ClipboardList],
       ['Audit log', ScrollText],
       ['Email queue', Mail],
       ['Staff', ShieldCheck],
@@ -458,6 +465,9 @@ function App() {
                       Reconciliation: 'Verify provider funding and review exceptions.',
                       Payouts: 'Review seller withdrawals and send bank transfers.',
                       Refunds: 'Refunds sent back to buyers’ cards, and any that need a check.',
+                      Planner: 'How customers plan: types, products matched, orders and budgets.',
+                      'Allergen reports':
+                        'Missing or wrong allergen information reported by buyers.',
                       Promotions: 'Sponsored listings, clearly labelled for buyers.',
                       'Status boosts': 'Review paid status campaigns and targeting.',
                       'Regional fares':
@@ -519,6 +529,8 @@ function App() {
             {page === 'Ledger' && <LedgerPage ledger={ledger} />}
             {page === 'Payouts' && <PayoutsPage />}
             {page === 'Refunds' && <RefundsPage />}
+            {page === 'Planner' && <PlannerUsagePage />}
+            {page === 'Allergen reports' && <AllergenReportsPage />}
             {page === 'Promotions' && <PromotionsPage />}
             {page === 'Staff' && <StaffPage />}
             {page === 'Catalogue' && <CataloguePage />}
