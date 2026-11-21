@@ -1,4 +1,4 @@
-import type { Settings } from '@zuru/shared';
+import type { Settings } from '@ahia/shared';
 
 export type FeatureName = keyof NonNullable<Settings['features']>;
 

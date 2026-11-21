@@ -1,5 +1,5 @@
 import AppealPanel from './AppealPanel';
-import { type Booking, money, statusLabel } from '@zuru/shared';
+import { type Booking, money, statusLabel } from '@ahia/shared';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -41,8 +41,8 @@ export default function BookingSupport({
     await run(async () => {
       const r = await request('get', '/bookings/{id}/receipt', { params: { id: b.id } });
       await Share.share({
-        title: 'Zuru receipt',
-        message: `Zuru ${r.simulated ? 'DEVELOPMENT / SIMULATED ' : ''}receipt\n${r.receipt_number}\n${r.seller}\n${r.title} — ${r.variant}\n${r.quantity} ${r.unit} × ${money(r.unit_price_kobo)}\nTotal: ${money(r.total_kobo)}\nRefunded: ${money(r.refunded_kobo)}\nPayment: wallet\nStatus: ${r.status}`,
+        title: 'Ahia receipt',
+        message: `Ahia ${r.simulated ? 'DEVELOPMENT / SIMULATED ' : ''}receipt\n${r.receipt_number}\n${r.seller}\n${r.title} — ${r.variant}\n${r.quantity} ${r.unit} × ${money(r.unit_price_kobo)}\nTotal: ${money(r.total_kobo)}\nRefunded: ${money(r.refunded_kobo)}\nPayment: wallet\nStatus: ${r.status}`,
       });
     });
   }
@@ -202,26 +202,26 @@ export default function BookingSupport({
   );
 }
 const s = StyleSheet.create({
-  box: { gap: 12, paddingVertical: 12, borderTopWidth: 1, borderColor: '#e5eadb' },
+  box: { gap: 12, paddingVertical: 12, borderTopWidth: 1, borderColor: '#d9deec' },
   row: { flexDirection: 'row', gap: 16, flexWrap: 'wrap' },
-  link: { fontSize: 11, color: '#718b58', paddingVertical: 6 },
-  bold: { fontSize: 12, color: '#5d7847', fontWeight: '600' },
-  body: { fontSize: 12, lineHeight: 21, color: '#829673' },
-  small: { fontSize: 10, lineHeight: 18, color: '#9aa68a' },
+  link: { fontSize: 11, color: '#465c9d', paddingVertical: 6 },
+  bold: { fontSize: 12, color: '#364b89', fontWeight: '600' },
+  body: { fontSize: 12, lineHeight: 21, color: '#6776a2' },
+  small: { fontSize: 10, lineHeight: 18, color: '#808cb0' },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { fontSize: 9, padding: 8, borderRadius: 14, backgroundColor: '#f0f4e9', color: '#869873' },
-  active: { backgroundColor: '#597946', color: '#fff' },
+  chip: { fontSize: 9, padding: 8, borderRadius: 14, backgroundColor: '#e7ebf6', color: '#6676a5' },
+  active: { backgroundColor: '#344a8b', color: '#fff' },
   input: {
     padding: 13,
     minHeight: 90,
     borderWidth: 1,
-    borderColor: '#e0e7d4',
+    borderColor: '#d1d7ea',
     borderRadius: 7,
     backgroundColor: '#fff',
     fontSize: 12,
-    color: '#577044',
+    color: '#35477f',
   },
-  button: { padding: 13, borderRadius: 7, backgroundColor: '#42673a', alignItems: 'center' },
-  buttonText: { fontSize: 12, color: '#f0f5e5' },
+  button: { padding: 13, borderRadius: 7, backgroundColor: '#2a3d77', alignItems: 'center' },
+  buttonText: { fontSize: 12, color: '#e3e8f7' },
   error: { fontSize: 11, color: '#a16a4c', padding: 10, backgroundColor: '#faeee3' },
 });

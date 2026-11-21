@@ -1,4 +1,4 @@
-import { money, type Booking } from '@zuru/shared';
+import { money, type Booking } from '@ahia/shared';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 export default function CounterofferPanel({
@@ -110,24 +110,24 @@ const s = StyleSheet.create({
     gap: 12,
     padding: 15,
     borderWidth: 1,
-    borderColor: '#e6e1c6',
+    borderColor: '#c8d0e4',
     borderRadius: 9,
-    backgroundColor: '#fbf9ee',
+    backgroundColor: '#eff2fa',
   },
   bold: { fontSize: 13, color: '#8d804d', fontWeight: '600' },
-  body: { fontSize: 12, lineHeight: 20, color: '#8a8c70' },
-  price: { fontSize: 18, color: '#687d4e', fontWeight: '600' },
-  small: { fontSize: 10, lineHeight: 18, color: '#9ba185' },
+  body: { fontSize: 12, lineHeight: 20, color: '#667296' },
+  price: { fontSize: 18, color: '#3e528d', fontWeight: '600' },
+  small: { fontSize: 10, lineHeight: 18, color: '#7b87ab' },
   input: {
     padding: 12,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e4e3cb',
+    borderColor: '#ccd3e3',
     borderRadius: 7,
     fontSize: 12,
-    color: '#657a4c',
+    color: '#3c4f8a',
   },
   link: { fontSize: 11, color: '#8e814e', padding: 5 },
-  button: { padding: 13, borderRadius: 7, backgroundColor: '#496b3d', alignItems: 'center' },
-  buttonText: { color: '#f0f5e7', fontSize: 12, fontWeight: '600' },
+  button: { padding: 13, borderRadius: 7, backgroundColor: '#2d407b', alignItems: 'center' },
+  buttonText: { color: '#e5e9f7', fontSize: 12, fontWeight: '600' },
 });

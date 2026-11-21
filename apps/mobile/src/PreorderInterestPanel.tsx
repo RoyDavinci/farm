@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
-import { money } from '@zuru/shared';
+import { money } from '@ahia/shared';
 import { useApp } from './AppContext';
 import { request } from './request';
 import { Button, s } from './ui';

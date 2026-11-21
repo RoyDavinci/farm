@@ -9,5 +9,5 @@ const server = app.listen(8095, '0.0.0.0', (error) => {
     process.exitCode = 1;
     return;
   }
-  console.log('Zuru mobile web preview: http://localhost:8095');
+  console.log('Ahia mobile web preview: http://localhost:8095');
 });

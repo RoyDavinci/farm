@@ -1,4 +1,4 @@
-import type { NearbyRider } from '@zuru/shared';
+import type { NearbyRider } from '@ahia/shared';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { currentPosition, type Point } from './location';
@@ -198,7 +198,7 @@ export default function RiderPicker({
       {rows.map((r) => (
         <View
           key={r.id}
-          style={[s.orderCard, selected?.id === r.id && { borderColor: '#476641', borderWidth: 2 }]}
+          style={[s.orderCard, selected?.id === r.id && { borderColor: '#344473', borderWidth: 2 }]}
         >
           <Text style={s.bold}>{r.name} · Approved rider</Text>
           <Text style={s.small}>

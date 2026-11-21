@@ -1,4 +1,4 @@
-# Zuru test environment (AWS)
+# Ahia test environment (AWS)
 
 One EC2 server in London (eu-west-2) runs the whole test environment in Docker, in pilot mode.
 
@@ -19,7 +19,8 @@ IDs are in `deploy/aws-test.env`.
 
 - EC2 `t4g.small` (Ubuntu 24.04, ARM) with a 30 GB encrypted disk and 2 GB swap: about $15 a month.
 - Elastic IP 35.177.195.6 (free while attached to the running server).
-- Security group `zuru-test`: SSH only from the developer Mac's IP at creation time; HTTP/HTTPS open.
+- Security group `zuru-test`: SSH only from the developer Mac's IP at creation time; HTTP/HTTPS open;
+  TURN on 3478 (UDP/TCP) and relay ports 49160–49359 (UDP) for voice calls.
 - Key pair `zuru-test`: the private key is `~/.ssh/zuru-test.pem` on the Mac that created it.
 
 If your IP changes, allow SSH again:
@@ -30,12 +31,23 @@ aws ec2 authorize-security-group-ingress --region eu-west-2 --group-id sg-05df7c
 
 ## On the server (`/opt/zuru`)
 
-Docker Compose runs `postgres`, `redis`, `migrate` (runs before each release), `api`, `worker` and
-`caddy`. Uploads, the database, Redis and certificates live in Docker volumes and survive releases.
+Docker Compose runs `postgres`, `redis`, `migrate` (runs before each release), `api`, `worker`,
+`caddy` and `coturn`. Uploads, the database, Redis and certificates live in Docker volumes and survive releases.
 
 Settings: `NODE_ENV=production`, `PILOT_MODE=true`, Paystack/Flutterwave **test** keys, Gmail SMTP,
 uploads on the server disk. Secrets are generated once into `deploy/.env.test` (git-ignored) by
 `node deploy/make-env.mjs`.
+
+## Voice calls
+
+Voice is switched on for the test environment (`FEATURE_VOICE=true`, overriding pilot mode).
+Calls are relay-only: audio goes through the coturn server on this machine
+(`deploy/turnserver.conf.template`), so neither caller sees the other's IP address. The API hands each
+signed-in caller a TURN login that expires after an hour (HMAC of the shared `VOICE_TURN_SECRET`).
+The relay refuses to forward into private networks or the AWS metadata address.
+
+Phones need a build made after the microphone-permission fix (Android `RECORD_AUDIO`, iOS microphone
+text). Older builds cannot use the microphone.
 
 ## Releasing
 
@@ -84,7 +96,7 @@ cd /opt/zuru && docker compose ps && docker compose logs -f api worker
 ```
 
 There are no automatic backups on this test server. To take one:
-`docker compose exec -T postgres pg_dump -U zuru zuru | gzip > zuru-$(date +%F).sql.gz`.
+`docker compose exec -T postgres pg_dump -U zuru zuru | gzip > ahia-$(date +%F).sql.gz`.
 
 ## Removing it
 

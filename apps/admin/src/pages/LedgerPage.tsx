@@ -1,4 +1,4 @@
-import { money, statusLabel } from '@zuru/shared';
+import { money, statusLabel } from '@ahia/shared';
 import { useState } from 'react';
 import { useAdmin } from '../AdminContext';
 import { request } from '../api';

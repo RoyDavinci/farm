@@ -122,6 +122,8 @@ export const Listing = z
     public_longitude: z.number().nullish(),
     distance_km: z.number().nullish(),
     search_price: kobo.nullish(),
+    rating_avg: z.number().nullish(),
+    rating_count: z.number().int().nullish(),
     market_id: z.string().nullish(),
     business_name: z.string(),
     city: z.string(),

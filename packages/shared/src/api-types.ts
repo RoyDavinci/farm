@@ -3365,6 +3365,8 @@ export interface components {
       public_longitude?: number | null;
       distance_km?: number | null;
       search_price?: number | null;
+      rating_avg?: number | null;
+      rating_count?: number | null;
       market_id?: string | null;
       business_name: string;
       city: string;

@@ -57,6 +57,11 @@ const env = {
   RECORDS_STORAGE_PROVIDER: 'local',
   MAPBOX_PUBLIC_TOKEN: local.MAPBOX_PUBLIC_TOKEN || '',
   LOG_LEVEL: 'http',
+  // Voice calls through the coturn relay on this server (deploy/turnserver.conf.template).
+  FEATURE_VOICE: 'true',
+  VOICE_CALLS_ENABLED: 'true',
+  VOICE_TURN_URL: `turn:${ip}:3478?transport=udp,turn:${ip}:3478?transport=tcp`,
+  VOICE_TURN_SECRET: secret(),
 };
 for (const k of ['SMTP_HOST', 'MAIL_FROM', 'PAYSTACK_SECRET_KEY'])
   if (!env[k]) console.warn(`warning: ${k} is empty in apps/api/.env`);

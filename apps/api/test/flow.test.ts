@@ -1211,7 +1211,7 @@ describe('password reset', () => {
     expect(r.status).toBe(202);
     expect(r.body.challenge_id).toBeTruthy();
     const mail = newestMail();
-    expect(mail).toContain('no Zuru account uses this email address');
+    expect(mail).toContain('no Ahia account uses this email address');
     expect(mail).not.toMatch(/code is \d{6}/);
     // Even with a guessed code, completing it never reports a reset.
     const [otp] = await db.query('SELECT id FROM otp_challenges WHERE id=$1', [
@@ -1694,13 +1694,13 @@ describe('security and configuration', () => {
       OTP_SECRET: 'x'.repeat(44),
       PAYOUT_ENCRYPTION_KEY: 'y'.repeat(44),
       SMTP_HOST: 'smtp.example.com',
-      MAIL_FROM: 'Zuru <no-reply@example.com>',
-      RENDER_EXTERNAL_URL: 'https://zuru-api.onrender.com',
+      MAIL_FROM: 'Ahia <no-reply@example.com>',
+      RENDER_EXTERNAL_URL: 'https://ahia-api.onrender.com',
       RENDER_GIT_COMMIT: 'abc123',
-      CORS_ALLOWED_HOSTS_ADMIN: 'zuru-admin.onrender.com',
+      CORS_ALLOWED_HOSTS_ADMIN: 'ahia-admin.onrender.com',
     });
     expect(productionProblems(render)).toEqual([]);
-    expect(render.PUBLIC_API_URL).toBe('https://zuru-api.onrender.com');
+    expect(render.PUBLIC_API_URL).toBe('https://ahia-api.onrender.com');
     expect(render.CORS_ORIGINS).toBe('');
     expect(render.GIT_COMMIT).toBe('abc123');
   });
@@ -2223,7 +2223,7 @@ describe('redis, rate limits and realtime', () => {
       const seen: string[] = [];
       const stop = events.onUserChanged((id) => seen.push(id));
       // Published by "another instance" (a separate connection).
-      await outside.publish('zuru:user-sync', 'buyer');
+      await outside.publish('ahia:user-sync', 'buyer');
       await new Promise((r) => setTimeout(r, 200));
       stop();
       expect(seen).toEqual(['buyer']);

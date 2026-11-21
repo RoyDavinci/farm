@@ -1,4 +1,4 @@
-import { money, statusLabel, type Listing } from '@zuru/shared';
+import { money, statusLabel, type Listing } from '@ahia/shared';
 import * as DocumentPicker from 'expo-document-picker';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';

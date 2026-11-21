@@ -16,8 +16,8 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import type { Tab } from './AppContext';
 import { useI18n } from './i18n';
 
-const primary: Tab[] = ['Market', 'Bookings', 'Wallet'];
-const extra: { tab: Exclude<Tab, 'Market' | 'Bookings' | 'Wallet'> }[] = [
+const primary: Tab[] = ['Market', 'Categories', 'Bookings', 'Wallet'];
+const extra: { tab: Exclude<Tab, 'Market' | 'Categories' | 'Bookings' | 'Wallet'> }[] = [
   { tab: 'Sell' },
   { tab: 'Riders' },
   { tab: 'Drive' },
@@ -25,8 +25,8 @@ const extra: { tab: Exclude<Tab, 'Market' | 'Bookings' | 'Wallet'> }[] = [
   { tab: 'Account' },
 ];
 const paths: Partial<Record<Tab, string>> = {
-  Market:
-    'M3 10 5 4h14l2 6M4 10v10h16V10M9 20v-6h6v6M3 10c0 3 4 3 4 0 0 3 5 3 5 0 0 3 5 3 5 0 0 3 4 3 4 0',
+  Market: 'M3 11 12 3l9 8M5 9.5V20h5v-6h4v6h5V9.5',
+  Categories: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
   Bookings: 'M6 4h12v17H6zM9 2v4m6-4v4M9 10h6m-6 4h6m-6 4h4',
   Wallet: 'M20 8V5H5a2 2 0 0 1 0-4h13M3 3v16a2 2 0 0 0 2 2h15V8H5M20 12h-6v5h6',
   Sell: 'M3 12 9 3h10l2 10-9 8zM15 7h.01',
@@ -36,7 +36,7 @@ const paths: Partial<Record<Tab, string>> = {
   Account: 'M5 21v-3a7 7 0 0 1 14 0v3M16 6a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
 };
 function Icon({ name, active = false }: { name: Tab | 'More'; active?: boolean }) {
-  const color = active ? '#315a38' : '#7b8475';
+  const color = active ? '#26408f' : '#707689';
   return (
     <Svg
       width={24}
@@ -146,6 +146,7 @@ export default function BottomNavigation({
               <Icon name={name} active={tab === name} />
             </View>
             <Text style={[styles.label, tab === name && styles.selectedLabel]}>{label(name)}</Text>
+            {tab === name && <View style={styles.underline} />}
           </Pressable>
         ))}
         <Pressable
@@ -263,20 +264,28 @@ const styles = StyleSheet.create({
     paddingBottom: 9,
     paddingHorizontal: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e8ebdf',
+    borderTopColor: '#dde1ed',
     backgroundColor: '#fff',
   },
   tab: { flex: 1, alignItems: 'center', minHeight: 58, gap: 3, borderRadius: 14 },
-  icon: { width: 58, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-  selectedIcon: { backgroundColor: '#eaf0e2' },
-  label: { fontSize: 11, color: '#78816f', fontWeight: '500' },
-  selectedLabel: { color: '#315a38', fontWeight: '700' },
-  activeDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#315a38' },
+  icon: { width: 52, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  selectedIcon: { backgroundColor: '#e6eaf6' },
+  label: { fontSize: 11, color: '#697087', fontWeight: '500' },
+  selectedLabel: { color: '#26408f', fontWeight: '700' },
+  underline: {
+    position: 'absolute',
+    bottom: -9,
+    width: 34,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#26408f',
+  },
+  activeDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#26408f' },
   pressed: { opacity: 0.7 },
   modal: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { flex: 1, backgroundColor: '#152b20' },
+  backdrop: { flex: 1, backgroundColor: '#121f4a' },
   sheet: {
-    backgroundColor: '#fffef9',
+    backgroundColor: '#fbfbfe',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '85%',
@@ -289,7 +298,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#d8dece',
+    backgroundColor: '#ccd1e0',
     alignSelf: 'center',
     marginTop: 12,
   },
@@ -300,17 +309,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  title: { fontSize: 23, fontWeight: '700', color: '#294532' },
-  subtitle: { fontSize: 12, color: '#7a8470', marginTop: 5 },
+  title: { fontSize: 23, fontWeight: '700', color: '#1f2b4f' },
+  subtitle: { fontSize: 12, color: '#69728b', marginTop: 5 },
   close: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#eff1e7',
+    backgroundColor: '#e6e9f2',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeText: { fontSize: 28, color: '#52674b', lineHeight: 32 },
+  closeText: { fontSize: 28, color: '#414d71', lineHeight: 32 },
   items: { paddingHorizontal: 18, paddingBottom: 30, gap: 7 },
   item: {
     flexDirection: 'row',
@@ -322,17 +331,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
   },
-  selectedItem: { backgroundColor: '#edf2e6', borderColor: '#dce5d1' },
+  selectedItem: { backgroundColor: '#e4e8f4', borderColor: '#ced4e8' },
   itemIcon: {
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#edf1e6',
+    backgroundColor: '#e4e8f3',
     alignItems: 'center',
     justifyContent: 'center',
   },
   itemCopy: { flex: 1 },
-  itemTitle: { fontSize: 16, fontWeight: '600', color: '#2c4933' },
-  itemDescription: { fontSize: 12, lineHeight: 17, color: '#7a8470', marginTop: 4 },
-  chevron: { fontSize: 24, color: '#6f8563', width: 22, textAlign: 'center' },
+  itemTitle: { fontSize: 16, fontWeight: '600', color: '#222e53' },
+  itemDescription: { fontSize: 12, lineHeight: 17, color: '#69728b', marginTop: 4 },
+  chevron: { fontSize: 24, color: '#576691', width: 22, textAlign: 'center' },
 });

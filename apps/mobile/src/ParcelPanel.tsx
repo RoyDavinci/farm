@@ -1,7 +1,7 @@
 import MapPanel from './MapPanel';
 import { useEffect, useState } from 'react';
 import { Text, View, Switch } from 'react-native';
-import { money, type NearbyRider } from '@zuru/shared';
+import { money, type NearbyRider } from '@ahia/shared';
 import { useApp } from './AppContext';
 import { request } from './request';
 import RiderPicker, { PointFields } from './RiderPicker';

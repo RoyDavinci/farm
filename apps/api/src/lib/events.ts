@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import type { RedisClient } from './redis.js';
 import { logger } from './logger.js';
 
-const CHANNEL = 'zuru:user-sync';
+const CHANNEL = 'ahia:user-sync';
 
 /**
  * "Something changed for this user" events that the realtime hub turns into a client refresh.

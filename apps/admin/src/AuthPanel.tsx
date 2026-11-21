@@ -87,7 +87,7 @@ export default function AuthPanel({ onSignedIn }: { onSignedIn: (u: any) => void
       )}
       {challenge?.delivery === 'development_file' && (
         <div className="demo-banner">
-          Development email saved in apps/api/.data/zuru/mail. Configure SMTP to deliver it to an
+          Development email saved in apps/api/.data/ahia/mail. Configure SMTP to deliver it to an
           inbox.
         </div>
       )}
@@ -129,7 +129,7 @@ export default function AuthPanel({ onSignedIn }: { onSignedIn: (u: any) => void
                 type="email"
                 autoComplete="username"
                 required
-                placeholder="admin@zuru.example"
+                placeholder="admin@ahia.example"
               />
             </label>
             {!reset && (

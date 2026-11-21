@@ -1,4 +1,4 @@
-# Zuru
+# Ahia
 
 Test environment: [AWS test server](docs/deploy-aws-test.md) — https://app.35-177-195-6.sslip.io (web app), https://admin.35-177-195-6.sslip.io (admin), https://api.35-177-195-6.sslip.io/v1 (API).
 
@@ -55,17 +55,17 @@ npm run dev:mobile
 
 Open the admin at http://localhost:5173. Scan Expo's QR code with a compatible Expo Go or development build, or run `npm run dev:mobile:web` and open http://localhost:8095. The API runs at http://localhost:4000.
 
-`npm run setup` creates ignored local environment files (including a random local database password in the repo-root `.env`), starts PostgreSQL with Docker Compose, applies the Prisma migrations and seeds demo accounts. If port 5432 is taken, it uses 5433. On a newly configured checkout their password is `ZuruDemo2026!`. If `.env` already exists, setup preserves it and uses its `SEED_PASSWORD`. Rerunning seed does not overwrite existing account passwords.
+`npm run setup` creates ignored local environment files (including a random local database password in the repo-root `.env`), starts PostgreSQL with Docker Compose, applies the Prisma migrations and seeds demo accounts. If port 5432 is taken, it uses 5433. On a newly configured checkout their password is `AhiaDemo2026!`. If `.env` already exists, setup preserves it and uses its `SEED_PASSWORD`. Rerunning seed does not overwrite existing account passwords.
 
 | Account | Email               | Purpose                                            |
 | ------- | ------------------- | -------------------------------------------------- |
-| Admin   | admin@zuru.example  | Review sellers and operate the marketplace         |
-| Seller  | seller@zuru.example | Approved seller with example products              |
-| Buyer   | buyer@zuru.example  | Browse, book, fund a simulated wallet, and collect |
+| Admin   | admin@ahia.example  | Review sellers and operate the marketplace         |
+| Seller  | seller@ahia.example | Approved seller with example products              |
+| Buyer   | buyer@ahia.example  | Browse, book, fund a simulated wallet, and collect |
 
-PostgreSQL runs in Docker (`docker compose up -d`; data persists in a Docker volume). The schema is managed by Prisma: `apps/api/prisma/schema.prisma` is the schema of record and `apps/api/prisma/migrations` holds the SQL migrations. `npm run dev` applies pending migrations before starting the API. To change the schema, edit `schema.prisma` and run `npm run db:migrate:dev -w @zuru/api -- --name <change>`. Tests use a separate `farmers_market_test` database that is rebuilt on every run.
+PostgreSQL runs in Docker (`docker compose up -d`; data persists in a Docker volume). The schema is managed by Prisma: `apps/api/prisma/schema.prisma` is the schema of record and `apps/api/prisma/migrations` holds the SQL migrations. `npm run dev` applies pending migrations before starting the API. To change the schema, edit `schema.prisma` and run `npm run db:migrate:dev -w @ahia/api -- --name <change>`. Tests use a separate `farmers_market_test` database that is rebuilt on every run.
 
-Databases created before the Prisma switch (on PostgreSQL) need a one-time `npx prisma migrate resolve --applied 0_init` in `apps/api`. Data from the old embedded PGlite database is not migrated automatically; it is left untouched in `apps/api/.data/zuru`.
+Databases created before the Prisma switch (on PostgreSQL) need a one-time `npx prisma migrate resolve --applied 0_init` in `apps/api`. Data from the old embedded PGlite database is not migrated automatically; it is left untouched in `apps/api/.data/ahia`.
 
 ## Try the first flow
 
@@ -126,7 +126,7 @@ Useful commands:
 ```sh
 npm run typecheck
 npm run build
-npm run export:web -w @zuru/mobile
+npm run export:web -w @ahia/mobile
 npm run db:migrate
 npm run db:seed
 npm test
@@ -146,7 +146,7 @@ For real email delivery, configure `apps/api/.env`:
 
 ```dotenv
 MAIL_MODE=smtp
-MAIL_FROM=Zuru <no-reply@your-domain.example>
+MAIL_FROM=Ahia <no-reply@your-domain.example>
 SMTP_HOST=smtp.your-provider.example
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -157,7 +157,7 @@ OTP_SECRET=your-random-secret-with-at-least-32-characters
 
 Port 587 uses required STARTTLS. For implicit TLS on port 465, use `SMTP_SECURE=true`. Credentials stay on the server. Use a sender your mail provider permits; configure its domain records according to that provider's instructions. See [Nodemailer SMTP documentation](https://nodemailer.com/smtp).
 
-Until SMTP is configured, local `MAIL_MODE=file` uses Nodemailer's stream transport and saves private `.eml` files in `apps/api/.data/zuru/mail`. Open the newest verification-code email locally to obtain the development code. These files are not served by the API; no code is returned in an HTTP response. Restart the API after changing environment settings. Production startup requires SMTP and an OTP secret and never permits file delivery. New checkout setup generates an OTP secret automatically.
+Until SMTP is configured, local `MAIL_MODE=file` uses Nodemailer's stream transport and saves private `.eml` files in `apps/api/.data/ahia/mail`. Open the newest verification-code email locally to obtain the development code. These files are not served by the API; no code is returned in an HTTP response. Restart the API after changing environment settings. Production startup requires SMTP and an OTP secret and never permits file delivery. New checkout setup generates an OTP secret automatically.
 
 Access tokens expire after 30 minutes; clients rotate refresh credentials automatically for up to 30 days. Reusing an already consumed refresh credential revokes its device session. Account settings list signed-in devices and allow revocation. Existing pre-OTP sessions are invalidated when the account migration is applied.
 

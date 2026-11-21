@@ -7,8 +7,9 @@ import {
   type OrderEvent,
   type Seller,
   type Settings,
-} from '@zuru/shared';
+} from '@ahia/shared';
 import { StatusBar } from 'expo-status-bar';
+import Svg, { Path } from 'react-native-svg';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -26,6 +27,7 @@ import { AppContext, type AppState, type Tab } from './src/AppContext';
 import AuthScreen from './src/AuthScreen';
 import CommunityScreen from './src/CommunityScreen';
 import DiscoveryPanel from './src/DiscoveryPanel';
+import CategoriesScreen from './src/CategoriesScreen';
 import { LanguageProvider, useI18n } from './src/i18n';
 import { onConnectivity } from './src/offline';
 import { onNotificationTap, registerForPush } from './src/push';
@@ -39,7 +41,7 @@ import SellerShop from './src/screens/SellerShop';
 import SellScreen from './src/screens/SellScreen';
 import WalletScreen, { type WalletData } from './src/screens/WalletScreen';
 import { sellerFromUrl } from './src/share';
-import { Alert, s } from './src/ui';
+import { Alert, Brand, FadeIn, s } from './src/ui';
 
 export default function App() {
   return (
@@ -68,7 +70,8 @@ function Main() {
       entries: [],
       funding: [],
     });
-  const [marketRefresh, setMarketRefresh] = useState(0);
+  const [marketRefresh, setMarketRefresh] = useState(0),
+    [category, setCategory] = useState('');
   const [offline, setOfflineBanner] = useState(false);
   useEffect(() => onConnectivity(setOfflineBanner), []);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -128,7 +131,7 @@ function Main() {
       })
       .finally(() => setInitializing(false));
   }, [refresh]);
-  // Shared shop links: https://…/?seller=ID (web) or zuru://seller/ID (app).
+  // Shared shop links: https://…/?seller=ID (web) or ahia://seller/ID (app).
   const [linkedSeller, setLinkedSeller] = useState<string | null>(null);
   useEffect(() => {
     if (Platform.OS === 'web') setLinkedSeller(sellerFromUrl(window.location.href));
@@ -230,7 +233,7 @@ function Main() {
   if (initializing)
     return (
       <SafeAreaView style={s.center}>
-        <ActivityIndicator color="#315a38" />
+        <ActivityIndicator color="#26408f" />
         <Text style={s.muted}>Opening your market…</Text>
       </SafeAreaView>
     );
@@ -272,7 +275,23 @@ function Main() {
     );
   else if (tab === 'Market')
     screen = (
-      <DiscoveryPanel refreshVersion={marketRefresh} name={me.name} onSelect={ctx.openListing} />
+      <DiscoveryPanel
+        refreshVersion={marketRefresh}
+        name={me.name}
+        onSelect={ctx.openListing}
+        category={category}
+        onCategory={setCategory}
+      />
+    );
+  else if (tab === 'Categories')
+    screen = (
+      <CategoriesScreen
+        current={category}
+        onPick={(c) => {
+          setCategory(c);
+          changeTab('Market');
+        }}
+      />
     );
   else if (tab === 'Bookings') screen = <BookingsScreen outgoing={outgoing} />;
   else if (tab === 'Sell')
@@ -305,15 +324,35 @@ function Main() {
       <SafeAreaView style={s.safe}>
         <StatusBar style="dark" />
         <View style={s.topbar}>
-          <View style={s.wordmark}>
-            <Text style={s.logo}>❋</Text>
-            <Text style={s.brand}>zuru</Text>
+          <Brand size={38} tagline="Buy · Sell · Discover nearby" />
+          <View style={s.topActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Messages and updates"
+              onPress={() => changeTab('Inbox')}
+              style={s.iconButton}
+            >
+              <Svg
+                width={22}
+                height={22}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#1d2a52"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <Path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0" />
+              </Svg>
+            </Pressable>
+            <Pressable accessibilityLabel="Open account" onPress={() => changeTab('Account')}>
+              <View style={s.avatar}>
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>
+                  {me.name.slice(0, 1).toUpperCase()}
+                </Text>
+              </View>
+            </Pressable>
           </View>
-          <Pressable accessibilityLabel="Open account" onPress={() => changeTab('Account')}>
-            <View style={s.avatar}>
-              <Text style={s.bold}>{me.name.slice(0, 1)}</Text>
-            </View>
-          </Pressable>
         </View>
         <ScrollView
           style={s.flex}
@@ -322,7 +361,7 @@ function Main() {
             <RefreshControl
               refreshing={loading}
               onRefresh={() => void refresh()}
-              tintColor="#315a38"
+              tintColor="#26408f"
             />
           }
           keyboardShouldPersistTaps="handled"
@@ -336,7 +375,7 @@ function Main() {
             <Alert text="You’re offline. Showing your last saved bookings and wallet; changes will need a connection." />
           )}
           {error && <Alert error text={error} />} {notice && <Alert text={notice} />}
-          {screen}
+          <FadeIn key={tab}>{screen}</FadeIn>
           <Text style={s.bottomNote}>{t('footer.note')}</Text>
         </ScrollView>
         <BottomNavigation

@@ -38,7 +38,7 @@ export default function AccountScreen({ onSignedOut }: { onSignedOut: () => void
         </Text>
       </View>
       <View style={s.orderCard}>
-        <Text style={s.bold}>Zuru</Text>
+        <Text style={s.bold}>Ahia</Text>
         <Text style={s.body}>
           A marketplace connecting buyers, sellers and riders across Nigeria.
         </Text>

@@ -1,4 +1,4 @@
-import { money } from '@zuru/shared';
+import { money } from '@ahia/shared';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { request } from './request';
@@ -135,12 +135,12 @@ const a = StyleSheet.create({
     flexBasis: '45%',
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#f7f8f0',
+    backgroundColor: '#eff1f9',
     gap: 2,
   },
-  value: { fontSize: 18, fontWeight: '600', color: '#47613a' },
+  value: { fontSize: 18, fontWeight: '600', color: '#2c3d6f' },
   chart: { height: 90, flexDirection: 'row', alignItems: 'flex-end', gap: 2 },
   barSlot: { flex: 1, height: '100%', justifyContent: 'flex-end' },
-  bar: { backgroundColor: '#5f8a4c', borderTopLeftRadius: 2, borderTopRightRadius: 2 },
-  empty: { backgroundColor: '#e3e9d8' },
+  bar: { backgroundColor: '#3651a0', borderTopLeftRadius: 2, borderTopRightRadius: 2 },
+  empty: { backgroundColor: '#d5dbec' },
 });

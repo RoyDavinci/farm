@@ -1,4 +1,4 @@
-import { money } from '@zuru/shared';
+import { money } from '@ahia/shared';
 import { useState } from 'react';
 import { Linking, Text, View } from 'react-native';
 import { useApp } from './AppContext';

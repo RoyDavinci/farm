@@ -1,5 +1,5 @@
 import PublicSellerInfo from '../PublicSellerInfo';
-import { money, type Listing } from '@zuru/shared';
+import { money, type Listing } from '@ahia/shared';
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { useApp } from '../AppContext';

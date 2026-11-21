@@ -252,7 +252,7 @@ export function createAuthService(deps: AppDeps) {
             error: {
               status: 404,
               code: 'NO_ACCOUNT',
-              message: 'There’s no Zuru account for this email. Create an account first.',
+              message: 'There’s no Ahia account for this email. Create an account first.',
             },
           };
         }

@@ -1,13 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  Image,
+  ImageBackground,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
-import { money, type LocalStatus } from '@zuru/shared';
+import { money, type LocalStatus } from '@ahia/shared';
 import { useApp } from './AppContext';
 import { currentPosition } from './location';
 import { request } from './request';
 import StoryViewer from './StoryViewer';
-import { Button, Field, s } from './ui';
+import { Button, Field, PressScale, Pulse, s } from './ui';
 
 type Scope = {
   lat?: number;
@@ -28,10 +36,13 @@ export default function LocalStatusFeed({
   point,
   category,
   refreshVersion,
+  aside,
 }: {
   point: { latitude: number; longitude: number } | null;
   category: string;
   refreshVersion: number;
+  /** Shown beside the featured story (a sponsored product), or full width without one. */
+  aside?: ReactNode;
 }) {
   const { setTab, seller, settings } = useApp();
   const [manual, setManual] = useState(false),
@@ -151,7 +162,9 @@ export default function LocalStatusFeed({
   const ordered = sellers.flatMap(({ first }) =>
     items.filter((i) => i.seller_id === first.seller_id),
   );
-  const boosted = items.filter((i) => i.sponsored);
+  // The big card: a boosted story first, else the first one not yet watched.
+  const feature =
+    ordered.find((i) => i.sponsored) || ordered.find((i) => !seen.has(i.id)) || ordered[0];
   // The playlist is fixed when the viewer opens, so watching a story never reorders what plays next.
   const play = (id: string) => {
     setPlaylist(ordered);
@@ -165,117 +178,144 @@ export default function LocalStatusFeed({
 
   return (
     <View style={styles.section}>
-      <View style={styles.titleRow}>
-        <Text style={styles.title}>Stories</Text>
-        <Pressable accessibilityRole="button" onPress={() => setManual(!manual)}>
-          <Text style={s.link}>📍 {where} ›</Text>
-        </Pressable>
+      <View style={styles.card}>
+        <View style={styles.titleRow}>
+          <View style={styles.titleIcon}>
+            <View style={styles.titleIconDot} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Local Status</Text>
+            <Pressable accessibilityRole="button" onPress={() => setManual(!manual)}>
+              <Text style={styles.subtitle}>
+                {local
+                  ? `Products & offers ${where === 'Near you' ? 'around you' : `in ${where}`}`
+                  : 'Set your area to see local offers'}{' '}
+                ⌄
+              </Text>
+            </Pressable>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => (ordered.length ? play(ordered[0].id) : setManual(true))}
+          >
+            <Text style={styles.seeAll}>See all ›</Text>
+          </Pressable>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.rail}
+        >
+          {seller?.status === 'APPROVED' && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add your status"
+              onPress={() => setTab('Sell')}
+              style={styles.circleWrap}
+            >
+              <View style={[styles.ring, styles.ringMine]}>
+                <View style={[styles.avatar, styles.addFilled]}>
+                  <Text style={styles.addPlus}>+</Text>
+                </View>
+              </View>
+              <Text numberOfLines={1} style={styles.name}>
+                Add status
+              </Text>
+            </Pressable>
+          )}
+          {!local && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Show stories near me"
+              style={styles.circleWrap}
+              onPress={() =>
+                void work(async () => {
+                  const p = await currentPosition();
+                  setChosen({ lat: p.latitude, lng: p.longitude });
+                })
+              }
+            >
+              <View style={[styles.ring, styles.ringSeen]}>
+                <View style={[styles.avatar, styles.addAvatar]}>
+                  <Text style={styles.addInitial}>📍</Text>
+                </View>
+              </View>
+              <Text numberOfLines={1} style={styles.name}>
+                Nearby
+              </Text>
+            </Pressable>
+          )}
+          {sellers.map(({ first, unseen, sponsored }) => (
+            <Pressable
+              key={first.seller_id}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${first.business_name} stories`}
+              onPress={() => play(first.id)}
+              style={styles.circleWrap}
+            >
+              <View style={[styles.ring, unseen ? styles.ringNew : styles.ringSeen]}>
+                <Image source={{ uri: first.thumbnail_url }} style={styles.avatar} />
+                {unseen && <View style={styles.newDot} />}
+                {sponsored && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>★</Text>
+                  </View>
+                )}
+              </View>
+              <Text numberOfLines={1} style={[styles.name, !unseen && styles.nameSeen]}>
+                {first.business_name}
+              </Text>
+            </Pressable>
+          ))}
+          {!local && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Choose an area for stories"
+              style={styles.circleWrap}
+              onPress={() => setManual(true)}
+            >
+              <View style={[styles.ring, styles.ringSeen]}>
+                <View style={[styles.avatar, styles.addAvatar]}>
+                  <Text style={styles.addInitial}>⌕</Text>
+                </View>
+              </View>
+              <Text numberOfLines={1} style={styles.name}>
+                Choose area
+              </Text>
+            </Pressable>
+          )}
+          {local && cursor && (
+            <Pressable
+              accessibilityRole="button"
+              style={styles.circleWrap}
+              onPress={() => void load(cursor)}
+            >
+              <View style={[styles.ring, styles.ringSeen]}>
+                <View style={[styles.avatar, styles.addAvatar]}>
+                  <Text style={styles.addInitial}>›</Text>
+                </View>
+              </View>
+              <Text numberOfLines={1} style={styles.name}>
+                More
+              </Text>
+            </Pressable>
+          )}
+        </ScrollView>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.rail}
-      >
-        {seller?.status === 'APPROVED' && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add your status"
-            onPress={() => setTab('Sell')}
-            style={styles.circleWrap}
-          >
-            <View style={[styles.ring, styles.ringMine]}>
-              <View style={[styles.avatar, styles.addAvatar]}>
-                <Text style={styles.addInitial}>
-                  {(seller.business_name || '?').slice(0, 1).toUpperCase()}
-                </Text>
-              </View>
-              <View style={styles.plus}>
-                <Text style={styles.plusText}>+</Text>
-              </View>
-            </View>
-            <Text numberOfLines={1} style={styles.name}>
-              Your status
-            </Text>
-          </Pressable>
-        )}
-        {!local && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Show stories near me"
-            style={styles.circleWrap}
-            onPress={() =>
-              void work(async () => {
-                const p = await currentPosition();
-                setChosen({ lat: p.latitude, lng: p.longitude });
-              })
-            }
-          >
-            <View style={[styles.ring, styles.ringSeen]}>
-              <View style={[styles.avatar, styles.addAvatar]}>
-                <Text style={styles.addInitial}>📍</Text>
-              </View>
-            </View>
-            <Text numberOfLines={1} style={styles.name}>
-              Nearby
-            </Text>
-          </Pressable>
-        )}
-        {sellers.map(({ first, unseen, sponsored }) => (
-          <Pressable
-            key={first.seller_id}
-            accessibilityRole="button"
-            accessibilityLabel={`View ${first.business_name} stories`}
-            onPress={() => play(first.id)}
-            style={styles.circleWrap}
-          >
-            <View style={[styles.ring, unseen ? styles.ringNew : styles.ringSeen]}>
-              <Image source={{ uri: first.thumbnail_url }} style={styles.avatar} />
-              {sponsored && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>★</Text>
-                </View>
-              )}
-            </View>
-            <Text numberOfLines={1} style={[styles.name, !unseen && styles.nameSeen]}>
-              {first.business_name}
-            </Text>
-          </Pressable>
-        ))}
-        {!local && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Choose an area for stories"
-            style={styles.circleWrap}
-            onPress={() => setManual(true)}
-          >
-            <View style={[styles.ring, styles.ringSeen]}>
-              <View style={[styles.avatar, styles.addAvatar]}>
-                <Text style={styles.addInitial}>⌕</Text>
-              </View>
-            </View>
-            <Text numberOfLines={1} style={styles.name}>
-              Choose area
-            </Text>
-          </Pressable>
-        )}
-        {local && cursor && (
-          <Pressable
-            accessibilityRole="button"
-            style={styles.circleWrap}
-            onPress={() => void load(cursor)}
-          >
-            <View style={[styles.ring, styles.ringSeen]}>
-              <View style={[styles.avatar, styles.addAvatar]}>
-                <Text style={styles.addInitial}>›</Text>
-              </View>
-            </View>
-            <Text numberOfLines={1} style={styles.name}>
-              More
-            </Text>
-          </Pressable>
-        )}
-      </ScrollView>
+      {(feature || aside) && (
+        <View style={styles.featureRow}>
+          {feature && (
+            <FeaturedStory
+              story={feature}
+              count={items.filter((i) => i.seller_id === feature.seller_id).length}
+              onPress={() => play(feature.id)}
+            />
+          )}
+          {aside && <View style={feature ? styles.asideBeside : styles.asideFull}>{aside}</View>}
+        </View>
+      )}
 
       {local && !busy && !items.length && (
         <Text style={s.fine}>
@@ -369,30 +409,6 @@ export default function LocalStatusFeed({
         </View>
       )}
 
-      {boosted.map((item) => (
-        <Pressable
-          key={item.id}
-          accessibilityRole="button"
-          accessibilityLabel={`Boosted story from ${item.business_name}`}
-          style={styles.boosted}
-          onPress={() => play(item.id)}
-        >
-          <Image source={{ uri: item.thumbnail_url }} style={styles.boostedThumb} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text numberOfLines={1} style={s.bold}>
-              {item.business_name}
-            </Text>
-            <Text numberOfLines={1} style={s.small}>
-              {item.title} · {money(item.price_kobo)}
-              {item.distance_km != null ? ` · ${item.distance_km} km` : ''}
-            </Text>
-          </View>
-          <View style={styles.boostedTag}>
-            <Text style={styles.boostedTagText}>Boosted</Text>
-          </View>
-        </Pressable>
-      ))}
-
       <StoryViewer
         stories={playlist}
         startId={selected}
@@ -408,19 +424,240 @@ export default function LocalStatusFeed({
   );
 }
 
-const GREEN = '#355e3b',
-  GOLD = '#e9b949';
+const ago = (iso: string) => {
+  const m = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  return m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`;
+};
+
+/** A large story card: photo, seller, time, price tag and a pulsing play button. */
+function FeaturedStory({
+  story,
+  count,
+  onPress,
+}: {
+  story: LocalStatus;
+  count: number;
+  onPress: () => void;
+}) {
+  const seconds = story.duration_seconds || 0;
+  return (
+    <PressScale
+      accessibilityRole="button"
+      accessibilityLabel={`Watch ${story.business_name}: ${story.title}`}
+      onPress={onPress}
+      wrapStyle={{ flex: 1 }}
+      style={styles.feature}
+    >
+      <ImageBackground
+        source={{ uri: story.thumbnail_url }}
+        style={styles.featureImage}
+        resizeMode="cover"
+      >
+        <View style={styles.featureShade} />
+        <View style={styles.segments}>
+          {Array.from({ length: Math.min(Math.max(count, 1), 6) }, (_, i) => (
+            <View key={i} style={[styles.segment, i === 0 && styles.segmentOn]} />
+          ))}
+        </View>
+        <View style={styles.featureTop}>
+          <View style={styles.sellerChip}>
+            <View style={styles.sellerAvatar}>
+              <Text style={styles.sellerInitial}>{(story.business_name || '?').slice(0, 1)}</Text>
+            </View>
+            <View style={{ flexShrink: 1 }}>
+              <Text numberOfLines={1} style={styles.sellerName}>
+                {story.business_name}
+              </Text>
+              <Text numberOfLines={1} style={styles.sellerMeta}>
+                {story.distance_km != null
+                  ? `${Math.max(1, Math.round(story.distance_km))} km away · `
+                  : ''}
+                {ago(story.created_at)}
+              </Text>
+            </View>
+          </View>
+          {story.media_type === 'VIDEO' && seconds > 0 && (
+            <View style={styles.duration}>
+              <Text style={styles.durationText}>
+                ▶ 0:{String(Math.round(seconds)).padStart(2, '0')}
+              </Text>
+            </View>
+          )}
+        </View>
+        <Pulse style={styles.play}>
+          <Text style={styles.playIcon}>▶</Text>
+        </Pulse>
+        <View style={styles.featureBottom}>
+          <View style={{ flexShrink: 1, gap: 6 }}>
+            <View style={styles.priceTag}>
+              <Text numberOfLines={2} style={styles.priceTitle}>
+                {story.title}
+              </Text>
+              <Text style={styles.priceAmount}>{money(story.price_kobo)}</Text>
+            </View>
+            <View style={styles.orderNow}>
+              <Text style={styles.orderNowText}>Order now!</Text>
+            </View>
+          </View>
+          <View style={styles.viewProduct}>
+            <Text style={styles.viewProductText}>View ›</Text>
+          </View>
+        </View>
+      </ImageBackground>
+    </PressScale>
+  );
+}
+
+const GREEN = '#26408f',
+  GOLD = '#f5a524';
 const styles = StyleSheet.create({
-  section: { gap: 10 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 18, fontWeight: '800', color: '#203a26' },
+  section: { gap: 14 },
+  card: {
+    backgroundColor: '#eef1fa',
+    borderRadius: 22,
+    padding: 14,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#dfe5f5',
+  },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  titleIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: GREEN,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titleIconDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 3, borderColor: GOLD },
+  title: { fontSize: 18, fontWeight: '800', color: '#18213a' },
+  subtitle: { fontSize: 12, color: '#5d6684', marginTop: 1 },
+  seeAll: { fontSize: 13, fontWeight: '700', color: GREEN },
+  addFilled: { backgroundColor: GREEN, alignItems: 'center', justifyContent: 'center' },
+  addPlus: { color: '#fff', fontSize: 34, fontWeight: '300', lineHeight: 38 },
+  newDot: {
+    position: 'absolute',
+    right: 1,
+    bottom: 1,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: GOLD,
+    borderWidth: 3,
+    borderColor: '#eef1fa',
+  },
+  featureRow: { flexDirection: 'row', gap: 10, height: 236 },
+  asideBeside: { width: '36%' },
+  asideFull: { flex: 1 },
+  feature: {
+    flex: 1,
+    height: '100%',
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#1b2547',
+  },
+  featureImage: { flex: 1, padding: 10, justifyContent: 'space-between' },
+  featureShade: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(12,18,40,0.28)',
+  },
+  segments: { flexDirection: 'row', gap: 4 },
+  segment: { flex: 1, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.45)' },
+  segmentOn: { backgroundColor: '#fff' },
+  featureTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginTop: 8,
+  },
+  sellerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: 'rgba(10,16,36,0.45)',
+    borderRadius: 22,
+    paddingVertical: 4,
+    paddingLeft: 4,
+    paddingRight: 10,
+    flexShrink: 1,
+  },
+  sellerAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: GOLD,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  sellerInitial: { fontWeight: '900', color: '#1b1503', fontSize: 13 },
+  sellerName: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  sellerMeta: { color: '#dfe5f7', fontSize: 11 },
+  duration: {
+    backgroundColor: 'rgba(10,16,36,0.55)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  durationText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  play: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: '42%',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: '#fff',
+    backgroundColor: 'rgba(10,16,36,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playIcon: { color: '#fff', fontSize: 20, marginLeft: 3 },
+  featureBottom: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  priceTag: {
+    backgroundColor: GREEN,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    transform: [{ rotate: '-2deg' }],
+  },
+  priceTitle: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  priceAmount: { color: '#fff', fontWeight: '900', fontSize: 16 },
+  orderNow: {
+    alignSelf: 'flex-start',
+    backgroundColor: GOLD,
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    transform: [{ rotate: '-2deg' }],
+  },
+  orderNowText: { color: '#1b1503', fontWeight: '900', fontSize: 12 },
+  viewProduct: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  viewProductText: { color: '#18213a', fontWeight: '800', fontSize: 12 },
   rail: { gap: 14, paddingVertical: 4, paddingRight: 8 },
   circleWrap: { width: 72, alignItems: 'center', gap: 6 },
   ring: { padding: 3, borderWidth: 2.5, borderRadius: 40 },
-  ringNew: { borderColor: GOLD },
-  ringSeen: { borderColor: '#d6dbcc' },
-  ringMine: { borderColor: '#d6dbcc', borderStyle: 'dashed' },
-  avatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#edf1e5' },
+  ringNew: { borderColor: GREEN },
+  ringSeen: { borderColor: '#cacfdd' },
+  ringMine: { borderColor: GREEN },
+  avatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#e3e7f3' },
   addAvatar: { alignItems: 'center', justifyContent: 'center' },
   addInitial: { fontSize: 22, fontWeight: '800', color: GREEN },
   plus: {
@@ -451,8 +688,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  name: { fontSize: 11, color: '#2f4a33', fontWeight: '600', textAlign: 'center', width: 72 },
-  nameSeen: { color: '#7d8a76', fontWeight: '500' },
+  name: { fontSize: 11, color: '#263153', fontWeight: '600', textAlign: 'center', width: 72 },
+  nameSeen: { color: '#6f7891', fontWeight: '500' },
   error: { color: '#a33e32', fontSize: 13, lineHeight: 19 },
   muteRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   boosted: {
@@ -463,14 +700,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e6e9dd',
+    borderColor: '#dbdfeb',
   },
-  boostedThumb: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#edf1e5' },
+  boostedThumb: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#e3e7f3' },
   boostedTag: {
-    backgroundColor: '#fbf1d4',
+    backgroundColor: '#dce3f3',
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 8,
   },
-  boostedTagText: { fontSize: 11, fontWeight: '700', color: '#8a6516' },
+  boostedTagText: { fontSize: 11, fontWeight: '700', color: '#93620d' },
 });

@@ -1,4 +1,4 @@
-import type { Listing, operations } from '@zuru/shared';
+import type { Listing, operations } from '@ahia/shared';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';

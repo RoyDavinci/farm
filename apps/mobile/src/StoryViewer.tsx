@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { money, type LocalStatus } from '@zuru/shared';
+import { money, type LocalStatus } from '@ahia/shared';
 import { useApp } from './AppContext';
 import { request } from './request';
 import StatusVideo from './StatusVideo';
@@ -272,7 +272,7 @@ export default function StoryViewer({
                       value={reason}
                       onChangeText={setReason}
                       placeholder="Why are you reporting this story?"
-                      placeholderTextColor="#9aa59a"
+                      placeholderTextColor="#969ba9"
                       style={styles.input}
                     />
                     <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -318,7 +318,7 @@ export default function StoryViewer({
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#0d140f' },
+  screen: { flex: 1, backgroundColor: '#0b1124' },
   media: {
     position: 'absolute',
     top: 0,
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
   },
   top: {
     paddingHorizontal: 12,
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     overflow: 'hidden',
   },
   barFill: { height: 3, backgroundColor: '#fff' },
@@ -359,14 +359,14 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: '#fff',
-    backgroundColor: '#2a3a2e',
+    backgroundColor: '#1d2742',
   },
   headName: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  headMeta: { color: 'rgba(255,255,255,0.75)', fontSize: 12 },
+  headMeta: { color: 'rgba(255, 255, 255, 0.75)', fontSize: 12 },
   icon: { color: '#fff', fontSize: 22, paddingHorizontal: 6 },
   menu: {
     alignSelf: 'flex-end',
-    backgroundColor: 'rgba(20,30,22,0.96)',
+    backgroundColor: 'rgba(16, 21, 34, 0.96)',
     borderRadius: 12,
     paddingVertical: 4,
     minWidth: 210,
@@ -374,35 +374,35 @@ const styles = StyleSheet.create({
   menuItem: { color: '#fff', fontSize: 14, paddingVertical: 11, paddingHorizontal: 16 },
   bottom: { padding: 14, paddingBottom: 18, gap: 10 },
   caption: { color: '#fff', fontSize: 15, lineHeight: 21 },
-  notice: { color: '#f3d58a', fontSize: 13 },
+  notice: { color: '#fbcf82', fontSize: 13 },
   product: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 16,
     padding: 12,
   },
   productTitle: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  productPrice: { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 2 },
+  productPrice: { color: 'rgba(255, 255, 255, 0.85)', fontSize: 13, marginTop: 2 },
   cta: {
-    backgroundColor: '#e9b949',
+    backgroundColor: '#f5a524',
     borderRadius: 12,
     paddingVertical: 11,
     paddingHorizontal: 16,
     alignItems: 'center',
   },
-  ctaText: { color: '#1d2a1f', fontWeight: '800', fontSize: 14 },
+  ctaText: { color: '#161e33', fontWeight: '800', fontSize: 14 },
   ghost: {
     borderRadius: 12,
     paddingVertical: 11,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   ghostText: { color: '#fff', fontWeight: '700' },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     color: '#fff',
     borderRadius: 12,
     padding: 12,

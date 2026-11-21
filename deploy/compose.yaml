@@ -1,4 +1,4 @@
-# Zuru test environment: one server, everything in Docker.
+# Ahia test environment: one server, everything in Docker.
 # Caddy serves HTTPS (Let's Encrypt) for the API, the admin console and the mobile web app.
 name: zuru
 services:
@@ -55,6 +55,15 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_started }
+
+  # TURN relay for voice calls. Host networking: it needs the call ports directly.
+  coturn:
+    image: coturn/coturn:4.6.2
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+    command: ['-c', '/etc/coturn/turnserver.conf']
 
   caddy:
     image: caddy:2

@@ -1,4 +1,4 @@
-import { money, statusLabel, type Booking, type OrderEvent, type Seller } from '@zuru/shared';
+import { money, statusLabel, type Booking, type OrderEvent, type Seller } from '@ahia/shared';
 import { useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';
 import { request } from '../api';

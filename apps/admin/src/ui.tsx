@@ -1,4 +1,4 @@
-import { money, statusLabel, type Booking } from '@zuru/shared';
+import { money, statusLabel, type Booking } from '@ahia/shared';
 import { ArrowUpRight, Clock, Package, Search, X } from 'lucide-react';
 import React, { useEffect } from 'react';
 export function Badge({ status }: { status: string }) {

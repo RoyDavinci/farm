@@ -1,3 +1,4 @@
+import { Brand } from './ui';
 import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -53,7 +54,7 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
         value={value}
         onChangeText={onChangeText}
         style={s.input}
-        placeholderTextColor="#98a18a"
+        placeholderTextColor="#828ca9"
         {...extra}
       />
     </View>
@@ -72,7 +73,7 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-          <Text style={s.brand}>❋ zuru</Text>
+          <Brand size={34} />
           <View style={s.hero}>
             <Text style={s.eyebrow}>BUY, SELL & DELIVER ACROSS NIGERIA</Text>
             <Text style={s.heading}>
@@ -104,7 +105,7 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
             <>
               {challenge.delivery === 'development_file' && (
                 <Text style={s.hint}>
-                  Development mode: the email is saved as an .eml file in apps/api/.data/zuru/mail.
+                  Development mode: the email is saved as an .eml file in apps/api/.data/ahia/mail.
                   SMTP delivery is not configured yet.
                 </Text>
               )}
@@ -268,7 +269,7 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
   );
 }
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fafbf6' },
+  safe: { flex: 1, backgroundColor: '#f5f7fc' },
   content: {
     padding: 28,
     paddingTop: 35,
@@ -277,44 +278,44 @@ const s = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-  brand: { fontSize: 23, fontWeight: '700', color: '#315635', letterSpacing: -0.8 },
+  brand: { fontSize: 23, fontWeight: '700', color: '#243463', letterSpacing: -0.8 },
   hero: { gap: 17, paddingTop: 30, paddingBottom: 8 },
-  eyebrow: { fontSize: 9, letterSpacing: 1.5, color: '#879475' },
-  heading: { fontSize: 35, lineHeight: 43, color: '#2c4c31', fontWeight: '700', letterSpacing: -1 },
-  body: { fontSize: 13, lineHeight: 22, color: '#7a896e' },
+  eyebrow: { fontSize: 9, letterSpacing: 1.5, color: '#6a779f' },
+  heading: { fontSize: 35, lineHeight: 43, color: '#212e57', fontWeight: '700', letterSpacing: -1 },
+  body: { fontSize: 13, lineHeight: 22, color: '#657092' },
   field: { gap: 8 },
-  label: { fontSize: 12, color: '#627853', fontWeight: '600' },
+  label: { fontSize: 12, color: '#465685', fontWeight: '600' },
   input: {
     padding: 15,
     borderWidth: 1,
-    borderColor: '#dfe6d4',
+    borderColor: '#d1d7e9',
     backgroundColor: '#fff',
     borderRadius: 8,
     fontSize: 14,
-    color: '#35502e',
+    color: '#22315c',
   },
-  button: { padding: 16, backgroundColor: '#365b38', borderRadius: 8, alignItems: 'center' },
-  buttonText: { fontSize: 13, color: '#f1f6e6', fontWeight: '600' },
-  link: { fontSize: 12, color: '#6f8858', textAlign: 'center', padding: 5 },
-  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#e2e8d8' },
+  button: { padding: 16, backgroundColor: '#26408f', borderRadius: 8, alignItems: 'center' },
+  buttonText: { fontSize: 13, color: '#e4e9f8', fontWeight: '600' },
+  link: { fontSize: 12, color: '#475c99', textAlign: 'center', padding: 5 },
+  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#d6dbea' },
   tab: { flex: 1, padding: 12, alignItems: 'center' },
-  active: { borderBottomWidth: 2, borderColor: '#42643b' },
+  active: { borderBottomWidth: 2, borderColor: '#2d3e72' },
   error: { backgroundColor: '#f9eade', padding: 14, borderRadius: 8 },
   errorText: { fontSize: 12, lineHeight: 19, color: '#9b553c' },
   notice: {
-    backgroundColor: '#edf4e4',
+    backgroundColor: '#e2e7f6',
     padding: 14,
     borderRadius: 8,
-    color: '#597844',
+    color: '#32488a',
     fontSize: 12,
   },
   hint: {
     fontSize: 11,
     lineHeight: 18,
     color: '#9b874e',
-    backgroundColor: '#f5f0df',
+    backgroundColor: '#e0e6f4',
     padding: 13,
     borderRadius: 8,
   },
-  fine: { fontSize: 10, lineHeight: 18, color: '#98a08b', textAlign: 'center', marginTop: 10 },
+  fine: { fontSize: 10, lineHeight: 18, color: '#848da7', textAlign: 'center', marginTop: 10 },
 });

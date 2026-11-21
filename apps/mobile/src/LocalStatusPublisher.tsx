@@ -3,7 +3,7 @@ import BoostStatusPanel from './BoostStatusPanel';
 import { useCallback, useEffect, useState } from 'react';
 import { Image, View, Text } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { type Listing, money } from '@zuru/shared';
+import { type Listing, money } from '@ahia/shared';
 import { useApp } from './AppContext';
 import { uploadPhoto, uploadStatusVideo } from './api';
 import { request } from './request';

@@ -16,7 +16,7 @@ export function createWalletController(deps: AppDeps) {
       .status(verified ? 200 : 202)
       .type('html')
       .send(
-        `<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Zuru payment</title><body><main><h1>Zuru</h1><p>${message}</p><p>You can close this page and return to the app.</p></main></body></html>`,
+        `<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ahia payment</title><body><main><h1>Ahia</h1><p>${message}</p><p>You can close this page and return to the app.</p></main></body></html>`,
       );
   };
   const getWallet: RequestHandler = async (req, res) => {

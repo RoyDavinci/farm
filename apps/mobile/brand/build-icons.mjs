@@ -1,4 +1,4 @@
-// Builds every Zuru icon and store image from brand/glyph.svg.
+// Builds every Ahia icon and store image from brand/glyph.svg.
 //   node apps/mobile/brand/build-icons.mjs
 import { createRequire } from 'node:module';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -9,27 +9,32 @@ const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(join(here, '../../api/package.json'));
 const sharp = require('sharp');
 
-// Brand green: the same colour as the app's buttons.
-export const BRAND = '#365b38';
-// The glyph's cart is drawn in the background colour.
-const glyph = readFileSync(join(here, 'glyph.svg'), 'utf8')
-  .replace(/<!--[\s\S]*?-->/g, '')
-  .replace(/#F0954E/g, BRAND);
+// Ahia brand: deep blue with market orange.
+export const BRAND = '#26408F';
+export const ACCENT = '#F5A524';
+const raw = readFileSync(join(here, 'glyph.svg'), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+/** The mark in given colours. `white` draws a one-colour silhouette (notification, themed icon). */
+const mark = ({ bag = '#ffffff', accent = ACCENT, cut = BRAND, white = false } = {}) =>
+  raw
+    .replace(/__BAG__/g, white ? '#ffffff' : bag)
+    .replace(/__ACCENT__/g, white ? '#ffffff' : accent)
+    .replace(/__CUT__/g, white ? 'transparent' : cut);
+const glyph = mark();
 const assets = join(here, '../assets'),
   store = join(here, '../store'),
   admin = join(here, '../../admin/public');
 for (const d of [assets, store, admin]) mkdirSync(d, { recursive: true });
 
-/** The mark scaled to `scale` of a size×size canvas, optionally on an orange background. */
+/** The mark scaled to `scale` of a size×size canvas, optionally on the brand background. */
 function svg(size, { scale = 0.8, bg = null, radius = 0, white = false, height = size } = {}) {
   const s = (size * scale) / 1024,
     x = (size - 1024 * s) / 2,
     y = (height - 1024 * s) / 2;
-  const mark = white ? glyph.replace(new RegExp(BRAND, 'g'), 'transparent') : glyph;
+  const m = white ? mark({ white: true }) : glyph;
   return Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${height}" viewBox="0 0 ${size} ${height}">` +
       (bg ? `<rect width="${size}" height="${height}" rx="${radius}" fill="${bg}"/>` : '') +
-      `<g transform="translate(${x} ${y}) scale(${s})">${mark}</g></svg>`,
+      `<g transform="translate(${x} ${y}) scale(${s})">${m}</g></svg>`,
   );
 }
 const png = (buf, file, opaque = false) => {
@@ -45,7 +50,7 @@ await Promise.all([
   png(svg(1024, { scale: 0.62 }), join(assets, 'adaptive-icon.png')),
   // Android 13+ themed (monochrome) icon.
   png(svg(1024, { scale: 0.62, white: true }), join(assets, 'adaptive-monochrome.png')),
-  // Splash: white mark on the green splash background.
+  // Splash: the mark on the blue splash background.
   png(svg(1024, { scale: 0.9 }), join(assets, 'splash-icon.png')),
   // Android notification icon: white silhouette only.
   png(svg(96, { scale: 0.92, white: true }), join(assets, 'notification-icon.png')),
@@ -66,8 +71,8 @@ await sharp(
     `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
       <rect width="1024" height="500" fill="${BRAND}"/>
       <g transform="translate(60 60) scale(${s})">${glyph}</g>
-      <text x="480" y="250" font-family="Helvetica Neue, Helvetica, Arial" font-size="150" font-weight="800" fill="#fff" letter-spacing="-4">Zuru</text>
-      <text x="486" y="320" font-family="Helvetica Neue, Helvetica, Arial" font-size="40" font-weight="600" fill="#fff" opacity="0.92">Shop. Send. Receive.</text>
+      <text x="480" y="250" font-family="Helvetica Neue, Helvetica, Arial" font-size="150" font-weight="800" fill="#fff" letter-spacing="-4">ahia</text>
+      <text x="486" y="320" font-family="Helvetica Neue, Helvetica, Arial" font-size="40" font-weight="600" fill="${ACCENT}">A world of shopping.</text>
     </svg>`,
   ),
 )
@@ -75,19 +80,15 @@ await sharp(
   .png()
   .toFile(join(store, 'play-feature-graphic-1024x500.png'));
 // Email logo, embedded in every email (inline attachment), so it shows even with remote images off.
-// White tile with the mark in green (bag green, cart white), so it stands out on the green header.
-const inverted = svg(112, { scale: 0.86, bg: '#ffffff', radius: 26 })
-  .toString()
-  .replace(/#fff"/g, '__G__"')
-  .replace(new RegExp(BRAND, 'g'), '#ffffff')
-  .replace(/__G__/g, BRAND)
-  .replace('fill="#ffffff"/><g', 'fill="#ffffff"/><g');
-const emailLogo = await sharp(Buffer.from(inverted))
-  .flatten({ background: BRAND })
-  .png()
-  .toBuffer();
+// White tile with a blue bag, so it stands out on the blue header.
+const inverted = Buffer.from(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="112" height="112" viewBox="0 0 112 112">` +
+    `<rect width="112" height="112" rx="26" fill="#ffffff"/>` +
+    `<g transform="translate(${(112 - 1024 * 0.0806) / 2} ${(112 - 1024 * 0.0806) / 2}) scale(0.0806)">${mark({ bag: BRAND, cut: '#ffffff' })}</g></svg>`,
+);
+const emailLogo = await sharp(inverted).flatten({ background: BRAND }).png().toBuffer();
 writeFileSync(
   join(here, '../../api/src/lib/email-logo.ts'),
   `// Generated by apps/mobile/brand/build-icons.mjs. Do not edit.\nexport const EMAIL_LOGO_PNG_BASE64 =\n  '${emailLogo.toString('base64')}';\n`,
 );
-console.log('Zuru icons written to apps/mobile/assets, apps/mobile/store and apps/admin/public');
+console.log('Ahia icons written to apps/mobile/assets, apps/mobile/store and apps/admin/public');

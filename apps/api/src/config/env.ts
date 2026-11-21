@@ -29,7 +29,7 @@ export const envSchema = z.object({
   AUTH_RATE_LIMIT: z.coerce.number().int().min(1).default(25),
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(15000),
   DATABASE_URL: str(),
-  DATA_DIR: str('.data/zuru'),
+  DATA_DIR: str('.data/ahia'),
   // Local defaults; in production list only https:// origins (or use CORS_ALLOWED_HOSTS).
   CORS_ORIGINS: z.string().optional(),
   /** Hostnames (no scheme) allowed as https:// origins; Render injects the static sites' hosts. */
@@ -38,7 +38,7 @@ export const envSchema = z.object({
   CORS_ALLOWED_HOSTS_WEB: str(),
   // Render sets RENDER_EXTERNAL_URL for web services.
   PUBLIC_API_URL: z.string().optional(),
-  /** Public web app address, used for “Open Zuru” buttons in emails (optional). */
+  /** Public web app address, used for “Open Ahia” buttons in emails (optional). */
   PUBLIC_WEB_URL: str(),
   RENDER_EXTERNAL_URL: str(),
   /** Deployed commit, reported by /health (Render sets RENDER_GIT_COMMIT). */
@@ -79,7 +79,7 @@ export const envSchema = z.object({
   S3_BUCKET: str(),
   RECORDS_S3_BUCKET: str(),
   AWS_REGION: str('us-east-1'),
-  S3_PREFIX: str('zuru'),
+  S3_PREFIX: str('ahia'),
   /** S3-compatible endpoint, e.g. Cloudflare R2: https://<account>.r2.cloudflarestorage.com */
   S3_ENDPOINT: str(),
   PUSH_ENABLED: bool(true),

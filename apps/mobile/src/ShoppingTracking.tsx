@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppState, Text, View } from 'react-native';
 import * as Location from 'expo-location';
-import type { ShoppingDetail } from '@zuru/shared';
+import type { ShoppingDetail } from '@ahia/shared';
 import MapPanel from './MapPanel';
 import { request } from './request';
 import { Button, s } from './ui';

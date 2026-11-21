@@ -7,7 +7,7 @@ export function createHealthService(deps: AppDeps) {
     await db.query('SELECT 1');
     return {
       status: 'ok' as const,
-      service: 'zuru-api',
+      service: 'ahia-api',
       version: config.gitCommit || 'dev',
     };
   }

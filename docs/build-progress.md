@@ -73,7 +73,7 @@ Status of the features from the requirements brief and roadmap. Reservations sta
 - Push notifications (Expo) for every alert, with a per-user switch. Taps open the relevant screen.
 - Back-in-stock alerts per listing, and "new listing" alerts for followers of a seller.
 - **Book again** on past bookings.
-- Seller shop pages and WhatsApp sharing with deep links (`/?seller=ID` on web, `zuru://seller/ID` in the app).
+- Seller shop pages and WhatsApp sharing with deep links (`/?seller=ID` on web, `ahia://seller/ID` in the app).
 - Seller sales analytics: sales, earnings, average order, repeat buyers, a daily chart, best sellers, low stock and acceptance rate.
 - Languages: English, Naijá (Pidgin), Yorùbá, Hausa and Igbo for navigation and the core buy/sell/wallet actions.
 

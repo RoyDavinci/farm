@@ -4,7 +4,7 @@ import { stopBackgroundTracking } from '../backgroundTracking';
 import ReturnJourneysPanel from '../ReturnJourneysPanel';
 import DeliveryProgressPanel from '../DeliveryProgressPanel';
 import ProfileDetailsPanel from '../ProfileDetailsPanel';
-import { money } from '@zuru/shared';
+import { money } from '@ahia/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, Switch, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
@@ -66,7 +66,7 @@ export default function DriveScreen() {
   const header = (
     <>
       <Text style={s.eyebrow}>EARN BY DELIVERING LOCALLY</Text>
-      <Text style={s.heading}>Drive with Zuru</Text>
+      <Text style={s.heading}>Drive with Ahia</Text>
     </>
   );
   if (!driver || driver.status === 'REJECTED')

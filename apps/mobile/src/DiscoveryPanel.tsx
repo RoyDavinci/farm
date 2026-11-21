@@ -1,26 +1,31 @@
 import LocalStatusFeed from './LocalStatusFeed';
+import { FadeIn, PressScale, produceIcon } from './ui';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { useApp } from './AppContext';
 import { featureOn } from './features';
-import { type Listing, money } from '@zuru/shared';
+import { type Listing, money } from '@ahia/shared';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import MapPanel from './MapPanel';
 import { request } from './request';
 export default function DiscoveryPanel({
-  name,
   onSelect,
   refreshVersion,
+  category,
+  onCategory: setCategory,
 }: {
   refreshVersion: number;
   name: string;
   onSelect: (l: Listing) => void;
+  /** Held by the app so the Categories tab can choose it. */
+  category: string;
+  onCategory: (category: string) => void;
 }) {
   const { settings, setTab } = useApp();
   const [q, setQ] = useState(''),
     [city, setCity] = useState(''),
     [area, setArea] = useState(''),
-    [category, setCategory] = useState(''),
     [market, setMarket] = useState(''),
     [markets, setMarkets] = useState<any[]>([]),
     [point, setPoint] = useState<{ latitude: number; longitude: number } | null>(null),
@@ -139,134 +144,139 @@ export default function DiscoveryPanel({
       <Text style={[s.chipText, active && { color: '#fff' }]}>{label}</Text>
     </Pressable>
   );
-  const card = (l: Listing, tag = '') => (
-    <Pressable key={`${tag}${l.id}`} style={s.product} onPress={() => onSelect(l)}>
-      <View style={s.picture}>
-        {l.image_url ? (
-          <Image
-            source={{ uri: l.thumbnail_url || l.image_url }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-          />
-        ) : (
-          <Text style={{ fontSize: 60 }}>
-            {{
-              Vegetables: '🥬',
-              Fruit: '🍌',
-              Grains: '🌽',
-              Tubers: '🥔',
-              Livestock: '🥚',
-              Other: '📦',
-            }[l.category] || '📦'}
-          </Text>
-        )}
-      </View>
-      <View style={s.productBody}>
-        {tag && <Text style={s.sponsoredTag}>SPONSORED</Text>}
-        {l.available_from && new Date(l.available_from).getTime() > Date.now() && (
-          <Text style={s.small}>
-            Pre-order · ready {new Date(l.available_from).toLocaleDateString()}
-          </Text>
-        )}
-        <Text style={s.bold}>{l.title}</Text>
-        <Text style={s.small}>{(l.condition || 'NEW').toLowerCase()}</Text>
-        <Text style={s.small}>
-          {l.business_name} · {l.pickup_available ? 'Collection' : ''}
-          {l.delivery_available ? ' · Delivery' : ''}
-        </Text>
-        <Text style={s.price}>From {money(l.search_price || l.price_kobo)}</Text>
-        <Text style={s.small}>
-          {l.variants?.length || 1} option(s) · {l.area}, {l.city}
-        </Text>
-        {l.distance_km != null && (
-          <Text style={s.small}>About {Number(l.distance_km).toFixed(1)} km away</Text>
-        )}
-      </View>
-    </Pressable>
-  );
+  const deals = items.slice(0, 8),
+    more = items.slice(8);
+  const place = city || area || (point ? 'Near you' : 'Everywhere');
+  const promoted = sponsored[0];
+  const aside = promoted ? (
+    <SponsoredCard listing={promoted} onPress={() => onSelect(promoted)} />
+  ) : null;
   return (
-    <View style={{ gap: 17 }}>
-      {featureOn(settings, 'local_status') && (
-        <LocalStatusFeed point={point} category={category} refreshVersion={refreshVersion} />
-      )}
-      <Text style={s.eyebrow}>YOUR EVERYDAY LOCAL MARKET</Text>
-      <Text style={s.heading}>Great finds.{'\n'}Close to home.</Text>
-      <Text style={s.body}>
-        Hello {name.split(' ')[0]}. Discover goods by area, market or distance.
-      </Text>
-      <View style={s.hero}>
-        <Text style={s.heroTitle}>Your everyday marketplace.</Text>
-        <Text style={s.heroText}>Discover goods from people and businesses near you.</Text>
+    <View style={{ gap: 18 }}>
+      <View style={s.locRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={point ? 'Change area and distance' : 'Find things near me'}
+          disabled={busy}
+          onPress={() => (point ? setFilters(!filters) : void locate())}
+          style={s.locPill}
+        >
+          <Svg
+            width={20}
+            height={20}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={BRAND}
+            strokeWidth={2}
+          >
+            <Path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
+            <Circle cx={12} cy={9.5} r={2.5} />
+          </Svg>
+          <View>
+            <Text style={s.locTitle}>{place} ⌄</Text>
+            <Text style={s.locSub}>
+              {point ? `Within ${radius} km` : 'Tap to see what’s near you'}
+            </Text>
+          </View>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={() => setMap(!map)} style={s.mapButton}>
+          <Text style={s.mapText}>{map ? 'Hide map' : 'Map'}</Text>
+        </Pressable>
       </View>
+
+      <View style={s.searchBox}>
+        <Svg
+          width={20}
+          height={20}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#6b7390"
+          strokeWidth={2}
+          strokeLinecap="round"
+        >
+          <Circle cx={11} cy={11} r={6.5} />
+          <Path d="m16 16 4.5 4.5" />
+        </Svg>
+        <TextInput
+          style={s.searchInput}
+          accessibilityLabel="Search products, sellers or markets"
+          placeholder="Search products, sellers or markets…"
+          placeholderTextColor="#8a91a6"
+          value={q}
+          onChangeText={setQ}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Filters"
+          onPress={() => setFilters(!filters)}
+          style={[s.filterButton, filters && { backgroundColor: BRAND }]}
+        >
+          <Svg
+            width={18}
+            height={18}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={filters ? '#fff' : BRAND}
+            strokeWidth={2}
+            strokeLinecap="round"
+          >
+            <Path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" />
+            <Circle cx={16} cy={6} r={2} />
+            <Circle cx={10} cy={12} r={2} />
+            <Circle cx={18} cy={18} r={2} />
+          </Svg>
+        </Pressable>
+      </View>
+
+      {featureOn(settings, 'local_status') ? (
+        <LocalStatusFeed
+          point={point}
+          category={category}
+          refreshVersion={refreshVersion}
+          aside={aside}
+        />
+      ) : (
+        aside && <View style={{ height: 230 }}>{aside}</View>
+      )}
+
       {error && (
         <Text accessibilityRole="alert" style={s.error}>
           {error}
         </Text>
       )}
-      {featureOn(settings, 'shopping') && (
-        <Pressable onPress={() => setTab('Riders')} style={s.filterBox}>
-          <Text style={s.bold}>Need someone to buy and deliver for you?</Text>
-          <Text style={s.small}>
-            Find a nearby rider, set a goods budget and request items from a shop or market.
-          </Text>
-        </Pressable>
-      )}
-      <TextInput
-        style={s.input}
-        accessibilityLabel="Search goods or seller"
-        placeholder="Search goods or sellers"
-        value={q}
-        onChangeText={setQ}
-      />
-      <View style={s.row}>
-        <Pressable disabled={busy} onPress={() => void locate()}>
-          <Text style={s.link}>{point ? '⌖ Nearby search active' : '⌖ Use my location'}</Text>
-        </Pressable>
-        {point && (
-          <Pressable
-            onPress={() => {
-              setPoint(null);
-              setSort('recent');
-            }}
-          >
-            <Text style={s.link}>Clear location</Text>
-          </Pressable>
-        )}
-        <Pressable onPress={() => setMap(!map)}>
-          <Text style={s.link}>{map ? 'Hide map' : 'Show map'}</Text>
-        </Pressable>
-        <Pressable onPress={() => setFilters(!filters)}>
-          <Text style={s.link}>Filters</Text>
-        </Pressable>
-      </View>
-      <View style={s.row}>
-        <TextInput
-          style={[s.input, { flex: 1 }]}
-          accessibilityLabel="Search city"
-          value={city}
-          onChangeText={setCity}
-          placeholder="City"
-        />
-        <TextInput
-          style={[s.input, { flex: 1 }]}
-          accessibilityLabel="Search area"
-          value={area}
-          onChangeText={setArea}
-          placeholder="Area"
-        />
-      </View>
+
       <ScrollView
         horizontal
         contentContainerStyle={{ gap: 8 }}
         showsHorizontalScrollIndicator={false}
       >
         {['', ...(settings?.catalog?.categories || ['Other'])].map((c) =>
-          chip(c || 'All goods', category === c, () => setCategory(c)),
+          chip(c ? `${produceIcon(c)} ${c}` : 'All', category === c, () => setCategory(c)),
         )}
       </ScrollView>
+
       {filters && (
-        <>
+        <View style={s.filterBox}>
+          <View style={s.row}>
+            <TextInput
+              style={[s.input, { flex: 1 }]}
+              accessibilityLabel="Search city"
+              value={city}
+              onChangeText={setCity}
+              placeholder="City"
+            />
+            <TextInput
+              style={[s.input, { flex: 1 }]}
+              accessibilityLabel="Search area"
+              value={area}
+              onChangeText={setArea}
+              placeholder="Area"
+            />
+          </View>
           <View style={s.wrap}>
+            {chip(point ? 'Using my location' : 'Use my location', !!point, () =>
+              point ? (setPoint(null), setSort('recent')) : void locate(),
+            )}
             {chip('Offers delivery', deliveryOnly, () => setDeliveryOnly(!deliveryOnly))}
             {chip('Stock ready now', availability === 'in_stock', () =>
               setAvailability(availability === 'in_stock' ? '' : 'in_stock'),
@@ -275,75 +285,69 @@ export default function DiscoveryPanel({
               setAvailability(availability === 'preorder' ? '' : 'preorder'),
             )}
           </View>
-          <View style={s.filterBox}>
-            <Text style={s.bold}>Market</Text>
-            <View style={s.wrap}>
-              {chip('Any market', !market, () => setMarket(''))}
-              {markets
-                .filter((m) => !city || m.city.toLowerCase().includes(city.toLowerCase()))
-                .map((m) => chip(`${m.name} · ${m.city}`, market === m.id, () => setMarket(m.id)))}
-            </View>
-            <View style={s.row}>
-              <TextInput
-                style={[s.input, { flex: 1 }]}
-                accessibilityLabel="Minimum price naira"
-                placeholder="Min price ₦"
-                keyboardType="numeric"
-                value={min}
-                onChangeText={setMin}
-              />
-              <TextInput
-                style={[s.input, { flex: 1 }]}
-                accessibilityLabel="Maximum price naira"
-                placeholder="Max price ₦"
-                keyboardType="numeric"
-                value={max}
-                onChangeText={setMax}
-              />
-            </View>
-            {point && (
-              <>
-                <Text style={s.bold}>Radius (km)</Text>
-                <TextInput
-                  style={s.input}
-                  keyboardType="number-pad"
-                  value={radius}
-                  onChangeText={setRadius}
-                />
-              </>
-            )}
-            <Text style={s.bold}>Seller type</Text>
-            <View style={s.wrap}>
-              {['', ...(settings?.catalog?.seller_types || ['individual', 'shop', 'farm'])].map(
-                (t) =>
-                  chip(t.replaceAll('_', ' ') || 'Any seller', sellerType === t, () =>
-                    setSellerType(t),
-                  ),
-              )}
-            </View>
-            <Text style={s.bold}>Minimum review score</Text>
-            <View style={s.wrap}>
-              {['0', '3', '4', '5'].map((v) =>
-                chip(v === '0' ? 'Any rating' : `${v}+ stars`, rating === v, () => setRating(v)),
-              )}
-            </View>
-            {chip('Wholesale offers', wholesale, () => setWholesale(!wholesale))}
+          {point && (
+            <>
+              <Text style={s.bold}>Distance</Text>
+              <View style={s.wrap}>
+                {['5', '10', '25', '50'].map((r) =>
+                  chip(`${r} km`, radius === r, () => setRadius(r)),
+                )}
+              </View>
+            </>
+          )}
+          <Text style={s.bold}>Market</Text>
+          <View style={s.wrap}>
+            {chip('Any market', !market, () => setMarket(''))}
+            {markets
+              .filter((m) => !city || m.city.toLowerCase().includes(city.toLowerCase()))
+              .map((m) => chip(`${m.name} · ${m.city}`, market === m.id, () => setMarket(m.id)))}
           </View>
-        </>
+          <View style={s.row}>
+            <TextInput
+              style={[s.input, { flex: 1 }]}
+              accessibilityLabel="Minimum price naira"
+              placeholder="Min price ₦"
+              keyboardType="numeric"
+              value={min}
+              onChangeText={setMin}
+            />
+            <TextInput
+              style={[s.input, { flex: 1 }]}
+              accessibilityLabel="Maximum price naira"
+              placeholder="Max price ₦"
+              keyboardType="numeric"
+              value={max}
+              onChangeText={setMax}
+            />
+          </View>
+          <Text style={s.bold}>Seller type</Text>
+          <View style={s.wrap}>
+            {['', ...(settings?.catalog?.seller_types || ['individual', 'shop', 'farm'])].map((t) =>
+              chip(t.replaceAll('_', ' ') || 'Any seller', sellerType === t, () =>
+                setSellerType(t),
+              ),
+            )}
+          </View>
+          <Text style={s.bold}>Minimum review score</Text>
+          <View style={s.wrap}>
+            {['0', '3', '4', '5'].map((v) =>
+              chip(v === '0' ? 'Any rating' : `${v}+ stars`, rating === v, () => setRating(v)),
+            )}
+          </View>
+          {chip('Wholesale offers', wholesale, () => setWholesale(!wholesale))}
+          <Text style={s.bold}>Sort by</Text>
+          <View style={s.wrap}>
+            {[
+              ['recent', 'Newest'],
+              ['price_asc', 'Lowest price'],
+              ['price_desc', 'Highest price'],
+              ['rating', 'Best rated'],
+              ...(point ? [['distance', 'Nearest']] : []),
+            ].map(([key, label]) => chip(label, sort === key, () => setSort(key)))}
+          </View>
+        </View>
       )}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 8 }}
-      >
-        {[
-          ['recent', 'Newest'],
-          ['price_asc', 'Lowest price'],
-          ['price_desc', 'Highest price'],
-          ['rating', 'Best rated'],
-          ...(point ? [['distance', 'Nearest']] : []),
-        ].map(([key, label]) => chip(label, sort === key, () => setSort(key)))}
-      </ScrollView>
+
       {map && (
         <>
           <MapPanel
@@ -369,84 +373,376 @@ export default function DiscoveryPanel({
           </Text>
         </>
       )}
-      {!!sponsored.length && (
-        <>
-          <Text style={s.small}>Sponsored by sellers · paid placement</Text>
-          <View style={s.grid}>{sponsored.map((l) => card(l, 'sponsored-'))}</View>
-        </>
+
+      <View style={s.sectionHead}>
+        <Text style={s.sectionTitle}>🔥 {point ? 'Hot deals near you' : 'Hot deals'}</Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setSort(point ? 'distance' : 'price_asc')}
+        >
+          <Text style={s.seeAll}>{point ? 'Nearest first ›' : 'Lowest price ›'}</Text>
+        </Pressable>
+      </View>
+      {busy && !items.length ? (
+        <Text style={s.small}>Finding products…</Text>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.dealRail}
+        >
+          {deals.map((l, i) => (
+            <FadeIn key={l.id} delay={Math.min(i, 6) * 60}>
+              <DealCard listing={l} onPress={() => onSelect(l)} style={s.dealCard} />
+            </FadeIn>
+          ))}
+        </ScrollView>
       )}
-      <Text style={s.bold}>{busy ? 'Finding products…' : `${items.length} listings`}</Text>
-      <View style={s.grid}>{items.map((l) => card(l))}</View>
       {!items.length && !busy && (
         <Text style={s.body}>
-          No products match these filters. Try another city, market or radius.
+          No products match these filters. Try another area, category or distance.
         </Text>
+      )}
+
+      {featureOn(settings, 'shopping') && (
+        <PressScale onPress={() => setTab('Riders')} style={s.riderPromo}>
+          <Text style={s.riderEmoji}>🛵</Text>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={s.riderTitle}>Need someone to buy and deliver for you?</Text>
+            <Text style={s.riderText}>Find a nearby rider, set a budget and send your list.</Text>
+          </View>
+          <Text style={s.riderArrow}>›</Text>
+        </PressScale>
+      )}
+
+      {!!more.length && (
+        <>
+          <View style={s.sectionHead}>
+            <Text style={s.sectionTitle}>More near you</Text>
+            <Text style={s.small}>{items.length} listings</Text>
+          </View>
+          <View style={s.grid}>
+            {more.map((l, i) => (
+              <FadeIn key={l.id} delay={Math.min(i, 8) * 45} style={s.cardWrap}>
+                <DealCard listing={l} onPress={() => onSelect(l)} style={{ width: '100%' }} />
+              </FadeIn>
+            ))}
+          </View>
+        </>
       )}
       {cursor && (
         <Pressable disabled={busy} style={s.button} onPress={() => void search(cursor)}>
-          <Text style={s.buttonText}>Load more products</Text>
+          <Text style={s.buttonText}>{busy ? 'Loading…' : 'Load more products'}</Text>
         </Pressable>
       )}
     </View>
   );
 }
+
+const unitLabel = (unit?: string) =>
+  unit && !['item', 'items', 'piece', 'pieces', 'unit'].includes(unit.toLowerCase())
+    ? `/${unit}`
+    : '';
+
+/** Product card: photo with distance badge, name, price, seller rating and a cart button. */
+function DealCard({
+  listing: l,
+  onPress,
+  style,
+}: {
+  listing: Listing;
+  onPress: () => void;
+  style?: any;
+}) {
+  const preorder = l.available_from && new Date(l.available_from).getTime() > Date.now();
+  return (
+    <PressScale
+      accessibilityRole="button"
+      accessibilityLabel={l.title}
+      onPress={onPress}
+      style={[s.deal, style]}
+    >
+      <View style={s.dealPicture}>
+        {l.image_url ? (
+          <Image
+            source={{ uri: l.thumbnail_url || l.image_url }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={{ fontSize: 46 }}>{produceIcon(l.category)}</Text>
+        )}
+        <View style={s.distance}>
+          <Text style={s.distanceText}>
+            📍{' '}
+            {l.distance_km != null
+              ? `${Math.max(1, Math.round(Number(l.distance_km)))} km`
+              : l.area || l.city}
+          </Text>
+        </View>
+        {preorder && (
+          <View style={s.preorder}>
+            <Text style={s.preorderText}>Pre-order</Text>
+          </View>
+        )}
+      </View>
+      <View style={s.dealBody}>
+        <Text numberOfLines={1} style={s.dealTitle}>
+          {l.title}
+        </Text>
+        <Text numberOfLines={1} style={s.dealPrice}>
+          {money(l.search_price || l.price_kobo)}
+          <Text style={s.dealUnit}>{unitLabel(l.unit)}</Text>
+        </Text>
+        <View style={s.dealFoot}>
+          <Text numberOfLines={1} style={s.rating}>
+            {l.rating_count ? (
+              <>
+                <Text style={{ color: ACCENT }}>★</Text> {Number(l.rating_avg || 0).toFixed(1)} (
+                {l.rating_count})
+              </>
+            ) : (
+              l.business_name
+            )}
+          </Text>
+          <View style={s.cart}>
+            <Svg
+              width={16}
+              height={16}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#fff"
+              strokeWidth={2.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <Path d="M3 4h2l2.4 11h10.2L20 8H6.2" />
+              <Circle cx={9} cy={19.5} r={1.4} />
+              <Circle cx={17} cy={19.5} r={1.4} />
+            </Svg>
+          </View>
+        </View>
+      </View>
+    </PressScale>
+  );
+}
+
+/** Paid placement shown beside the featured story. */
+function SponsoredCard({ listing: l, onPress }: { listing: Listing; onPress: () => void }) {
+  return (
+    <PressScale
+      accessibilityRole="button"
+      accessibilityLabel={`Sponsored: ${l.title}`}
+      onPress={onPress}
+      wrapStyle={{ flex: 1 }}
+      style={s.sponsored}
+    >
+      {l.image_url ? (
+        <Image
+          source={{ uri: l.thumbnail_url || l.image_url }}
+          style={[StyleSheet.absoluteFill, { opacity: 0.55 }]}
+          resizeMode="cover"
+        />
+      ) : (
+        <Text style={s.sponsoredIcon}>{produceIcon(l.category)}</Text>
+      )}
+      <View style={s.sponsoredPill}>
+        <Text style={s.sponsoredPillText}>★ Sponsored</Text>
+      </View>
+      <View style={{ flex: 1 }} />
+      <View style={s.sponsoredPrice}>
+        <Text numberOfLines={2} style={s.sponsoredTitle}>
+          {l.title}
+        </Text>
+        <Text style={s.sponsoredAmount}>{money(l.search_price || l.price_kobo)}</Text>
+      </View>
+      <Text numberOfLines={1} style={s.sponsoredSeller}>
+        {l.business_name}
+      </Text>
+      <View style={s.shopNow}>
+        <Text style={s.shopNowText}>Shop now ›</Text>
+      </View>
+    </PressScale>
+  );
+}
+
+const BRAND = '#26408f',
+  ACCENT = '#f5a524',
+  INK = '#18213a';
 const s = StyleSheet.create({
-  sponsoredTag: { fontSize: 8, letterSpacing: 1, color: '#9b8147', fontWeight: '700' },
-  eyebrow: { fontSize: 9, letterSpacing: 1.5, color: '#82966e' },
-  heading: { fontSize: 32, lineHeight: 39, color: '#315335', fontWeight: '700', letterSpacing: -1 },
-  body: { fontSize: 12, lineHeight: 20, color: '#89967a' },
-  hero: { padding: 24, borderRadius: 14, backgroundColor: '#315738', gap: 14 },
-  heroTitle: { fontSize: 24, color: '#edf3dc', fontWeight: '600' },
-  heroText: { fontSize: 11, color: '#b9c9a5' },
+  locRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  locPill: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  locTitle: { fontSize: 15, fontWeight: '800', color: INK },
+  locSub: { fontSize: 12, color: BRAND, fontWeight: '600', textDecorationLine: 'underline' },
+  mapButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    backgroundColor: '#e8ecf7',
+  },
+  mapText: { fontSize: 13, fontWeight: '700', color: BRAND },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingLeft: 16,
+    paddingRight: 6,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#f1f3f8',
+    borderWidth: 1,
+    borderColor: '#dfe3ee',
+  },
+  searchInput: { flex: 1, fontSize: 15, color: INK, height: '100%' },
+  filterButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  body: { fontSize: 13, lineHeight: 20, color: '#6b7390' },
   input: {
     padding: 13,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#dfe6d6',
+    borderColor: '#d4d9e8',
     backgroundColor: '#fff',
-    fontSize: 12,
-    color: '#426039',
+    fontSize: 14,
+    color: INK,
   },
   row: { flexDirection: 'row', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
-    paddingHorizontal: 13,
+    paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 20,
-    backgroundColor: '#f0f3e9',
-    borderWidth: 1,
-    borderColor: '#e3e9d8',
-  },
-  chipActive: { backgroundColor: '#42663c', borderColor: '#42663c' },
-  chipText: { fontSize: 10, color: '#80916b' },
-  link: { fontSize: 11, color: '#6a8b51', padding: 4 },
-  bold: { fontSize: 13, color: '#4e6b40', fontWeight: '600' },
-  small: { fontSize: 9, lineHeight: 16, color: '#96a087' },
-  filterBox: { padding: 16, backgroundColor: '#f3f6eb', borderRadius: 10, gap: 14 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 13 },
-  product: {
-    width: '47.8%',
-    borderWidth: 1,
-    borderColor: '#e2e9d8',
-    borderRadius: 11,
     backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#dbe0ec',
+  },
+  chipActive: { backgroundColor: BRAND, borderColor: BRAND },
+  chipText: { fontSize: 13, color: '#3a4770', fontWeight: '600' },
+  bold: { fontSize: 14, color: INK, fontWeight: '700' },
+  small: { fontSize: 12, lineHeight: 17, color: '#7e86a0' },
+  filterBox: { padding: 16, backgroundColor: '#eef1f9', borderRadius: 18, gap: 12 },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitle: { fontSize: 19, fontWeight: '800', color: INK, letterSpacing: -0.3 },
+  seeAll: { fontSize: 13, fontWeight: '700', color: BRAND },
+  dealRail: { gap: 12, paddingRight: 6, paddingBottom: 4 },
+  dealCard: { width: 158 },
+  deal: {
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e2e6f0',
     overflow: 'hidden',
+    shadowColor: '#1b2547',
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
-  picture: {
-    height: 140,
-    backgroundColor: '#eaf0db',
-    justifyContent: 'center',
+  dealPicture: {
+    height: 116,
+    backgroundColor: '#e3e8f5',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  productBody: { padding: 13, gap: 9 },
-  price: { fontSize: 13, fontWeight: '600', color: '#64804b' },
+  distance: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  distanceText: { fontSize: 11, fontWeight: '700', color: INK },
+  preorder: {
+    position: 'absolute',
+    left: 8,
+    bottom: 8,
+    backgroundColor: ACCENT,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  preorderText: { fontSize: 10, fontWeight: '800', color: '#3b2600' },
+  dealBody: { padding: 11, gap: 3 },
+  dealTitle: { fontSize: 14, fontWeight: '700', color: INK },
+  dealPrice: { fontSize: 17, fontWeight: '800', color: BRAND },
+  dealUnit: { fontSize: 13, fontWeight: '600', color: '#6b7390' },
+  dealFoot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginTop: 2,
+  },
+  rating: { flex: 1, fontSize: 12, color: '#4b5574', fontWeight: '600' },
+  cart: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: BRAND,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  // The fade-in wrapper takes the grid width; the card fills it.
+  cardWrap: { width: '48%' },
+  riderPromo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#fff4e0',
+    borderWidth: 1,
+    borderColor: '#f8dca6',
+  },
+  riderEmoji: { fontSize: 30 },
+  riderTitle: { fontSize: 14, fontWeight: '800', color: '#3b2a07' },
+  riderText: { fontSize: 12, color: '#7a5a1c' },
+  riderArrow: { fontSize: 26, color: '#b57a10' },
+  sponsored: {
+    flex: 1,
+    borderRadius: 18,
+    backgroundColor: '#1c2f6e',
+    padding: 10,
+    overflow: 'hidden',
+    gap: 6,
+    height: '100%',
+  },
+  sponsoredIcon: { position: 'absolute', alignSelf: 'center', top: '24%', fontSize: 56 },
+  sponsoredPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  sponsoredPillText: { fontSize: 10, fontWeight: '800', color: '#ffd27a' },
+  sponsoredPrice: {
+    backgroundColor: ACCENT,
+    borderRadius: 10,
+    padding: 8,
+    transform: [{ rotate: '-2deg' }],
+  },
+  sponsoredTitle: { fontSize: 13, fontWeight: '800', color: '#1b1503' },
+  sponsoredAmount: { fontSize: 17, fontWeight: '900', color: '#1b1503' },
+  sponsoredSeller: { fontSize: 11, color: '#dbe2f7', fontWeight: '600', textAlign: 'center' },
+  shopNow: { backgroundColor: '#fff', borderRadius: 16, paddingVertical: 7, alignItems: 'center' },
+  shopNowText: { fontSize: 12, fontWeight: '800', color: INK },
   error: {
-    fontSize: 12,
-    color: '#a86a4d',
+    fontSize: 13,
+    color: '#a33e32',
     padding: 13,
-    backgroundColor: '#f8ece3',
-    borderRadius: 7,
+    backgroundColor: '#fbecea',
+    borderRadius: 12,
   },
-  button: { padding: 14, backgroundColor: '#3c6037', borderRadius: 8, alignItems: 'center' },
-  buttonText: { fontSize: 12, color: '#edf3e2' },
+  button: { padding: 15, backgroundColor: BRAND, borderRadius: 14, alignItems: 'center' },
+  buttonText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });

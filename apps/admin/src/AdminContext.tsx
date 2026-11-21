@@ -1,4 +1,4 @@
-import type { Booking, Seller } from '@zuru/shared';
+import type { Booking, Seller } from '@ahia/shared';
 import { createContext, useContext } from 'react';
 export type Page =
   | 'Regional fares'

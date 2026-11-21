@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { money } from '@zuru/shared';
+import { money } from '@ahia/shared';
 import { request } from '../api';
 import { useAdmin } from '../AdminContext';
 import { Badge, Empty } from '../ui';

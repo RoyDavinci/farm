@@ -11,10 +11,10 @@ export default function StatusVideo({ uri }: { uri: string }) {
         nativeControls
         contentFit="contain"
         fullscreenOptions={{ enable: false }}
-        style={{ width: '100%', height: 360, backgroundColor: '#17271e' }}
+        style={{ width: '100%', height: 360, backgroundColor: '#111b3d' }}
         accessibilityLabel="Product status video"
       />
-      <Text style={{ fontSize: 11, color: '#7a8470', marginTop: 5 }}>
+      <Text style={{ fontSize: 11, color: '#69728b', marginTop: 5 }}>
         Tap play to watch. Videos do not play automatically.
       </Text>
     </View>

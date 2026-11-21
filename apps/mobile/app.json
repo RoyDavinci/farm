@@ -1,22 +1,23 @@
 {
   "expo": {
-    "name": "Zuru",
+    "name": "Ahia",
     "slug": "zuru",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "scheme": "zuru",
+    "scheme": "ahia",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "ng.zuru.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSMicrophoneUsageDescription": "Allow microphone access only when you start or accept an in-app voice call."
+        "NSMicrophoneUsageDescription": "Allow Ahia to use your microphone only during in-app voice calls you start or accept."
       }
     },
     "android": {
       "package": "ng.zuru.app",
       "permissions": [
+        "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.BLUETOOTH_CONNECT",
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -30,14 +31,14 @@
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#365b38",
+        "backgroundColor": "#26408F",
         "monochromeImage": "./assets/adaptive-monochrome.png"
       }
     },
     "web": {
       "bundler": "metro",
-      "name": "Zuru",
-      "shortName": "Zuru",
+      "name": "Ahia",
+      "shortName": "Ahia",
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
@@ -45,15 +46,15 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Zuru to select product and receipt photos.",
-          "cameraPermission": "Allow Zuru to take photos of products and receipts.",
-          "microphonePermission": false
+          "photosPermission": "Allow Ahia to select product and receipt photos.",
+          "cameraPermission": "Allow Ahia to take photos of products and receipts.",
+          "microphonePermission": "Allow Ahia to use your microphone only during in-app voice calls you start or accept."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Zuru to find nearby sellers, set collection pins and share delivery location.",
+          "locationWhenInUsePermission": "Allow Ahia to find nearby sellers, set collection pins and share delivery location.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true,
@@ -64,14 +65,14 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#365b38"
+          "color": "#26408F"
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Zuru to scan delivery handover codes.",
-          "recordAudioAndroid": false
+          "cameraPermission": "Allow Ahia to scan delivery handover codes.",
+          "recordAudioAndroid": true
         }
       ],
       [
@@ -80,7 +81,15 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#365b38"
+          "backgroundColor": "#26408F"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraProguardRules": "# react-native-webrtc: keep the WebRTC Java classes (called from native code) and ignore\n# optional decoders that aren't shipped, e.g. org.webrtc.Dav1dDecoder.\n-keep class org.webrtc.** { *; }\n-dontwarn org.webrtc.**\n"
+          }
         }
       ]
     ],

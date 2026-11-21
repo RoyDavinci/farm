@@ -1,6 +1,6 @@
 import ProfileDetailsPanel from '../ProfileDetailsPanel';
 import LocalStatusPublisher from '../LocalStatusPublisher';
-import { money, statusLabel, type Booking, type Listing, type Seller } from '@zuru/shared';
+import { money, statusLabel, type Booking, type Listing, type Seller } from '@ahia/shared';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useApp } from '../AppContext';

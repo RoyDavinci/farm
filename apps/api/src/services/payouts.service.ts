@@ -160,7 +160,7 @@ export function payoutService(db: Database, c: Config) {
           recipient: account.recipient_code,
           bankCode: account.bank_code,
           accountNumber: decryptAccount(c, account.account_cipher),
-          reason: 'Zuru seller payout',
+          reason: 'Ahia seller payout',
         });
         providerId = transfer.id;
         await db.query(

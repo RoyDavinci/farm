@@ -1,8 +1,16 @@
-import type { Booking, Listing, Seller, Settings } from '@zuru/shared';
+import type { Booking, Listing, Seller, Settings } from '@ahia/shared';
 import { createContext, useContext } from 'react';
 
 export type Tab =
-  'Market' | 'Bookings' | 'Sell' | 'Riders' | 'Drive' | 'Wallet' | 'Inbox' | 'Account';
+  | 'Market'
+  | 'Categories'
+  | 'Bookings'
+  | 'Sell'
+  | 'Riders'
+  | 'Drive'
+  | 'Wallet'
+  | 'Inbox'
+  | 'Account';
 
 export interface AppState {
   me: any;

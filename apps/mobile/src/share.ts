@@ -7,7 +7,7 @@ export const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL || 'http://localhost:809
 
 export const shopLink = (sellerId: string) => `${WEB_URL}/?seller=${encodeURIComponent(sellerId)}`;
 
-/** Extracts a seller id from a shared link: https://…/?seller=ID or zuru://seller/ID. */
+/** Extracts a seller id from a shared link: https://…/?seller=ID or ahia://seller/ID. */
 export function sellerFromUrl(url: string | null | undefined) {
   if (!url) return null;
   const query = /[?&]seller=([A-Za-z0-9-]{8,64})/.exec(url);
@@ -35,5 +35,5 @@ export function shopMessage(seller: {
   area: string;
   city: string;
 }) {
-  return `Shop ${seller.business_name} in ${seller.area}, ${seller.city}. Book on Zuru: ${shopLink(seller.user_id)}`;
+  return `Shop ${seller.business_name} in ${seller.area}, ${seller.city}. Book on Ahia: ${shopLink(seller.user_id)}`;
 }

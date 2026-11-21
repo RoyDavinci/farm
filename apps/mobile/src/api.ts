@@ -194,7 +194,7 @@ export async function api<T = any>(
         const cached = await recall<T>(path, requestScope);
         if (cached !== null) return cached;
       }
-      throw new Error('Cannot reach Zuru. Please check your connection.');
+      throw new Error('Cannot reach Ahia. Please check your connection.');
     }
   }
   setOffline(false);

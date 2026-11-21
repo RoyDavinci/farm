@@ -9,7 +9,7 @@ const db = connect(config.databaseUrl);
 const redis = config.redisUrl ? connectRedis(config.redisUrl, 'worker') : null;
 if (redis) events.useRedis(redis);
 const stop = startWorkers(db, config);
-logger.info('Zuru worker started');
+logger.info('Ahia worker started');
 async function shutdown() {
   stop();
   await db.close();

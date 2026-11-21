@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { money } from '@zuru/shared';
+import { money } from '@ahia/shared';
 import { request } from '../api';
 import { useAdmin } from '../AdminContext';
 export default function ReturnsPage({ appeals = false }: { appeals?: boolean }) {

@@ -1,4 +1,4 @@
-import { money, type ShoppingRequest, type ShoppingDetail } from '@zuru/shared';
+import { money, type ShoppingRequest, type ShoppingDetail } from '@ahia/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';
 import { request } from '../api';

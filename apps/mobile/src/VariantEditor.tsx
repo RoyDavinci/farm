@@ -175,13 +175,13 @@ export default function VariantEditor({
   );
 }
 const s = StyleSheet.create({
-  heading: { fontSize: 16, color: '#4c6b3a', fontWeight: '600' },
-  small: { fontSize: 10, lineHeight: 18, color: '#91a17f' },
-  bold: { fontSize: 12, color: '#607d4b', fontWeight: '600' },
+  heading: { fontSize: 16, color: '#293e7c', fontWeight: '600' },
+  small: { fontSize: 10, lineHeight: 18, color: '#7382ad' },
+  bold: { fontSize: 12, color: '#3a4f8e', fontWeight: '600' },
   card: {
     padding: 15,
     borderWidth: 1,
-    borderColor: '#e1e8d6',
+    borderColor: '#d3d9eb',
     borderRadius: 10,
     gap: 13,
     backgroundColor: '#fff',
@@ -191,20 +191,20 @@ const s = StyleSheet.create({
   input: {
     padding: 11,
     borderWidth: 1,
-    borderColor: '#dfe7d2',
+    borderColor: '#cfd6ea',
     borderRadius: 7,
     fontSize: 12,
-    color: '#4e6e3b',
-    backgroundColor: '#fafcf6',
+    color: '#293f80',
+    backgroundColor: '#f5f7fd',
   },
   chip: {
     paddingVertical: 7,
     paddingHorizontal: 11,
     borderRadius: 15,
-    color: '#879a71',
-    backgroundColor: '#f3f6ec',
+    color: '#6374a8',
+    backgroundColor: '#ebeef7',
     fontSize: 11,
   },
-  active: { color: '#fff', backgroundColor: '#496d3d' },
-  link: { fontSize: 11, color: '#6a8c4f', paddingVertical: 6 },
+  active: { color: '#fff', backgroundColor: '#2c417e' },
+  link: { fontSize: 11, color: '#3a54a1', paddingVertical: 6 },
 });

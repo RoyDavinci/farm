@@ -1,4 +1,4 @@
-import { type Settings as MarketSettings } from '@zuru/shared';
+import { type Settings as MarketSettings } from '@ahia/shared';
 import { Check } from 'lucide-react';
 import { useState } from 'react';
 import { useAdmin } from '../AdminContext';

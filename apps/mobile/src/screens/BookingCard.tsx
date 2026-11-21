@@ -1,5 +1,5 @@
 import MarketNavigationPanel from '../MarketNavigationPanel';
-import { money, type Booking } from '@zuru/shared';
+import { money, type Booking } from '@ahia/shared';
 import { useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
@@ -61,7 +61,7 @@ export default function BookingCard({
       </Text>
       <View style={s.orderSummary}>
         <Text style={s.price}>{money(b.total_kobo)}</Text>
-        <Text style={[s.small, b.paid ? { color: '#4a7b43' } : { color: '#9b8147' }]}>
+        <Text style={[s.small, b.paid ? { color: '#2f478f' } : { color: '#a17e41' }]}>
           {b.paid
             ? t('booking.paid')
             : b.payment_recorded

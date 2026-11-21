@@ -171,7 +171,7 @@ export default function OperationsPanel({ page }: { page: 'Users' | 'Reports' | 
         </div>
       )}
       {selected && (
-        <div className="settings-card" style={{ borderTop: '1px solid #e4e9df' }}>
+        <div className="settings-card" style={{ borderTop: '1px solid #dde1ea' }}>
           <h2>{page === 'Users' ? `Manage ${selected.name}` : 'Resolve report'}</h2>
           <label>
             {page === 'Users' ? 'Reason for account status change' : 'Resolution notes'}

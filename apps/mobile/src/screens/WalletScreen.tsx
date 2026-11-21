@@ -1,4 +1,4 @@
-import { money, statusLabel } from '@zuru/shared';
+import { money, statusLabel } from '@ahia/shared';
 import { useState } from 'react';
 import { Linking, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
@@ -136,7 +136,7 @@ export default function WalletScreen({ wallet }: { wallet: WalletData }) {
               style={[
                 s.bold,
                 {
-                  color: Number(e.amount_kobo) > 0 ? '#527d45' : '#8b6047',
+                  color: Number(e.amount_kobo) > 0 ? '#314991' : '#8b6047',
                 },
               ]}
             >

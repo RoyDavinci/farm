@@ -1,4 +1,4 @@
-import { type Booking } from '@zuru/shared';
+import { type Booking } from '@ahia/shared';
 import { useState } from 'react';
 import { useAdmin } from '../AdminContext';
 import { BookingTable, Toolbar } from '../ui';

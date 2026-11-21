@@ -1,5 +1,5 @@
 import PublicSellerInfo from '../PublicSellerInfo';
-import { money, statusLabel, type Listing } from '@zuru/shared';
+import { money, statusLabel, type Listing } from '@ahia/shared';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
@@ -50,7 +50,7 @@ export default function SellerShop({ sellerId, onBack }: { sellerId: string; onB
             <View style={s.productGrid}>
               {listings.map((l) => (
                 <Pressable key={l.id} style={s.product} onPress={() => openListing(l)}>
-                  <View style={[s.productPicture, { backgroundColor: '#edf1df' }]}>
+                  <View style={[s.productPicture, { backgroundColor: '#dce2f4' }]}>
                     {l.thumbnail_url || l.image_url ? (
                       <Image
                         source={{ uri: (l.thumbnail_url || l.image_url)! }}

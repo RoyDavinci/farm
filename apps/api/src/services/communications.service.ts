@@ -226,7 +226,7 @@ export function createCommunicationsService(deps: AppDeps) {
       peer,
       'message',
       'New market message',
-      `You have a new message about ${c.title || 'a listing'}. Open Zuru to read it.`,
+      `You have a new message about ${c.title || 'a listing'}. Open Ahia to read it.`,
     );
     return message;
   }

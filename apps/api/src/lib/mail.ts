@@ -35,7 +35,7 @@ export function mailer(c: Config) {
         throw new AppError(503, 'EMAIL_NOT_CONFIGURED', 'Production requires SMTP email delivery.');
       try {
         const result = await transport.sendMail({
-          from: c.mailFrom || 'Zuru <no-reply@zuru.example>',
+          from: c.mailFrom || 'Ahia <no-reply@ahia.example>',
           to,
           subject,
           text,

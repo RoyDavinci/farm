@@ -9,7 +9,7 @@ import PoliciesPage from './pages/PoliciesPage';
 import StatusBoostsPage from './pages/StatusBoostsPage';
 import LocalStatusPage from './pages/LocalStatusPage';
 import ShoppingPage from './pages/ShoppingPage';
-import type { ApiPath } from '@zuru/shared';
+import type { ApiPath } from '@ahia/shared';
 import {
   statusLabel,
   type Booking,
@@ -17,7 +17,7 @@ import {
   type Settings as MarketSettings,
   type OrderEvent,
   type Seller,
-} from '@zuru/shared';
+} from '@ahia/shared';
 import {
   ArrowLeftRight,
   ArrowUpRight,
@@ -289,14 +289,14 @@ function App() {
       setBusy(false);
     }
   }
-  if (checking) return <div className="initial">Opening Zuru…</div>;
+  if (checking) return <div className="initial">Opening Ahia…</div>;
   if (!user)
     return (
       <div className="login">
         <div className="login-story">
           <div className="brand">
             <img className="brand-logo large" src="/apple-touch-icon.png" alt="" />
-            zuru<span>OPERATIONS</span>
+            ahia<span>OPERATIONS</span>
           </div>
           <div>
             <span className="eyebrow">GROWING LOCAL CONNECTIONS</span>
@@ -311,7 +311,7 @@ function App() {
               Your market’s everyday operations, in one place.
             </p>
           </div>
-          <small>Zuru · Nigeria</small>
+          <small>Ahia · Nigeria</small>
         </div>
         <AuthPanel onSignedIn={setUser} />
       </div>
@@ -343,7 +343,7 @@ function App() {
           <div className="brand">
             <img className="brand-logo" src="/apple-touch-icon.png" alt="" />
             <div>
-              zuru<small>OPERATIONS CONSOLE</small>
+              ahia<small>OPERATIONS CONSOLE</small>
             </div>
           </div>
           <div className="workspace">
@@ -390,7 +390,7 @@ function App() {
           <div className="sidebar-bottom">
             <div className="pilot">
               <ShoppingBag size={20} />
-              <b>Shop. Send. Receive.</b>
+              <b>A world of shopping.</b>
               <p>Buying, selling and delivery near you.</p>
             </div>
             <button
@@ -436,7 +436,7 @@ function App() {
           <main className="content">
             <div className="page-title">
               <div>
-                <span className="eyebrow">ZURU / {page.toUpperCase()}</span>
+                <span className="eyebrow">AHIA / {page.toUpperCase()}</span>
                 <h1>{page === 'Overview' ? 'A fresh look at your market.' : page}</h1>
                 <p>
                   {
@@ -543,7 +543,7 @@ function App() {
               <CommercePanel key={page} page={page} />
             )}
             <footer>
-              Zuru <span>Made for the people who keep our markets growing.</span>
+              Ahia <span>Made for the people who keep our markets growing.</span>
             </footer>
           </main>
         </div>

@@ -1,4 +1,4 @@
-import { money } from '@zuru/shared';
+import { money } from '@ahia/shared';
 import { X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';

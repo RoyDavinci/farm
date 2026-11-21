@@ -289,7 +289,7 @@ export function buildOpenApi() {
   return {
     openapi: '3.1.0',
     info: {
-      title: 'Zuru API',
+      title: 'Ahia API',
       version: '1.0.0',
       description:
         'Generated from apps/api/src by `npm run openapi`. Amounts are integers in kobo. Writes that change money, orders or accounts require an Idempotency-Key; retries with the same key replay the first response.',
@@ -345,7 +345,7 @@ export const render = () => `${JSON.stringify(buildOpenApi(), null, 2)}\n`;
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv.includes('--check')) {
     if (readFileSync(specPath, 'utf8') !== render()) {
-      console.error('openapi.json is out of date. Run `npm run openapi -w @zuru/api`.');
+      console.error('openapi.json is out of date. Run `npm run openapi -w @ahia/api`.');
       process.exit(1);
     }
     console.log('openapi.json is up to date.');

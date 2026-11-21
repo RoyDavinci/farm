@@ -74,7 +74,7 @@ export function paymentService(c: Config) {
               currency: 'NGN',
               redirect_url: c.flutterwaveReturnUrl,
               customer: { email, name },
-              customizations: { title: 'Zuru payment' },
+              customizations: { title: 'Ahia payment' },
             });
       const url = provider === 'paystack' ? d.authorization_url : d.link;
       ensure(

@@ -1,5 +1,5 @@
 // Post-deploy smoke test for a deployed environment.
-//   node scripts/smoke.mjs --api https://zuru-api.onrender.com \
+//   node scripts/smoke.mjs --api https://ahia-api.onrender.com \
 //     [--admin https://…] [--web https://…] [--commit <sha>] [--wait 900] [--allow-demo]
 // Staging must use real provider (test-mode) payments; --allow-demo is for local checks.
 // With --commit it first waits (up to --wait seconds) until /health reports that commit.

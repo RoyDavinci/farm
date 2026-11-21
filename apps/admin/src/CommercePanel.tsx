@@ -1,4 +1,4 @@
-import { money, statusLabel } from '@zuru/shared';
+import { money, statusLabel } from '@ahia/shared';
 import { useEffect, useState } from 'react';
 import { request } from './api';
 export default function CommercePanel({
@@ -256,7 +256,7 @@ export default function CommercePanel({
           <h2>Verification exceptions</h2>
           {exceptions.length ? (
             exceptions.map((e) => (
-              <div key={e.id} style={{ padding: '14px 0', borderBottom: '1px solid #e5eadb' }}>
+              <div key={e.id} style={{ padding: '14px 0', borderBottom: '1px solid #d9deec' }}>
                 <b>{e.funding_id}</b>
                 <p>
                   {e.reason} · {e.status}

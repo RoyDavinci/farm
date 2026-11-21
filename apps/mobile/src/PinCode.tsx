@@ -13,7 +13,7 @@ import { Button, s } from './ui';
  * phone before anything is sent. The server still checks the PIN itself.
  */
 export type PinKind = 'pickup' | 'delivery';
-const PREFIX = 'zuru:pin';
+const PREFIX = 'ahia:pin';
 
 export const pinPayload = (kind: PinKind, deliveryId: string, pin: string) =>
   `${PREFIX}:${kind}:${deliveryId}:${pin}`;
@@ -24,8 +24,8 @@ export function readPin(
   kind: PinKind,
   deliveryId: string,
 ): { pin?: string; error?: string } {
-  const m = /^zuru:pin:(pickup|delivery):([\w-]+):(\d{6})$/.exec(text.trim());
-  if (!m) return { error: 'This is not a Zuru handover code.' };
+  const m = /^ahia:pin:(pickup|delivery):([\w-]+):(\d{6})$/.exec(text.trim());
+  if (!m) return { error: 'This is not a Ahia handover code.' };
   if (m[1] !== kind)
     return {
       error:

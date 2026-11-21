@@ -1,11 +1,11 @@
-# Render Blueprint for the Zuru STAGING environment.
+# Render Blueprint for the Ahia STAGING environment.
 # Create it in Render: New → Blueprint → pick this repository. Values marked `sync: false` are asked
 # for once during creation (see docs/deploy-staging.md for where each one comes from).
 # Services redeploy automatically after GitHub checks (CI) pass on the main branch.
 
 envVarGroups:
   # Shared by the API and the worker. Secrets generated once by Render; identical in both.
-  - name: zuru-staging
+  - name: ahia-staging
     envVars:
       - key: NODE_ENV
         value: production
@@ -50,7 +50,7 @@ envVarGroups:
 
 services:
   - type: web
-    name: zuru-api
+    name: ahia-api
     runtime: docker
     region: frankfurt
     dockerfilePath: ./apps/api/Dockerfile
@@ -61,28 +61,28 @@ services:
     autoDeployTrigger: checksPass
     maxShutdownDelaySeconds: 30
     envVars:
-      - fromGroup: zuru-staging
+      - fromGroup: ahia-staging
       - key: RUN_WORKERS
         value: 'false'
       - key: DATABASE_URL
         fromDatabase:
-          name: zuru-db
+          name: ahia-db
           property: connectionString
       - key: REDIS_URL
         fromService:
           type: keyvalue
-          name: zuru-redis
+          name: ahia-redis
           property: connectionString
       # Browser origins allowed by CORS: the two static sites below.
       - key: CORS_ALLOWED_HOSTS_ADMIN
         fromService:
           type: web
-          name: zuru-admin
+          name: ahia-admin
           envVarKey: RENDER_EXTERNAL_HOSTNAME
       - key: CORS_ALLOWED_HOSTS_WEB
         fromService:
           type: web
-          name: zuru-web
+          name: ahia-web
           envVarKey: RENDER_EXTERNAL_HOSTNAME
       - key: MAIL_FROM
         sync: false
@@ -114,7 +114,7 @@ services:
         sync: false
 
   - type: worker
-    name: zuru-worker
+    name: ahia-worker
     runtime: docker
     region: frankfurt
     dockerfilePath: ./apps/api/Dockerfile
@@ -125,22 +125,22 @@ services:
       - key: EXPO_PUBLIC_WEB_URL
         fromService:
           type: web
-          name: zuru-web
+          name: ahia-web
           envVarKey: RENDER_EXTERNAL_URL
-      - fromGroup: zuru-staging
+      - fromGroup: ahia-staging
       - key: PUBLIC_API_URL
         fromService:
           type: web
-          name: zuru-api
+          name: ahia-api
           envVarKey: RENDER_EXTERNAL_URL
       - key: DATABASE_URL
         fromDatabase:
-          name: zuru-db
+          name: ahia-db
           property: connectionString
       - key: REDIS_URL
         fromService:
           type: keyvalue
-          name: zuru-redis
+          name: ahia-redis
           property: connectionString
       - key: MAIL_FROM
         sync: false
@@ -171,10 +171,10 @@ services:
 
   # Operations console (static).
   - type: web
-    name: zuru-admin
+    name: ahia-admin
     runtime: static
     autoDeployTrigger: checksPass
-    buildCommand: npm ci --ignore-scripts && npm run build -w @zuru/admin
+    buildCommand: npm ci --ignore-scripts && npm run build -w @ahia/admin
     staticPublishPath: ./apps/admin/dist
     routes:
       - type: rewrite
@@ -184,15 +184,15 @@ services:
       - key: VITE_API_HOST
         fromService:
           type: web
-          name: zuru-api
+          name: ahia-api
           envVarKey: RENDER_EXTERNAL_HOSTNAME
 
   # Mobile app as a website, for testing on any phone browser.
   - type: web
-    name: zuru-web
+    name: ahia-web
     runtime: static
     autoDeployTrigger: checksPass
-    buildCommand: npm ci --ignore-scripts && npm run export:web -w @zuru/mobile
+    buildCommand: npm ci --ignore-scripts && npm run export:web -w @ahia/mobile
     staticPublishPath: ./apps/mobile/dist
     routes:
       - type: rewrite
@@ -202,18 +202,18 @@ services:
       - key: EXPO_PUBLIC_API_HOST
         fromService:
           type: web
-          name: zuru-api
+          name: ahia-api
           envVarKey: RENDER_EXTERNAL_HOSTNAME
 
   - type: keyvalue
-    name: zuru-redis
+    name: ahia-redis
     region: frankfurt
     # Internal only: no access from outside Render's private network.
     ipAllowList: []
     maxmemoryPolicy: noeviction
 
 databases:
-  - name: zuru-db
+  - name: ahia-db
     region: frankfurt
     postgresMajorVersion: '17'
     databaseName: farmers_market

@@ -145,7 +145,7 @@ export async function searchListings(db: Database, d: SearchInput) {
     price_desc: 'search_price DESC,l.id DESC',
     rating: 'rating_avg DESC,l.id DESC',
   }[d.sort];
-  const columns = `SELECT l.*,s.business_name,s.city,s.area,s.business_type,s.market_id,s.public_latitude,s.public_longitude,${rating} AS rating_avg,${distance} AS distance_km,COALESCE((SELECT MIN(v.price_kobo) FROM listing_variants v WHERE v.listing_id=l.id AND v.active AND v.stock>=v.min_quantity),(SELECT MIN(v.price_kobo) FROM listing_variants v WHERE v.listing_id=l.id AND v.active)) AS search_price,(SELECT m.thumbnail_url FROM media m WHERE m.url=l.image_url) AS thumbnail_url`;
+  const columns = `SELECT l.*,s.business_name,s.city,s.area,s.business_type,s.market_id,s.public_latitude,s.public_longitude,${rating}::float8 AS rating_avg,(SELECT COUNT(*)::int FROM ratings r WHERE r.seller_id=s.user_id) AS rating_count,${distance} AS distance_km,COALESCE((SELECT MIN(v.price_kobo) FROM listing_variants v WHERE v.listing_id=l.id AND v.active AND v.stock>=v.min_quantity),(SELECT MIN(v.price_kobo) FROM listing_variants v WHERE v.listing_id=l.id AND v.active)) AS search_price,(SELECT m.thumbnail_url FROM media m WHERE m.url=l.image_url) AS thumbnail_url`;
   const from = `FROM listings l JOIN sellers s ON s.user_id=l.seller_id JOIN users u ON u.id=s.user_id WHERE ${conditions.join(' AND ')}`;
   // Sponsored placements match the same filters, appear only on the first page and are labelled.
   const sponsored = d.cursor

@@ -1,6 +1,6 @@
 import ReturnJourneysPanel from '../ReturnJourneysPanel';
 import PreorderInterestPanel from '../PreorderInterestPanel';
-import { statusLabel, type Booking, type OrderEvent } from '@zuru/shared';
+import { statusLabel, type Booking, type OrderEvent } from '@ahia/shared';
 import { Text, View } from 'react-native';
 import { useApp } from '../AppContext';
 import { featureOn } from '../features';

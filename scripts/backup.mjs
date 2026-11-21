@@ -23,7 +23,7 @@ function run(cmd, args, env) {
 }
 
 if (!process.env.DATABASE_URL) throw new Error('Set DATABASE_URL (apps/api/.env) to back up.');
-const file = join(dir, `zuru-${stamp}.dump`);
+const file = join(dir, `ahia-${stamp}.dump`);
 // The URL is passed through the environment so it never appears in the process list.
 await run('pg_dump', ['--format=custom', '--no-owner', '--file', file], {
   PGDATABASE: process.env.DATABASE_URL,
@@ -46,7 +46,7 @@ if (process.env.BACKUP_S3_BUCKET) {
 
 const cutoff = Date.now() - keepDays * 86400000;
 for (const name of await readdir(dir)) {
-  if (!name.startsWith('zuru-')) continue;
+  if (!name.startsWith('ahia-')) continue;
   const path = join(dir, name);
   if ((await stat(path)).mtimeMs < cutoff) {
     await unlink(path);

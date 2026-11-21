@@ -1,5 +1,5 @@
 {
-  "name": "@zuru/mobile",
+  "name": "@ahia/mobile",
   "version": "0.1.0",
   "private": true,
   "main": "index.ts",
@@ -12,8 +12,9 @@
   "dependencies": {
     "@expo/metro-runtime": "~58.0.17",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "@zuru/shared": "0.1.0",
+    "@ahia/shared": "0.1.0",
     "expo": "~58.0.26",
+    "expo-build-properties": "~58.0.12",
     "expo-camera": "~58.0.14",
     "expo-constants": "~58.0.16",
     "expo-crypto": "~58.0.8",

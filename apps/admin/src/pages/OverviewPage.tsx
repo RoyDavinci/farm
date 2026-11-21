@@ -4,14 +4,13 @@ import {
   type Booking,
   type Settings as MarketSettings,
   type Seller,
-} from '@zuru/shared';
+} from '@ahia/shared';
 import {
   ArrowUpRight,
   ChevronRight,
   Package,
   ShieldCheck,
   ShoppingBag,
-  Sprout,
   Store,
   Wallet,
 } from 'lucide-react';
@@ -96,7 +95,7 @@ export default function OverviewPage({
         </section>
         <section className="green-card">
           <span className="eyebrow">THE MARKETPLACE PROMISE</span>
-          <Sprout size={42} />
+          <ShoppingBag size={42} />
           <h2>
             From a great find
             <br />

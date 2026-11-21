@@ -1,4 +1,4 @@
-import { money, type Listing } from '@zuru/shared';
+import { money, type Listing } from '@ahia/shared';
 import { useState } from 'react';
 import { useAdmin } from '../AdminContext';
 import { request } from '../api';

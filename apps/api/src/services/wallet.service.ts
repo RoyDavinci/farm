@@ -57,7 +57,7 @@ export function createWalletService(deps: AppDeps) {
     if (typeof value !== 'string' || !/^fm-[a-f0-9-]{36}$/.test(value))
       return {
         verified: false,
-        message: 'Return to Zuru to check your payment.',
+        message: 'Return to Ahia to check your payment.',
       };
     try {
       await verifyFunding(value);

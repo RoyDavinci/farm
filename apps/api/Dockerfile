@@ -1,8 +1,8 @@
 # Production image for the API, the background worker and database migrations.
-# Build from the repository root:  docker build -f apps/api/Dockerfile -t zuru-api .
-#   API:        docker run … zuru-api                       (default command)
-#   Worker:     docker run … zuru-api node dist/worker.js   (set RUN_WORKERS=false on the API)
-#   Migrations: docker run … zuru-api npx prisma migrate deploy   (run before each release)
+# Build from the repository root:  docker build -f apps/api/Dockerfile -t ahia-api .
+#   API:        docker run … ahia-api                       (default command)
+#   Worker:     docker run … ahia-api node dist/worker.js   (set RUN_WORKERS=false on the API)
+#   Migrations: docker run … ahia-api npx prisma migrate deploy   (run before each release)
 FROM node:24-slim AS build
 # Prisma picks its migration engine by OpenSSL version, so build and runtime must match.
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates ffmpeg \
@@ -13,11 +13,11 @@ COPY apps/api/package.json apps/api/
 COPY apps/admin/package.json apps/admin/
 COPY apps/mobile/package.json apps/mobile/
 COPY packages/shared/package.json packages/shared/
-RUN npm ci --workspace @zuru/api --include-workspace-root --ignore-scripts
+RUN npm ci --workspace @ahia/api --include-workspace-root --ignore-scripts
 COPY apps/api apps/api
 RUN npm rebuild @prisma/engines prisma \
-  && npm run build -w @zuru/api \
-  && npm prune --omit=dev --workspace @zuru/api \
+  && npm run build -w @ahia/api \
+  && npm prune --omit=dev --workspace @ahia/api \
   && mkdir -p apps/api/node_modules
 
 FROM node:24-slim

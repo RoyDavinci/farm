@@ -1,5 +1,5 @@
 import DeliveryProgressPanel from './DeliveryProgressPanel';
-import { money, statusLabel, type Booking, type NearbyRider } from '@zuru/shared';
+import { money, statusLabel, type Booking, type NearbyRider } from '@ahia/shared';
 import { currentPosition } from './location';
 export { currentPosition } from './location';
 import RiderPicker, { PointFields } from './RiderPicker';

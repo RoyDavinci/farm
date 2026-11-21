@@ -1,4 +1,4 @@
-import { money, type PayoutSummary } from '@zuru/shared';
+import { money, type PayoutSummary } from '@ahia/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useApp } from './AppContext';

@@ -1,5 +1,5 @@
 import { VerificationProfileDetails } from './Modals';
-import { money, statusLabel } from '@zuru/shared';
+import { money, statusLabel } from '@ahia/shared';
 import { ArrowUpRight, Check } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';

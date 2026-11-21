@@ -7,7 +7,7 @@ import { logger } from './logger.js';
  */
 export function connectRedis(url: string, name: string) {
   const client = new Redis(url, {
-    connectionName: `zuru:${name}`,
+    connectionName: `ahia:${name}`,
     maxRetriesPerRequest: 2,
     enableOfflineQueue: true,
     lazyConnect: false,

@@ -1,5 +1,148 @@
-import { statusLabel } from '@zuru/shared';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { statusLabel } from '@ahia/shared';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+
+const nativeDriver = Platform.OS !== 'web';
+
+/** True when the phone asks for reduced motion; animations are skipped then. */
+export function useReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled()
+      .then(setReduced)
+      .catch(() => {});
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
+    return () => sub.remove();
+  }, []);
+  return reduced;
+}
+
+/** Fades and lifts its content into place (screens, cards). */
+export function FadeIn({
+  children,
+  delay = 0,
+  style,
+}: {
+  children: ReactNode;
+  delay?: number;
+  style?: any;
+}) {
+  const reduced = useReducedMotion();
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduced) return v.setValue(1);
+    Animated.timing(v, {
+      toValue: 1,
+      duration: 320,
+      delay,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: nativeDriver,
+    }).start();
+  }, [reduced, delay, v]);
+  return (
+    <Animated.View
+      style={[
+        style,
+        {
+          opacity: v,
+          transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+/** The Ahia mark and wordmark used in the app header and sign-in screen. */
+export function Brand({ size = 30, tagline }: { size?: number; tagline?: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+      <Image
+        source={require('../assets/icon.png')}
+        style={{ width: size, height: size, borderRadius: size * 0.28 }}
+        accessibilityIgnoresInvertColors
+      />
+      <View>
+        <Text style={[s.brand, { fontSize: size * 0.72, lineHeight: size * 0.8 }]}>ahia</Text>
+        {tagline && <Text style={s.tagline}>{tagline}</Text>}
+      </View>
+    </View>
+  );
+}
+
+/** Gently grows and shrinks its content forever (play buttons, live dots). */
+export function Pulse({ children, style }: { children: ReactNode; style?: any }) {
+  const reduced = useReducedMotion();
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduced) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(v, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: nativeDriver,
+        }),
+        Animated.timing(v, {
+          toValue: 0,
+          duration: 900,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: nativeDriver,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [reduced, v]);
+  return (
+    <Animated.View
+      style={[
+        style,
+        { transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.1] }) }] },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+/** A Pressable that sinks slightly while pressed (cards, tiles). */
+export function PressScale({ children, style, wrapStyle, onPress, ...props }: any) {
+  const reduced = useReducedMotion();
+  const v = useRef(new Animated.Value(1)).current;
+  const to = (toValue: number) =>
+    reduced ||
+    Animated.spring(v, {
+      toValue,
+      speed: 40,
+      bounciness: 6,
+      useNativeDriver: nativeDriver,
+    }).start();
+  return (
+    <Pressable
+      {...props}
+      style={wrapStyle}
+      onPress={onPress}
+      onPressIn={() => to(0.96)}
+      onPressOut={() => to(1)}
+    >
+      <Animated.View style={[style, { transform: [{ scale: v }] }]}>{children}</Animated.View>
+    </Pressable>
+  );
+}
 export const categories = ['All', 'Vegetables', 'Fruit', 'Grains', 'Tubers', 'Livestock', 'Other'];
 export const produceIcon = (category: string) =>
   ({
@@ -9,6 +152,11 @@ export const produceIcon = (category: string) =>
     Tubers: '🥔',
     Livestock: '🥚',
     'Phones & electronics': '📱',
+    'Auto & spare parts': '🚗',
+    'Baby & kids': '🧸',
+    'Food & groceries': '🛒',
+    'Sports & hobbies': '⚽',
+    'Tools & building materials': '🔨',
     'Fashion & accessories': '👕',
     'Home & kitchen': '🏠',
     Furniture: '🪑',
@@ -22,7 +170,7 @@ export function Field({ label, ...props }: any) {
       <Text style={s.label}>{label}</Text>
       <TextInput
         style={[s.input, props.multiline && { minHeight: 90, textAlignVertical: 'top' }]}
-        placeholderTextColor="#a1a697"
+        placeholderTextColor="#9298ab"
         {...props}
       />
     </View>
@@ -39,20 +187,33 @@ export function Button({
   disabled?: boolean;
   secondary?: boolean;
 }) {
+  // A gentle spring: the button sinks slightly while pressed and settles back.
+  const scale = useRef(new Animated.Value(1)).current;
+  const spring = (to: number) =>
+    Animated.spring(scale, {
+      toValue: to,
+      speed: 40,
+      bounciness: to === 1 ? 6 : 0,
+      useNativeDriver: nativeDriver,
+    }).start();
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => [
-        s.button,
-        secondary && s.secondary,
-        disabled && { opacity: 0.45 },
-        pressed && { opacity: 0.8 },
-      ]}
-    >
-      <Text style={[s.buttonText, secondary && s.secondaryText]}>{title}</Text>
-    </Pressable>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        onPressIn={() => !disabled && spring(0.97)}
+        onPressOut={() => spring(1)}
+        disabled={disabled}
+        style={({ pressed }) => [
+          s.button,
+          secondary && s.secondary,
+          disabled && { opacity: 0.45 },
+          pressed && { opacity: 0.9 },
+        ]}
+      >
+        <Text style={[s.buttonText, secondary && s.secondaryText]}>{title}</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 export function Chip({
@@ -76,7 +237,7 @@ export function Badge({ status }: { status: string }) {
       style={[
         s.badge,
         ['APPROVED', 'ACTIVE', 'COMPLETED', 'PAID'].includes(status) && {
-          backgroundColor: '#edf4e5',
+          backgroundColor: '#e3e8f6',
         },
       ]}
     >
@@ -109,37 +270,47 @@ export function Back({ onPress }: { onPress: () => void }) {
 }
 export const s = StyleSheet.create({
   flex: { flex: 1 },
-  safe: { flex: 1, backgroundColor: '#fafbf6' },
+  safe: { flex: 1, backgroundColor: '#f5f7fc' },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 15,
-    backgroundColor: '#fafbf6',
+    backgroundColor: '#f5f7fc',
   },
   topbar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 23,
-    paddingVertical: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#edf0e6',
+    borderBottomColor: '#e5e8f2',
   },
   wordmark: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  logo: { fontSize: 30, color: '#375d36' },
+  logo: { fontSize: 30, color: '#26408f' },
   brand: {
     fontSize: 20,
     fontWeight: '700',
     letterSpacing: -0.7,
-    color: '#264a30',
+    color: '#192957',
+  },
+  tagline: { fontSize: 10, color: '#6b7390', fontWeight: '600', marginTop: 2 },
+  topActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f1f3f9',
   },
   avatar: {
-    height: 32,
-    width: 32,
-    borderRadius: 16,
-    backgroundColor: '#eae7d5',
+    height: 40,
+    width: 40,
+    borderRadius: 20,
+    backgroundColor: '#26408f',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -164,7 +335,7 @@ export const s = StyleSheet.create({
     fontSize: 38,
     fontWeight: '700',
     lineHeight: 45,
-    color: '#294c31',
+    color: '#1d2c58',
     letterSpacing: -1.2,
     marginVertical: 15,
   },
@@ -177,33 +348,33 @@ export const s = StyleSheet.create({
   authTabs: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderColor: '#e0e5d5',
+    borderColor: '#d3d8e7',
     marginBottom: 5,
   },
   authTab: { flex: 1, padding: 13, alignItems: 'center' },
-  authTabActive: { borderBottomWidth: 2, borderColor: '#365b37' },
+  authTabActive: { borderBottomWidth: 2, borderColor: '#26408f' },
   greeting: { gap: 9 },
   eyebrow: {
     fontSize: 9,
     letterSpacing: 1.5,
-    color: '#7e8d66',
+    color: '#58699b',
     fontWeight: '600',
   },
   heading: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#294b31',
+    color: '#1d2c57',
     letterSpacing: -1,
     lineHeight: 39,
   },
-  subtitle: { fontSize: 12, lineHeight: 20, color: '#88917d', marginBottom: 3 },
-  body: { fontSize: 13, lineHeight: 22, color: '#77836d' },
-  bold: { fontSize: 13, fontWeight: '600', color: '#3f5337' },
-  muted: { fontSize: 12, color: '#87917e', lineHeight: 20 },
-  small: { fontSize: 10, color: '#8a947e', lineHeight: 17 },
-  fine: { fontSize: 10, color: '#8c957f', lineHeight: 18 },
+  subtitle: { fontSize: 12, lineHeight: 20, color: '#767e98', marginBottom: 3 },
+  body: { fontSize: 13, lineHeight: 22, color: '#656f8b' },
+  bold: { fontSize: 13, fontWeight: '600', color: '#2d395d' },
+  muted: { fontSize: 12, color: '#777f98', lineHeight: 20 },
+  small: { fontSize: 10, color: '#76809c', lineHeight: 17 },
+  fine: { fontSize: 10, color: '#77819d', lineHeight: 18 },
   hero: {
-    backgroundColor: '#2d5538',
+    backgroundColor: '#1f3063',
     padding: 23,
     borderRadius: 15,
     flexDirection: 'row',
@@ -212,16 +383,16 @@ export const s = StyleSheet.create({
     overflow: 'hidden',
     minHeight: 174,
   },
-  heroEyebrow: { color: '#bed09e', fontSize: 8, letterSpacing: 1.3 },
+  heroEyebrow: { color: '#8ca2e2', fontSize: 8, letterSpacing: 1.3 },
   heroTitle: {
     fontSize: 27,
     lineHeight: 34,
     fontWeight: '600',
-    color: '#edf3da',
+    color: '#d6def7',
     marginVertical: 12,
     letterSpacing: -0.6,
   },
-  heroText: { fontSize: 11, lineHeight: 18, color: '#aabc98', maxWidth: 240 },
+  heroText: { fontSize: 11, lineHeight: 18, color: '#8b9bc9', maxWidth: 240 },
   heroEmoji: {
     fontSize: 76,
     marginLeft: 10,
@@ -230,30 +401,30 @@ export const s = StyleSheet.create({
   search: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e3e8d9',
+    borderColor: '#d7dcea',
     borderRadius: 9,
     padding: 14,
     fontSize: 12,
-    color: '#3f5337',
+    color: '#2d395d',
   },
   cityInput: {
     fontSize: 11,
-    color: '#6e805e',
+    color: '#52618c',
     paddingHorizontal: 5,
     paddingBottom: 2,
   },
   chipRow: { gap: 8, paddingVertical: 3 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
-    backgroundColor: '#f0f2e8',
+    backgroundColor: '#e7eaf3',
     borderRadius: 20,
     paddingVertical: 9,
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: '#e8ecdf',
+    borderColor: '#dde1ee',
   },
-  chipActive: { backgroundColor: '#3b5f3a', borderColor: '#3b5f3a' },
-  chipText: { fontSize: 10, color: '#7f8a72' },
+  chipActive: { backgroundColor: '#2b4699', borderColor: '#2b4699' },
+  chipText: { fontSize: 10, color: '#6a7492' },
   rowBetween: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -263,7 +434,7 @@ export const s = StyleSheet.create({
   sectionTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#3b5134',
+    color: '#2a365b',
     marginTop: 10,
     marginBottom: 4,
     letterSpacing: -0.3,
@@ -275,7 +446,7 @@ export const s = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e8eddf',
+    borderColor: '#dde1ef',
   },
   productPicture: {
     height: 143,
@@ -296,66 +467,66 @@ export const s = StyleSheet.create({
   tagText: {
     fontSize: 6,
     letterSpacing: 0.8,
-    color: '#6e8058',
+    color: '#4a5b8e',
     fontWeight: '700',
   },
   productBody: { padding: 13, gap: 7 },
   productName: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#405438',
+    color: '#2e3a5e',
     lineHeight: 18,
   },
   productPrice: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#47613a',
+    color: '#2c3d6f',
     marginTop: 4,
   },
   price: {
     fontSize: 22,
     fontWeight: '600',
-    color: '#47613a',
+    color: '#2c3d6f',
     letterSpacing: -0.5,
   },
   detailHero: {
     padding: 30,
-    backgroundColor: '#edf1df',
+    backgroundColor: '#dce2f4',
     borderRadius: 15,
     alignItems: 'center',
     gap: 20,
   },
   detailEmoji: { fontSize: 110 },
   field: { gap: 8 },
-  label: { fontSize: 11, fontWeight: '600', color: '#657756' },
+  label: { fontSize: 11, fontWeight: '600', color: '#4a5883' },
   input: {
     padding: 14,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#dfe6d4',
+    borderColor: '#d1d7e9',
     borderRadius: 8,
     fontSize: 13,
-    color: '#344b2e',
+    color: '#243055',
   },
   button: {
-    backgroundColor: '#365b38',
+    backgroundColor: '#26408f',
     borderRadius: 8,
     paddingVertical: 15,
     paddingHorizontal: 16,
     alignItems: 'center',
   },
-  buttonText: { color: '#f2f6e8', fontSize: 12, fontWeight: '600' },
+  buttonText: { color: '#e6eaf8', fontSize: 12, fontWeight: '600' },
   secondary: {
-    backgroundColor: '#f3f5ec',
+    backgroundColor: '#ebeef6',
     borderWidth: 1,
-    borderColor: '#e2e8d7',
+    borderColor: '#d4daeb',
   },
-  secondaryText: { color: '#758565' },
+  secondaryText: { color: '#5a6790' },
   sellerInfo: {
     gap: 8,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#e3e9d8',
+    borderColor: '#d5dbec',
     paddingVertical: 20,
     marginVertical: 5,
   },
@@ -364,14 +535,14 @@ export const s = StyleSheet.create({
     padding: 19,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e4e9db',
+    borderColor: '#d9ddeb',
     borderRadius: 12,
     gap: 12,
   },
   cardTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#405438',
+    color: '#2e3a5e',
     flexShrink: 1,
   },
   orderSummary: {
@@ -381,21 +552,21 @@ export const s = StyleSheet.create({
     paddingVertical: 9,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#f0f3e9',
+    borderColor: '#e8ebf4',
   },
   badge: {
-    backgroundColor: '#f5f1df',
+    backgroundColor: '#e0e6f4',
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 5,
     alignSelf: 'flex-start',
   },
-  badgeText: { color: '#7e885f', fontSize: 9, textTransform: 'capitalize' },
+  badgeText: { color: '#516296', fontSize: 9, textTransform: 'capitalize' },
   actions: { gap: 12, marginTop: 8 },
   inlineActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   locationBox: {
     padding: 13,
-    backgroundColor: '#f7f8f0',
+    backgroundColor: '#eff1f9',
     borderRadius: 7,
     gap: 7,
   },
@@ -403,26 +574,26 @@ export const s = StyleSheet.create({
     alignItems: 'center',
     padding: 18,
     borderWidth: 1,
-    borderColor: '#dce7c9',
-    backgroundColor: '#f6f9ee',
+    borderColor: '#c4ceec',
+    backgroundColor: '#ecf0fb',
     borderRadius: 8,
     gap: 10,
   },
   pickupCode: {
     fontSize: 34,
     letterSpacing: 7,
-    color: '#49663c',
+    color: '#2d3f75',
     fontWeight: '700',
   },
   link: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#66834e',
+    color: '#3b5296',
     paddingVertical: 4,
   },
-  alert: { backgroundColor: '#edf3e3', padding: 14, borderRadius: 8 },
-  alertText: { fontSize: 12, lineHeight: 19, color: '#5c7d46' },
-  demo: { backgroundColor: '#f3efdf', padding: 9, borderRadius: 5 },
+  alert: { backgroundColor: '#e1e6f5', padding: 14, borderRadius: 8 },
+  alertText: { fontSize: 12, lineHeight: 19, color: '#334a90' },
+  demo: { backgroundColor: '#e0e5f2', padding: 9, borderRadius: 5 },
   demoText: {
     color: '#978456',
     fontSize: 8,
@@ -431,14 +602,14 @@ export const s = StyleSheet.create({
   },
   balanceCard: {
     padding: 26,
-    backgroundColor: '#2f5538',
+    backgroundColor: '#223262',
     borderRadius: 13,
     gap: 15,
     marginVertical: 5,
   },
   balance: {
     fontSize: 39,
-    color: '#edf4df',
+    color: '#dce3f7',
     fontWeight: '600',
     letterSpacing: -1,
   },
@@ -447,20 +618,20 @@ export const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderColor: '#e6ebdd',
+    borderColor: '#dbdfed',
     gap: 12,
   },
-  timeline: { borderLeftWidth: 2, borderColor: '#b4c69a', padding: 15, gap: 8 },
+  timeline: { borderLeftWidth: 2, borderColor: '#8b9dd5', padding: 15, gap: 8 },
   empty: {
     alignItems: 'center',
     paddingVertical: 32,
     paddingHorizontal: 20,
     gap: 10,
   },
-  emptyIcon: { fontSize: 35, color: '#9aab83' },
+  emptyIcon: { fontSize: 35, color: '#7586b9' },
   bottomNote: {
     fontSize: 9,
-    color: '#a3ad95',
+    color: '#8d97b5',
     textAlign: 'center',
     paddingVertical: 18,
   },

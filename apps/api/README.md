@@ -1,4 +1,4 @@
-# Zuru API
+# Ahia API
 
 Express 5 + TypeScript, PostgreSQL through Prisma, Winston logging.
 

@@ -5,7 +5,7 @@ import {
   type NearbyRider,
   type ShoppingRequest,
   type ShoppingDetail,
-} from '@zuru/shared';
+} from '@ahia/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Image, Linking, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';

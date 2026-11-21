@@ -1,4 +1,4 @@
-import { createRequest } from '@zuru/shared';
+import { createRequest } from '@ahia/shared';
 import { api } from './api';
 
 /**

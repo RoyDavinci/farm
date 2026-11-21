@@ -12,7 +12,8 @@ export const languages = [
 export type Language = (typeof languages)[number]['code'];
 
 const en = {
-  'tab.Market': 'Market',
+  'tab.Market': 'Home',
+  'tab.Categories': 'Categories',
   'tab.Bookings': 'Bookings',
   'tab.Sell': 'Sell',
   'tab.Drive': 'Drive',
