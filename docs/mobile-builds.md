@@ -32,7 +32,7 @@ npx eas-cli@latest init
 npx eas-cli@latest build --platform android --profile preview
 ```
 
-EAS creates the Android signing key the first time. When the build finishes, open its link on an Android phone and install the APK. It talks to the AWS test environment (`EXPO_PUBLIC_API_URL` in the `preview` profile: `https://api.35-177-195-6.sslip.io/v1`, see [test environment](deploy-aws-test.md)).
+EAS creates the Android signing key the first time. When the build finishes, open its link on an Android phone and install the APK. It talks to the AWS test environment (`EXPO_PUBLIC_API_URL` in the `preview` profile: `https://api.ahiamarketplace.com/v1`, see [test environment](deploy-aws-test.md)).
 
 **Push on Android needs Firebase:**
 

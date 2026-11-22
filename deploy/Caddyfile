@@ -1,19 +1,25 @@
-# HOST_SUFFIX is e.g. 35-177-195-6.sslip.io; Caddy obtains Let's Encrypt certificates automatically.
-api.{$HOST_SUFFIX} {
+# Host lists come from deploy/deploy.sh, e.g. API_HOSTS="api.ahiamarketplace.com, api.35-177-195-6.sslip.io".
+# Caddy obtains Let's Encrypt certificates for every name automatically.
+{$API_HOSTS} {
 	encode gzip
 	reverse_proxy api:4000
 }
 
-admin.{$HOST_SUFFIX} {
+{$ADMIN_HOSTS} {
 	root * /srv/admin
 	encode gzip
 	try_files {path} /index.html
 	file_server
 }
 
-app.{$HOST_SUFFIX} {
+{$APP_HOSTS} {
 	root * /srv/web
 	encode gzip
 	try_files {path} /index.html
 	file_server
+}
+
+# The bare domain and www send people to the web app.
+{$ROOT_HOSTS} {
+	redir https://{$APP_HOST}{uri}
 }

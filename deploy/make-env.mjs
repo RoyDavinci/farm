@@ -17,10 +17,9 @@ const local = Object.fromEntries(
     .filter((l) => /^[A-Z0-9_]+=/.test(l))
     .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1).replace(/^"|"$/g, '')]),
 );
-const ip = readFileSync(join(here, 'aws-test.env'), 'utf8')
-  .match(/PUBLIC_IP=(.+)/)[1]
-  .trim();
-const host = `${ip.replaceAll('.', '-')}.sslip.io`;
+const awsEnv = readFileSync(join(here, 'aws-test.env'), 'utf8');
+const ip = awsEnv.match(/PUBLIC_IP=(.+)/)[1].trim();
+const host = awsEnv.match(/^DOMAIN=(.+)/m)?.[1].trim() || `${ip.replaceAll('.', '-')}.sslip.io`;
 const secret = () => randomBytes(32).toString('hex');
 const pg = randomBytes(18).toString('hex');
 const env = {

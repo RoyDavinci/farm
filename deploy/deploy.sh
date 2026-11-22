@@ -5,8 +5,21 @@
 set -euo pipefail
 cd "${0:A:h}/.."
 source deploy/aws-test.env
-HOST_SUFFIX="${PUBLIC_IP//./-}.sslip.io"
+# DOMAIN (aws-test.env) is the main address; the sslip.io names keep working for older app builds.
+SSLIP="${PUBLIC_IP//./-}.sslip.io"
+HOST_SUFFIX="${DOMAIN:-$SSLIP}"
 API_URL="https://api.$HOST_SUFFIX/v1"
+if [[ $HOST_SUFFIX == $SSLIP ]]; then
+  API_HOSTS="api.$SSLIP" ADMIN_HOSTS="admin.$SSLIP" APP_HOSTS="app.$SSLIP" ROOT_HOSTS="www.$SSLIP"
+else
+  API_HOSTS="api.$DOMAIN, api.$SSLIP" ADMIN_HOSTS="admin.$DOMAIN, admin.$SSLIP"
+  APP_HOSTS="app.$DOMAIN, app.$SSLIP" ROOT_HOSTS="$DOMAIN, www.$DOMAIN"
+  # Let's Encrypt can only issue certificates once every name points at this server.
+  for h in $DOMAIN www.$DOMAIN api.$DOMAIN admin.$DOMAIN app.$DOMAIN; do
+    got=$(dig +short A $h | tail -1)
+    [[ $got == $PUBLIC_IP ]] || { echo "✗ $h resolves to '${got:-nothing}', not $PUBLIC_IP. Add an A record for it and retry."; exit 1; }
+  done
+fi
 RELEASE="$(git rev-parse --short HEAD 2>/dev/null || echo dev)-$(date +%Y%m%d%H%M%S)"
 SSH=(ssh -i ~/.ssh/zuru-test.pem -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 ubuntu@$PUBLIC_IP)
 BUILD=deploy/.build
@@ -34,10 +47,20 @@ COPYFILE_DISABLE=1 tar --no-mac-metadata --no-xattrs -czf - -T $BUILD/context.tx
 
 echo "▸ Uploading configuration and sites"
 # Caddy bind-mounts /opt/zuru/sites: replace its contents in place, never the folder itself.
-grep -vE '^(HOST_SUFFIX|POSTGRES_PASSWORD|TURN_PRIVATE_IP)=' deploy/.env.test > $BUILD/api.env
+# Public URLs and CORS follow the current addresses rather than whatever .env.test was created with.
+{
+  grep -vE '^(HOST_SUFFIX|POSTGRES_PASSWORD|TURN_PRIVATE_IP|PUBLIC_API_URL|PUBLIC_WEB_URL|CORS_ORIGINS)=' deploy/.env.test
+  echo "PUBLIC_API_URL=https://api.$HOST_SUFFIX"
+  echo "PUBLIC_WEB_URL=https://app.$HOST_SUFFIX"
+  echo "CORS_ORIGINS=https://admin.$HOST_SUFFIX,https://app.$HOST_SUFFIX,https://admin.$SSLIP,https://app.$SSLIP"
+} > $BUILD/api.env
 {
   echo "RELEASE=$RELEASE"
-  echo "HOST_SUFFIX=$HOST_SUFFIX"
+  echo "API_HOSTS=$API_HOSTS"
+  echo "ADMIN_HOSTS=$ADMIN_HOSTS"
+  echo "APP_HOSTS=$APP_HOSTS"
+  echo "ROOT_HOSTS=$ROOT_HOSTS"
+  echo "APP_HOST=app.$HOST_SUFFIX"
   grep -E '^POSTGRES_PASSWORD=' deploy/.env.test
 } > $BUILD/.env
 chmod 600 $BUILD/api.env $BUILD/.env
@@ -65,3 +88,4 @@ echo
 echo "API:    https://api.$HOST_SUFFIX/v1"
 echo "Admin:  https://admin.$HOST_SUFFIX"
 echo "Web:    https://app.$HOST_SUFFIX"
+[[ $HOST_SUFFIX == $SSLIP ]] || echo "Site:   https://$DOMAIN (redirects to the web app)"

@@ -1,6 +1,6 @@
 # Ahia
 
-Test environment: [AWS test server](docs/deploy-aws-test.md) — https://app.35-177-195-6.sslip.io (web app), https://admin.35-177-195-6.sslip.io (admin), https://api.35-177-195-6.sslip.io/v1 (API).
+Test environment: [AWS test server](docs/deploy-aws-test.md) — https://app.ahiamarketplace.com (web app), https://admin.ahiamarketplace.com (admin), https://api.ahiamarketplace.com/v1 (API).
 
 Express + TypeScript API, Expo React Native buyer/seller/driver app, and React operations console. It covers the marketplace and booking loop, wallet payments, seller and driver payouts, delivery by verified drivers, sponsored listings, pre-orders, and staff roles. See [build progress](docs/build-progress.md) for the full feature list and what still needs accounts or decisions.
 

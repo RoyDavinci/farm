@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "concurrently -n api,admin -c green,blue \"npm run dev -w @ahia/api\" \"npm run dev -w @ahia/admin\"",
     "dev:mobile": "npm run start -w @ahia/mobile",
-    "dev:mobile:test": "EXPO_PUBLIC_API_URL=https://api.35-177-195-6.sslip.io/v1 EXPO_PUBLIC_WEB_URL=https://app.35-177-195-6.sslip.io npm run start -w @ahia/mobile",
+    "dev:mobile:test": "EXPO_PUBLIC_API_URL=https://api.ahiamarketplace.com/v1 EXPO_PUBLIC_WEB_URL=https://app.ahiamarketplace.com npm run start -w @ahia/mobile",
     "db:migrate": "npm run db:migrate -w @ahia/api",
     "db:seed": "npm run db:seed -w @ahia/api",
     "typecheck": "npm run typecheck --workspaces --if-present",

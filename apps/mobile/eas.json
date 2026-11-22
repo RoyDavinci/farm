@@ -8,8 +8,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.35-177-195-6.sslip.io/v1",
-        "EXPO_PUBLIC_WEB_URL": "https://app.35-177-195-6.sslip.io"
+        "EXPO_PUBLIC_API_URL": "https://api.ahiamarketplace.com/v1",
+        "EXPO_PUBLIC_WEB_URL": "https://app.ahiamarketplace.com"
       },
       "environment": "development"
     },
@@ -19,8 +19,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.35-177-195-6.sslip.io/v1",
-        "EXPO_PUBLIC_WEB_URL": "https://app.35-177-195-6.sslip.io"
+        "EXPO_PUBLIC_API_URL": "https://api.ahiamarketplace.com/v1",
+        "EXPO_PUBLIC_WEB_URL": "https://app.ahiamarketplace.com"
       },
       "environment": "preview"
     },

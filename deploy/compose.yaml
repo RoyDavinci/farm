@@ -70,7 +70,11 @@ services:
     restart: unless-stopped
     ports: ['80:80', '443:443']
     environment:
-      HOST_SUFFIX: ${HOST_SUFFIX:?}
+      API_HOSTS: ${API_HOSTS:?}
+      ADMIN_HOSTS: ${ADMIN_HOSTS:?}
+      APP_HOSTS: ${APP_HOSTS:?}
+      ROOT_HOSTS: ${ROOT_HOSTS:?}
+      APP_HOST: ${APP_HOST:?}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./sites:/srv:ro

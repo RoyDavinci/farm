@@ -2,16 +2,22 @@
 
 One EC2 server in London (eu-west-2) runs the whole test environment in Docker, in pilot mode.
 
-| What           | Address                                        |
-| -------------- | ---------------------------------------------- |
-| API            | https://api.35-177-195-6.sslip.io/v1           |
-| Admin console  | https://admin.35-177-195-6.sslip.io            |
-| Mobile web app | https://app.35-177-195-6.sslip.io              |
-| Health         | https://api.35-177-195-6.sslip.io/health/ready |
+| What           | Address                                         |
+| -------------- | ----------------------------------------------- |
+| API            | https://api.ahiamarketplace.com/v1              |
+| Admin console  | https://admin.ahiamarketplace.com               |
+| Mobile web app | https://app.ahiamarketplace.com                 |
+| Health         | https://api.ahiamarketplace.com/health/ready    |
+| Site           | https://ahiamarketplace.com (redirects to app.) |
 
-`sslip.io` turns the server's fixed IP into a hostname, and Caddy gets Let's Encrypt certificates for
-each address automatically (renewed automatically). To use your own domain later, point
-`api.`, `admin.` and `app.` records at the IP and change `HOST_SUFFIX` handling in `deploy/`.
+The domain is `DOMAIN` in `deploy/aws-test.env`; Caddy gets Let's Encrypt certificates for each address
+automatically (renewed automatically). The old `api.`, `admin.` and `app.35-177-195-6.sslip.io`
+addresses keep working, so app builds made before the switch still connect.
+
+DNS (at Hostinger, the registrar): A records for `@`, `www`, `api`, `admin` and `app`, all pointing at
+`35.177.195.6`. `deploy/deploy.sh` refuses to release until all five resolve to the server, because
+Let's Encrypt cannot issue a certificate for a name that points elsewhere. Remove `DOMAIN` to go
+back to sslip.io only.
 
 ## AWS resources (all tagged `Project=zuru-test`)
 
@@ -67,7 +73,7 @@ If it stops at "Waiting for the server", your IP address has changed: allow it a
 Check it afterwards:
 
 ```bash
-npm run smoke -- --api https://api.35-177-195-6.sslip.io --admin https://admin.35-177-195-6.sslip.io --web https://app.35-177-195-6.sslip.io
+npm run smoke -- --api https://api.ahiamarketplace.com --admin https://admin.ahiamarketplace.com --web https://app.ahiamarketplace.com
 ```
 
 ## First staff account
@@ -81,8 +87,8 @@ npm run smoke -- --api https://api.35-177-195-6.sslip.io --admin https://admin.3
 
 ## Payment webhooks (provider test dashboards)
 
-- Paystack: `https://api.35-177-195-6.sslip.io/v1/webhooks/paystack`
-- Flutterwave: `https://api.35-177-195-6.sslip.io/v1/webhooks/flutterwave` (secret hash = `FLUTTERWAVE_WEBHOOK_SECRET`)
+- Paystack: `https://api.ahiamarketplace.com/v1/webhooks/paystack`
+- Flutterwave: `https://api.ahiamarketplace.com/v1/webhooks/flutterwave` (secret hash = `FLUTTERWAVE_WEBHOOK_SECRET`)
 
 Each provider account holds one webhook URL; if another app uses the same test account, only one of
 them gets webhooks. Without webhooks, payments are still confirmed by the return page, the in-app
