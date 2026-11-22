@@ -55,6 +55,14 @@ import WalletScreen, { type WalletData } from './src/screens/WalletScreen';
 import { sellerFromUrl } from './src/share';
 import { Alert, Brand, FadeIn, s } from './src/ui';
 
+// Web: keyboard focus rings in the brand green instead of the browser's default blue.
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  const focus = document.createElement('style');
+  focus.textContent =
+    'input:focus-visible,textarea:focus-visible,[role="button"]:focus-visible{outline:2px solid #1f754a;outline-offset:1px}';
+  document.head.appendChild(focus);
+}
+
 export default function App() {
   return (
     <LanguageProvider>
@@ -278,7 +286,7 @@ function Main() {
   if (initializing)
     return (
       <SafeAreaView style={s.center}>
-        <ActivityIndicator color="#26408f" />
+        <ActivityIndicator color="#1f754a" />
         <Text style={s.muted}>Opening your market…</Text>
       </SafeAreaView>
     );
@@ -388,7 +396,7 @@ function Main() {
                 height={22}
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#1d2a52"
+                stroke="#18432e"
                 strokeWidth={1.8}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -415,7 +423,7 @@ function Main() {
                 height={22}
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#1d2a52"
+                stroke="#18432e"
                 strokeWidth={1.8}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -446,7 +454,7 @@ function Main() {
             <RefreshControl
               refreshing={loading}
               onRefresh={() => void refresh()}
-              tintColor="#26408f"
+              tintColor="#1f754a"
             />
           }
           keyboardShouldPersistTaps="handled"

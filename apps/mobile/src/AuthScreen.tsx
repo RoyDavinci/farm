@@ -54,7 +54,7 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
         value={value}
         onChangeText={onChangeText}
         style={s.input}
-        placeholderTextColor="#828ca9"
+        placeholderTextColor="#82a995"
         {...extra}
       />
     </View>
@@ -269,7 +269,7 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
   );
 }
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f5f7fc' },
+  safe: { flex: 1, backgroundColor: '#f5fcf9' },
   content: {
     padding: 28,
     paddingTop: 35,
@@ -278,44 +278,44 @@ const s = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-  brand: { fontSize: 23, fontWeight: '700', color: '#243463', letterSpacing: -0.8 },
+  brand: { fontSize: 23, fontWeight: '700', color: '#1e5137', letterSpacing: -0.8 },
   hero: { gap: 17, paddingTop: 30, paddingBottom: 8 },
-  eyebrow: { fontSize: 9, letterSpacing: 1.5, color: '#6a779f' },
-  heading: { fontSize: 35, lineHeight: 43, color: '#212e57', fontWeight: '700', letterSpacing: -1 },
-  body: { fontSize: 13, lineHeight: 22, color: '#657092' },
+  eyebrow: { fontSize: 9, letterSpacing: 1.5, color: '#55846d' },
+  heading: { fontSize: 35, lineHeight: 43, color: '#1b4731', fontWeight: '700', letterSpacing: -1 },
+  body: { fontSize: 13, lineHeight: 22, color: '#537865' },
   field: { gap: 8 },
-  label: { fontSize: 12, color: '#465685', fontWeight: '600' },
+  label: { fontSize: 12, color: '#396d53', fontWeight: '600' },
   input: {
     padding: 15,
     borderWidth: 1,
-    borderColor: '#d1d7e9',
+    borderColor: '#d1e9dd',
     backgroundColor: '#fff',
     borderRadius: 8,
     fontSize: 14,
-    color: '#22315c',
+    color: '#1c4b34',
   },
-  button: { padding: 16, backgroundColor: '#26408f', borderRadius: 8, alignItems: 'center' },
-  buttonText: { fontSize: 13, color: '#e4e9f8', fontWeight: '600' },
-  link: { fontSize: 12, color: '#475c99', textAlign: 'center', padding: 5 },
-  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#d6dbea' },
+  button: { padding: 16, backgroundColor: '#1f754a', borderRadius: 8, alignItems: 'center' },
+  buttonText: { fontSize: 13, color: '#e4f8ee', fontWeight: '600' },
+  link: { fontSize: 12, color: '#3a7d5c', textAlign: 'center', padding: 5 },
+  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#d6eae0' },
   tab: { flex: 1, padding: 12, alignItems: 'center' },
-  active: { borderBottomWidth: 2, borderColor: '#2d3e72' },
+  active: { borderBottomWidth: 2, borderColor: '#255d41' },
   error: { backgroundColor: '#f9eade', padding: 14, borderRadius: 8 },
   errorText: { fontSize: 12, lineHeight: 19, color: '#9b553c' },
   notice: {
-    backgroundColor: '#e2e7f6',
+    backgroundColor: '#e2f6ec',
     padding: 14,
     borderRadius: 8,
-    color: '#32488a',
+    color: '#29714d',
     fontSize: 12,
   },
   hint: {
     fontSize: 11,
     lineHeight: 18,
     color: '#9b874e',
-    backgroundColor: '#e0e6f4',
+    backgroundColor: '#e0f4ea',
     padding: 13,
     borderRadius: 8,
   },
-  fine: { fontSize: 10, lineHeight: 18, color: '#848da7', textAlign: 'center', marginTop: 10 },
+  fine: { fontSize: 10, lineHeight: 18, color: '#84a796', textAlign: 'center', marginTop: 10 },
 });

@@ -231,10 +231,10 @@ export async function api<T = any>(
   }
   setOffline(false);
   const d = await response.json();
-  const code = d.error?.code;
+  const code = d?.error?.code;
   if (!response.ok && actingSeller && (code === 'NOT_ON_TEAM' || code === 'TEAM_PLAN_REQUIRED')) {
     await actAsSeller('');
-    actingHandler(d.error.message);
+    actingHandler(d?.error?.message || '');
   }
   if (!response.ok)
     throw new ApiError(

@@ -30,7 +30,7 @@ export default function MapPanel({
       el.type = 'button';
       el.textContent = '●';
       el.style.cssText =
-        'background:#26408f;color:white;border:2px solid white;border-radius:50%;width:28px;height:28px;cursor:pointer';
+        'background:#1f754a;color:white;border:2px solid white;border-radius:50%;width:28px;height:28px;cursor:pointer';
       el.title = pin.label;
       el.setAttribute('aria-label', pin.label);
       el.onclick = (e) => {
@@ -53,8 +53,8 @@ export default function MapPanel({
   }, [token, latitude, longitude, JSON.stringify(markers), selectable]);
   if (!token)
     return (
-      <View style={{ padding: 18, backgroundColor: '#e2e6f4', borderRadius: 10 }}>
-        <Text style={{ color: '#566799', fontSize: 12 }}>
+      <View style={{ padding: 18, backgroundColor: '#e2f4eb', borderRadius: 10 }}>
+        <Text style={{ color: '#477d62', fontSize: 12 }}>
           Map preview needs a Mapbox public token. GPS, coordinates and area search still work.
         </Text>
       </View>

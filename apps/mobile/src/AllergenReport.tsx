@@ -90,7 +90,7 @@ export default function AllergenReport({
         onChangeText={setDetails}
         multiline
         placeholder="What did you notice? For example: the label lists groundnut oil but the listing doesn't."
-        placeholderTextColor="#8a91a6"
+        placeholderTextColor="#8aa698"
         accessibilityLabel="Report details"
       />
       <View style={styles.row}>
@@ -135,8 +135,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f3d6cc',
   },
-  title: { fontSize: 14, fontWeight: '800', color: '#18213a' },
-  label: { fontSize: 12, fontWeight: '700', color: '#3d4563' },
+  title: { fontSize: 14, fontWeight: '800', color: '#143022' },
+  label: { fontSize: 12, fontWeight: '700', color: '#325142' },
   urgent: { fontSize: 12, fontWeight: '700', color: '#a33e32', lineHeight: 17 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: '#fff',
     fontSize: 14,
-    color: '#18213a',
+    color: '#143022',
     textAlignVertical: 'top',
   },
   row: { flexDirection: 'row', gap: 10 },
@@ -169,5 +169,5 @@ const styles = StyleSheet.create({
   },
   sendText: { color: '#fff', fontWeight: '800', fontSize: 13 },
   cancel: { paddingHorizontal: 14, paddingVertical: 10 },
-  cancelText: { color: '#6b7390', fontWeight: '700', fontSize: 13 },
+  cancelText: { color: '#587667', fontWeight: '700', fontSize: 13 },
 });

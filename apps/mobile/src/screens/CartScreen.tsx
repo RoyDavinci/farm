@@ -27,7 +27,7 @@ export default function CartScreen({ onChanged }: { onChanged: () => void }) {
       await reload();
     });
 
-  if (!cart) return <ActivityIndicator color="#26408f" style={{ marginTop: 40 }} />;
+  if (!cart) return <ActivityIndicator color="#1f754a" style={{ marginTop: 40 }} />;
   if (!cart.line_count)
     return (
       <View style={{ gap: 14 }}>
@@ -145,39 +145,39 @@ export default function CartScreen({ onChanged }: { onChanged: () => void }) {
   );
 }
 
-const BRAND = '#26408f';
+const BRAND = '#1f754a';
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', color: '#18213a', letterSpacing: -0.5 },
-  sub: { fontSize: 13, color: '#6b7390', marginTop: 2 },
+  title: { fontSize: 26, fontWeight: '800', color: '#143022', letterSpacing: -0.5 },
+  sub: { fontSize: 13, color: '#587667', marginTop: 2 },
   group: {
     backgroundColor: '#fff',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#e2e6f0',
+    borderColor: '#e2f0e9',
     padding: 14,
     gap: 12,
   },
   groupHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  seller: { fontSize: 16, fontWeight: '800', color: '#18213a' },
-  meta: { fontSize: 12, color: '#6b7390' },
+  seller: { fontSize: 16, fontWeight: '800', color: '#143022' },
+  meta: { fontSize: 12, color: '#587667' },
   subtotal: { fontSize: 15, fontWeight: '800', color: BRAND },
   line: {
     flexDirection: 'row',
     gap: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#eef0f5',
+    borderTopColor: '#eef5f2',
   },
   thumb: {
     width: 70,
     height: 70,
     borderRadius: 12,
-    backgroundColor: '#eef1f8',
+    backgroundColor: '#eef8f3',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  lineTitle: { fontSize: 14, fontWeight: '700', color: '#18213a' },
+  lineTitle: { fontSize: 14, fontWeight: '700', color: '#143022' },
   planTag: { fontSize: 11, fontWeight: '700', color: '#b57a10' },
   problem: { fontSize: 12, fontWeight: '700', color: '#a33e32' },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
@@ -185,17 +185,17 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#eef1f8',
+    backgroundColor: '#eef8f3',
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepText: { fontSize: 18, fontWeight: '800', color: BRAND, lineHeight: 20 },
-  qty: { fontSize: 15, fontWeight: '800', color: '#18213a', minWidth: 22, textAlign: 'center' },
-  lineTotal: { marginLeft: 'auto', fontSize: 14, fontWeight: '800', color: '#18213a' },
-  totalBox: { backgroundColor: '#eef1fa', borderRadius: 18, padding: 16, gap: 10 },
+  qty: { fontSize: 15, fontWeight: '800', color: '#143022', minWidth: 22, textAlign: 'center' },
+  lineTotal: { marginLeft: 'auto', fontSize: 14, fontWeight: '800', color: '#143022' },
+  totalBox: { backgroundColor: '#eefaf4', borderRadius: 18, padding: 16, gap: 10 },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  totalLabel: { fontSize: 14, fontWeight: '700', color: '#18213a' },
+  totalLabel: { fontSize: 14, fontWeight: '700', color: '#143022' },
   total: { fontSize: 20, fontWeight: '900', color: BRAND },
-  notice: { fontSize: 12, color: '#5d6684', lineHeight: 17 },
-  fine: { fontSize: 11, color: '#7e86a0', textAlign: 'center' },
+  notice: { fontSize: 12, color: '#4c6c5c', lineHeight: 17 },
+  fine: { fontSize: 11, color: '#7ea08f', textAlign: 'center' },
 });

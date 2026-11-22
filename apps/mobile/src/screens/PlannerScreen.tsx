@@ -14,10 +14,10 @@ import { request } from '../request';
 import { Back, Button, FadeIn, PressScale, produceIcon } from '../ui';
 import AllergenReport, { isFood } from '../AllergenReport';
 
-const BRAND = '#26408f',
+const BRAND = '#1f754a',
   ACCENT = '#f5a524',
-  INK = '#18213a',
-  MUTED = '#6b7390';
+  INK = '#143022',
+  MUTED = '#587667';
 const kindIcon: Record<string, string> = {
   HOME: '🛋️',
   FOOD: '🍲',
@@ -41,11 +41,11 @@ const statusLabel: Record<string, string> = {
   OWNED: 'Have it',
 };
 const statusColor: Record<string, string> = {
-  PLANNED: '#5d6684',
+  PLANNED: '#4c6c5c',
   SAVED: BRAND,
   PURCHASED: '#2f8a4e',
   UNAVAILABLE: '#a33e32',
-  NOT_NEEDED: '#8a91a6',
+  NOT_NEEDED: '#8aa698',
   OWNED: '#2f8a4e',
 };
 
@@ -122,7 +122,7 @@ function PlanList({
           value={text}
           onChangeText={setText}
           placeholder="e.g. Furnish a 2-bedroom flat with ₦5m"
-          placeholderTextColor="#8a91a6"
+          placeholderTextColor="#8aa698"
           accessibilityLabel="Describe what you are planning"
           returnKeyType="go"
         />
@@ -212,7 +212,7 @@ function BudgetBar({ summary, compact = false }: { summary: any; compact?: boole
         <View
           style={[
             styles.barFill,
-            { width: `${estimateShare * 100}%`, backgroundColor: over ? '#f3c2b8' : '#cfd8f2' },
+            { width: `${estimateShare * 100}%`, backgroundColor: over ? '#f3c2b8' : '#cff2e0' },
           ]}
         />
         <View style={[styles.barFill, { width: `${spentShare * 100}%`, backgroundColor: BRAND }]} />
@@ -284,7 +284,7 @@ function NewPlan({
           value={title}
           onChangeText={setTitle}
           placeholder={t?.title || 'My plan'}
-          placeholderTextColor="#8a91a6"
+          placeholderTextColor="#8aa698"
         />
       </Labelled>
       {asks('budget') && (
@@ -295,7 +295,7 @@ function NewPlan({
             onChangeText={setBudget}
             keyboardType="numeric"
             placeholder="e.g. 500000"
-            placeholderTextColor="#8a91a6"
+            placeholderTextColor="#8aa698"
           />
         </Labelled>
       )}
@@ -308,7 +308,7 @@ function NewPlan({
               onChangeText={setRooms}
               keyboardType="number-pad"
               placeholder="1"
-              placeholderTextColor="#8a91a6"
+              placeholderTextColor="#8aa698"
             />
           </Labelled>
         )}
@@ -320,7 +320,7 @@ function NewPlan({
               onChangeText={setPeople}
               keyboardType="number-pad"
               placeholder="1"
-              placeholderTextColor="#8a91a6"
+              placeholderTextColor="#8aa698"
             />
           </Labelled>
         )}
@@ -346,7 +346,7 @@ function NewPlan({
             value={date}
             onChangeText={setDate}
             placeholder="2026-12-20"
-            placeholderTextColor="#8a91a6"
+            placeholderTextColor="#8aa698"
           />
         </Labelled>
       )}
@@ -443,7 +443,7 @@ function PlanView({
               onChangeText={setEditBudget}
               keyboardType="numeric"
               placeholder="Budget in ₦"
-              placeholderTextColor="#8a91a6"
+              placeholderTextColor="#8aa698"
             />
             <Button
               title="Save"
@@ -915,7 +915,7 @@ function SharePanel({ planId }: { planId: string }) {
             value={contact}
             onChangeText={setContact}
             placeholder="Their email or phone number"
-            placeholderTextColor="#8a91a6"
+            placeholderTextColor="#8aa698"
           />
           <View style={styles.chips}>
             <Chipish
@@ -965,7 +965,7 @@ function AddItem({ onAdd, onCancel }: { onAdd: (body: any) => void; onCancel: ()
         value={name}
         onChangeText={setName}
         placeholder="What do you need?"
-        placeholderTextColor="#8a91a6"
+        placeholderTextColor="#8aa698"
       />
       <View style={styles.rowGap}>
         <TextInput
@@ -988,14 +988,14 @@ function AddItem({ onAdd, onCancel }: { onAdd: (body: any) => void; onCancel: ()
         onChangeText={setEstimate}
         keyboardType="numeric"
         placeholder="Estimated cost for all (₦), optional"
-        placeholderTextColor="#8a91a6"
+        placeholderTextColor="#8aa698"
       />
       <TextInput
         style={styles.input}
         value={section}
         onChangeText={setSection}
         placeholder="Group (e.g. Kitchen)"
-        placeholderTextColor="#8a91a6"
+        placeholderTextColor="#8aa698"
       />
       <View style={styles.rowGap}>
         <SmallButton
@@ -1186,7 +1186,7 @@ function DietProfile({ onBack }: { onBack: () => void }) {
           value={avoid}
           onChangeText={setAvoid}
           placeholder="Optional"
-          placeholderTextColor="#8a91a6"
+          placeholderTextColor="#8aa698"
         />
       </Labelled>
       {(allergies.length > 0 || intolerances.length > 0) && (
@@ -1333,20 +1333,20 @@ const styles = StyleSheet.create({
   },
   section: { fontSize: 17, fontWeight: '800', color: INK },
   meta: { fontSize: 12, color: MUTED, lineHeight: 17 },
-  fine: { fontSize: 11, color: '#7e86a0', lineHeight: 16 },
+  fine: { fontSize: 11, color: '#7ea08f', lineHeight: 16 },
   notice: {
     fontSize: 13,
-    color: '#3d4563',
+    color: '#325142',
     backgroundColor: '#fff4e0',
     padding: 12,
     borderRadius: 12,
     lineHeight: 19,
   },
   link: { fontSize: 13, fontWeight: '700', color: BRAND },
-  label: { fontSize: 12, fontWeight: '700', color: '#3d4563' },
+  label: { fontSize: 12, fontWeight: '700', color: '#325142' },
   input: {
     borderWidth: 1,
-    borderColor: '#d4d9e8',
+    borderColor: '#d4e8de',
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 12,
@@ -1354,12 +1354,12 @@ const styles = StyleSheet.create({
     color: INK,
   },
   askBox: {
-    backgroundColor: '#eef1fa',
+    backgroundColor: '#eefaf4',
     borderRadius: 20,
     padding: 16,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#dfe5f5',
+    borderColor: '#dff5ea',
   },
   askTitle: { fontSize: 17, fontWeight: '800', color: INK },
   askInput: {
@@ -1369,7 +1369,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: INK,
     borderWidth: 1,
-    borderColor: '#d4d9e8',
+    borderColor: '#d4e8de',
   },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tileWrap: { width: '47.8%' },
@@ -1380,7 +1380,7 @@ const styles = StyleSheet.create({
     gap: 6,
     minHeight: 150,
     borderWidth: 1,
-    borderColor: '#e2e6f0',
+    borderColor: '#e2f0e9',
   },
   tileTitle: { fontSize: 15, fontWeight: '800', color: INK },
   tileText: { fontSize: 12, color: MUTED, lineHeight: 17 },
@@ -1398,7 +1398,7 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 12,
     borderWidth: 1,
-    borderColor: '#e2e6f0',
+    borderColor: '#e2f0e9',
   },
   rowCenter: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   rowBetween: {
@@ -1409,8 +1409,8 @@ const styles = StyleSheet.create({
   },
   rowGap: { flexDirection: 'row', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' },
   rowTitle: { fontSize: 15, fontWeight: '700', color: INK },
-  chev: { fontSize: 24, color: '#9aa1b5' },
-  bar: { height: 12, borderRadius: 6, backgroundColor: '#eef0f5', overflow: 'hidden' },
+  chev: { fontSize: 24, color: '#9ab5a8' },
+  bar: { height: 12, borderRadius: 6, backgroundColor: '#eef5f2', overflow: 'hidden' },
   barFill: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 6 },
   summary: {
     backgroundColor: '#fff',
@@ -1418,10 +1418,10 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     borderWidth: 1,
-    borderColor: '#e2e6f0',
+    borderColor: '#e2f0e9',
   },
   statRow: { flexDirection: 'row', gap: 8 },
-  stat: { flex: 1, backgroundColor: '#f4f6fb', borderRadius: 12, padding: 10 },
+  stat: { flex: 1, backgroundColor: '#f4fbf8', borderRadius: 12, padding: 10 },
   statLabel: { fontSize: 11, color: MUTED, fontWeight: '600' },
   statValue: { fontSize: 15, color: INK, fontWeight: '800', marginTop: 2 },
   warn: { fontSize: 13, color: '#8a3b20', lineHeight: 19 },
@@ -1432,7 +1432,7 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#e2e6f0',
+    borderColor: '#e2f0e9',
   },
   mealRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dayPill: {
@@ -1451,14 +1451,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#e6e9f1',
+    borderColor: '#e6f1ec',
   },
   check: {
     width: 24,
     height: 24,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: '#c5cbdb',
+    borderColor: '#c5dbd0',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1472,15 +1472,15 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#d4d9e8',
+    borderColor: '#d4e8de',
   },
   chipOn: { backgroundColor: BRAND, borderColor: BRAND },
-  chipText: { fontSize: 13, fontWeight: '600', color: '#3a4770' },
+  chipText: { fontSize: 13, fontWeight: '600', color: '#305c46' },
   small: {
     paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: 12,
-    backgroundColor: '#eef1f8',
+    backgroundColor: '#eef8f3',
   },
   smallText: { fontSize: 13, fontWeight: '700', color: BRAND },
   match: {
@@ -1488,13 +1488,13 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 10,
     borderRadius: 14,
-    backgroundColor: '#f7f8fc',
+    backgroundColor: '#f7fcfa',
   },
   matchThumb: {
     width: 72,
     height: 72,
     borderRadius: 12,
-    backgroundColor: '#e3e8f5',
+    backgroundColor: '#e3f5ec',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1507,7 +1507,7 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 12,
     borderRadius: 14,
-    backgroundColor: '#f7f8fc',
+    backgroundColor: '#f7fcfa',
   },
   add: { fontSize: 24, color: BRAND, fontWeight: '700' },
 });

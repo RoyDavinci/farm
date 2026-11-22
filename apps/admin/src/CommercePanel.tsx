@@ -289,7 +289,7 @@ export default function CommercePanel({
           <h2>Verification exceptions</h2>
           {exceptions.length ? (
             exceptions.map((e) => (
-              <div key={e.id} style={{ padding: '14px 0', borderBottom: '1px solid #d9deec' }}>
+              <div key={e.id} style={{ padding: '14px 0', borderBottom: '1px solid #d9ece2' }}>
                 <b>{e.funding_id}</b>
                 <p>
                   {e.reason} · {e.status}

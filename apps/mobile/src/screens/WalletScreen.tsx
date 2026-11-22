@@ -136,7 +136,7 @@ export default function WalletScreen({ wallet }: { wallet: WalletData }) {
               style={[
                 s.bold,
                 {
-                  color: Number(e.amount_kobo) > 0 ? '#314991' : '#8b6047',
+                  color: Number(e.amount_kobo) > 0 ? '#287750' : '#8b6047',
                 },
               ]}
             >

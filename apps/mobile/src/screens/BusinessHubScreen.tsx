@@ -8,10 +8,10 @@ import { VerifiedBadge } from '../BusinessTools';
 import { request } from '../request';
 import { FadeIn } from '../ui';
 
-const BRAND = '#26408f',
+const BRAND = '#1f754a',
   ACCENT = '#f5a524',
-  INK = '#18213a',
-  MUTED = '#6b7390';
+  INK = '#143022',
+  MUTED = '#587667';
 const naira = (k: number) => money(Number(k || 0));
 const toKobo = (v: string) => Math.round(Number(v.replace(/[^0-9.]/g, '') || 0) * 100);
 
@@ -953,7 +953,7 @@ function Input({
       value={value}
       onChangeText={onChange}
       placeholder={placeholder}
-      placeholderTextColor="#8a91a6"
+      placeholderTextColor="#8aa698"
       multiline={multiline}
       keyboardType={numeric ? 'numeric' : 'default'}
       accessibilityLabel={placeholder}
@@ -1037,7 +1037,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#e2e6f0',
+    borderColor: '#e2f0e9',
     padding: 14,
     gap: 10,
   },
@@ -1053,17 +1053,17 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     overflow: 'hidden',
   },
-  chev: { fontSize: 16, color: '#9aa1b5' },
+  chev: { fontSize: 16, color: '#9ab5a8' },
   meta: { fontSize: 13, color: MUTED, lineHeight: 19 },
-  fine: { fontSize: 11, color: '#8a91a6', lineHeight: 16 },
+  fine: { fontSize: 11, color: '#8aa698', lineHeight: 16 },
   good: { fontSize: 13, fontWeight: '700', color: '#1f7a45' },
-  label: { fontSize: 12, fontWeight: '800', color: '#3d4563', marginTop: 4 },
+  label: { fontSize: 12, fontWeight: '800', color: '#325142', marginTop: 4 },
   value: { fontSize: 14, fontWeight: '700', color: INK },
-  plan: { borderRadius: 14, backgroundColor: '#f6f7fb', padding: 12, gap: 6 },
+  plan: { borderRadius: 14, backgroundColor: '#f6fbf8', padding: 12, gap: 6 },
   planName: { fontSize: 15, fontWeight: '800', color: INK },
   input: {
     borderWidth: 1,
-    borderColor: '#d4d9e8',
+    borderColor: '#d4e8de',
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 11,
@@ -1084,28 +1084,28 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#d4d9e8',
+    borderColor: '#d4e8de',
     backgroundColor: '#fff',
   },
   chipOn: { backgroundColor: BRAND, borderColor: BRAND },
-  chipText: { fontSize: 12, fontWeight: '600', color: '#3a4770' },
+  chipText: { fontSize: 12, fontWeight: '600', color: '#305c46' },
   small: {
     alignSelf: 'flex-start',
     paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: 12,
-    backgroundColor: '#eef1f8',
+    backgroundColor: '#eef8f3',
   },
   smallText: { fontSize: 13, fontWeight: '700', color: BRAND },
-  result: { backgroundColor: '#f4f6fb', borderRadius: 14, padding: 12, gap: 6 },
-  item: { borderTopWidth: 1, borderTopColor: '#eef0f5', paddingTop: 10, gap: 4 },
+  result: { backgroundColor: '#f4fbf8', borderRadius: 14, padding: 12, gap: 6 },
+  item: { borderTopWidth: 1, borderTopColor: '#eef5f2', paddingTop: 10, gap: 4 },
   stats: { flexDirection: 'row', gap: 8 },
-  stat: { flex: 1, backgroundColor: '#f4f6fb', borderRadius: 12, padding: 10 },
+  stat: { flex: 1, backgroundColor: '#f4fbf8', borderRadius: 12, padding: 10 },
   statLabel: { fontSize: 11, color: MUTED, fontWeight: '600' },
   statValue: { fontSize: 15, color: INK, fontWeight: '800', marginTop: 2 },
   secret: { backgroundColor: '#fff4e0', borderRadius: 12, padding: 10, gap: 4 },
   code: { fontFamily: 'Courier', fontSize: 12, color: INK },
   member: { backgroundColor: BRAND, borderRadius: 18, padding: 16, gap: 8 },
   memberTitle: { fontSize: 17, fontWeight: '900', color: '#fff' },
-  memberText: { fontSize: 13, color: '#d6def5', lineHeight: 19 },
+  memberText: { fontSize: 13, color: '#d6f5e6', lineHeight: 19 },
 });

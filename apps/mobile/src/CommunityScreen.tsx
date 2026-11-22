@@ -128,7 +128,7 @@ export default function CommunityScreen({
           {notifications.map((n) => (
             <Pressable
               key={n.id}
-              style={[s.card, !n.read_at && { borderColor: '#8fa2dd' }]}
+              style={[s.card, !n.read_at && { borderColor: '#8fddb6' }]}
               onPress={() =>
                 void run(async () => {
                   await request('post', '/notifications/read', { body: { id: n.id } });
@@ -316,44 +316,44 @@ export default function CommunityScreen({
 }
 const s = StyleSheet.create({
   container: { gap: 16 },
-  eyebrow: { fontSize: 9, color: '#717da2', letterSpacing: 1.5 },
-  heading: { fontSize: 30, fontWeight: '700', color: '#25335e' },
-  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#d7dcea' },
+  eyebrow: { fontSize: 9, color: '#598871', letterSpacing: 1.5 },
+  heading: { fontSize: 30, fontWeight: '700', color: '#1e4d36' },
+  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#d7eae0' },
   tab: { flex: 1, padding: 13, alignItems: 'center' },
-  active: { borderBottomWidth: 2, borderColor: '#2b4183' },
-  bold: { fontSize: 13, color: '#334372', fontWeight: '600' },
-  body: { fontSize: 12, lineHeight: 20, color: '#6b779b' },
-  small: { fontSize: 9, lineHeight: 16, color: '#848da7' },
+  active: { borderBottomWidth: 2, borderColor: '#236b47' },
+  bold: { fontSize: 13, color: '#2a5d44', fontWeight: '600' },
+  body: { fontSize: 12, lineHeight: 20, color: '#57806b' },
+  small: { fontSize: 9, lineHeight: 16, color: '#84a796' },
   card: {
     backgroundColor: '#fff',
     padding: 17,
     borderWidth: 1,
-    borderColor: '#d7dcea',
+    borderColor: '#d7eae0',
     borderRadius: 9,
     gap: 9,
   },
-  link: { fontSize: 11, color: '#455ca0', paddingVertical: 6 },
+  link: { fontSize: 11, color: '#39835e', paddingVertical: 6 },
   input: {
     fontSize: 13,
     padding: 14,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#cdd4e8',
+    borderColor: '#cde8db',
     borderRadius: 8,
-    color: '#26376a',
+    color: '#1f573b',
     minHeight: 55,
   },
-  button: { padding: 15, backgroundColor: '#26408f', borderRadius: 8, alignItems: 'center' },
-  buttonText: { fontSize: 12, color: '#e6eaf8', fontWeight: '600' },
+  button: { padding: 15, backgroundColor: '#1f754a', borderRadius: 8, alignItems: 'center' },
+  buttonText: { fontSize: 12, color: '#e6f8ef', fontWeight: '600' },
   message: { maxWidth: '88%', padding: 13, borderRadius: 10, gap: 9 },
-  sent: { alignSelf: 'flex-end', backgroundColor: '#d5dcf2' },
+  sent: { alignSelf: 'flex-end', backgroundColor: '#d5f2e3' },
   received: {
     alignSelf: 'flex-start',
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#dde1ec',
+    borderColor: '#ddece4',
   },
-  messageText: { color: '#34436f', fontSize: 13, lineHeight: 20 },
+  messageText: { color: '#2b5b43', fontSize: 13, lineHeight: 20 },
   error: {
     fontSize: 12,
     color: '#a05f43',
@@ -361,12 +361,12 @@ const s = StyleSheet.create({
     backgroundColor: '#faeee5',
     borderRadius: 7,
   },
-  notice: { fontSize: 12, color: '#354c91', padding: 13, backgroundColor: '#dce2f5' },
+  notice: { fontSize: 12, color: '#2b7751', padding: 13, backgroundColor: '#dcf5e9' },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   unread: {
     fontSize: 10,
-    color: '#2b49a4',
-    backgroundColor: '#e5e9f7',
+    color: '#238655',
+    backgroundColor: '#e5f7ee',
     padding: 5,
     borderRadius: 4,
   },

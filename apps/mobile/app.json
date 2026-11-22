@@ -31,7 +31,7 @@
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#26408F",
+        "backgroundColor": "#1F754A",
         "monochromeImage": "./assets/adaptive-monochrome.png"
       }
     },
@@ -65,7 +65,7 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#26408F"
+          "color": "#1F754A"
         }
       ],
       [
@@ -81,7 +81,7 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#26408F"
+          "backgroundColor": "#1F754A"
         }
       ],
       [

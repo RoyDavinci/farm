@@ -6,9 +6,9 @@ import { VerifiedBadge } from '../BusinessTools';
 import { request } from '../request';
 import { FadeIn, PressScale } from '../ui';
 
-const BRAND = '#26408f',
+const BRAND = '#1f754a',
   ACCENT = '#f5a524',
-  INK = '#18213a';
+  INK = '#143022';
 
 /** Shops near the buyer: nearest first when location is allowed, verified shops marked. */
 export default function NearbySellersScreen() {
@@ -52,7 +52,7 @@ export default function NearbySellersScreen() {
         value={q}
         onChangeText={setQ}
         placeholder="Search shops or areas"
-        placeholderTextColor="#8a91a6"
+        placeholderTextColor="#8aa698"
         accessibilityLabel="Search shops or areas"
       />
       {rows === null ? (
@@ -110,10 +110,10 @@ export default function NearbySellersScreen() {
 
 const styles = StyleSheet.create({
   title: { fontSize: 26, fontWeight: '800', color: INK, letterSpacing: -0.5 },
-  sub: { fontSize: 13, color: '#6b7390', marginTop: 2 },
+  sub: { fontSize: 13, color: '#587667', marginTop: 2 },
   search: {
     borderWidth: 1,
-    borderColor: '#d4d9e8',
+    borderColor: '#d4e8de',
     backgroundColor: '#fff',
     borderRadius: 24,
     paddingHorizontal: 16,
@@ -129,20 +129,20 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e2e6f0',
+    borderColor: '#e2f0e9',
   },
   thumb: {
     width: 64,
     height: 64,
     borderRadius: 14,
-    backgroundColor: '#eef1fa',
+    backgroundColor: '#eefaf4',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   name: { fontSize: 15, fontWeight: '800', color: INK, flexShrink: 1 },
-  meta: { fontSize: 12, color: '#6b7390' },
+  meta: { fontSize: 12, color: '#587667' },
   featured: {
     flexShrink: 0,
     fontSize: 10,
@@ -154,5 +154,5 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     overflow: 'hidden',
   },
-  chev: { fontSize: 24, color: '#9aa1b5' },
+  chev: { fontSize: 24, color: '#9ab5a8' },
 });

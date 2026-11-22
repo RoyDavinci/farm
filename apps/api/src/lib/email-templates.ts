@@ -17,11 +17,11 @@ export const emailLogoAttachment = () => ({
   contentType: 'image/png',
 });
 
-const BRAND = '#26408f',
-  INK = '#161e33',
-  MUTED = '#61677a',
-  PAPER = '#eaedf4',
-  CREAM = '#eceff5',
+const BRAND = '#1f754a',
+  INK = '#122a1e',
+  MUTED = '#50645a',
+  PAPER = '#eaf4ef',
+  CREAM = '#ecf5f0',
   ACCENT = '#f5a524';
 const FONT = `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif`;
 
@@ -56,7 +56,7 @@ function layout(l: Layout) {
   const code = l.code
     ? `<tr><td style="padding:4px 0 20px;">
          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"><tr>
-           <td align="center" style="background:${CREAM};border:1px solid #d3d8e3;border-radius:14px;padding:22px 12px;">
+           <td align="center" style="background:${CREAM};border:1px solid #d3e3db;border-radius:14px;padding:22px 12px;">
              <div style="font:700 13px/1 ${FONT};letter-spacing:3px;text-transform:uppercase;color:${MUTED};margin-bottom:12px;">Your code</div>
              <div style="font:800 40px/1 'SF Mono',Menlo,Consolas,monospace;letter-spacing:10px;color:${BRAND};padding-left:10px;">${escapeHtml(l.code)}</div>
              ${l.codeNote ? `<div style="font:14px/1.5 ${FONT};color:${MUTED};margin-top:14px;">${escapeHtml(l.codeNote)}</div>` : ''}
@@ -85,7 +85,7 @@ function layout(l: Layout) {
           <td style="vertical-align:middle;"><img src="cid:${EMAIL_LOGO_CID}" width="44" height="44" alt="Ahia" style="display:block;border:0;border-radius:11px;"></td>
           <td style="vertical-align:middle;padding-left:12px;">
             <div style="font:800 24px/1 ${FONT};color:#ffffff;letter-spacing:-0.5px;">Ahia</div>
-            <div style="font:600 12px/1.4 ${FONT};color:#d0d6e7;letter-spacing:0.5px;margin-top:4px;">A world of shopping.</div>
+            <div style="font:600 12px/1.4 ${FONT};color:#d0e7dc;letter-spacing:0.5px;margin-top:4px;">A world of shopping.</div>
           </td></tr></table>
       </td></tr>
       <tr><td style="height:4px;background:${ACCENT};font-size:0;line-height:0;">&nbsp;</td></tr>
@@ -95,10 +95,10 @@ function layout(l: Layout) {
           <tr><td style="font:800 26px/1.25 ${FONT};color:${INK};letter-spacing:-0.4px;padding-bottom:16px;">${escapeHtml(l.heading)}</td></tr>
           <tr><td>${paragraphs(l.body)}</td></tr>
           ${code}${button}
-          <tr><td style="border-top:1px solid #e0e3eb;padding:16px 0 20px;font:13px/1.6 ${FONT};color:${MUTED};">${escapeHtml(l.footnote)}</td></tr>
+          <tr><td style="border-top:1px solid #e0ebe5;padding:16px 0 20px;font:13px/1.6 ${FONT};color:${MUTED};">${escapeHtml(l.footnote)}</td></tr>
         </table>
       </td></tr>
-      <tr><td align="center" style="padding:18px 10px 0;font:12px/1.6 ${FONT};color:#8d93a4;">
+      <tr><td align="center" style="padding:18px 10px 0;font:12px/1.6 ${FONT};color:#8da499;">
         Ahia · Buy, sell and deliver near you<br>This is an automated message; replies aren’t monitored.
       </td></tr>
     </table>

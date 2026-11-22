@@ -3,7 +3,7 @@ import { useApp } from './AppContext';
 import { FadeIn, PressScale, produceIcon } from './ui';
 
 // Soft tile colours, repeated in order; the brand blue and market orange stay for actions.
-const tints = ['#e8edfa', '#fdf1dc', '#e6f4ee', '#f6e8ef', '#ecebfa', '#e5f2f7'];
+const tints = ['#e8faf1', '#fdf1dc', '#e6f4ee', '#f6e8ef', '#ebfaf2', '#e5f7ee'];
 
 /** Every category as a tile; tapping one opens Home filtered to it. */
 export default function CategoriesScreen({
@@ -49,8 +49,8 @@ export default function CategoriesScreen({
 
 const styles = StyleSheet.create({
   page: { gap: 6 },
-  title: { fontSize: 26, fontWeight: '800', color: '#18213a', letterSpacing: -0.5 },
-  subtitle: { fontSize: 13, color: '#6b7390', marginBottom: 10 },
+  title: { fontSize: 26, fontWeight: '800', color: '#143022', letterSpacing: -0.5 },
+  subtitle: { fontSize: 13, color: '#587667', marginBottom: 10 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   cell: { width: '30.8%' },
   tile: {
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  selected: { borderColor: '#26408f' },
+  selected: { borderColor: '#1f754a' },
   icon: { fontSize: 34 },
-  name: { fontSize: 12, fontWeight: '700', color: '#22305a', textAlign: 'center' },
+  name: { fontSize: 12, fontWeight: '700', color: '#1c4a33', textAlign: 'center' },
 });

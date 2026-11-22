@@ -230,7 +230,7 @@ export default function DiscoveryPanel({
           height={20}
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#6b7390"
+          stroke="#587667"
           strokeWidth={2}
           strokeLinecap="round"
         >
@@ -241,7 +241,7 @@ export default function DiscoveryPanel({
           style={s.searchInput}
           accessibilityLabel="Search products, sellers or markets"
           placeholder="Search products, sellers or markets…"
-          placeholderTextColor="#8a91a6"
+          placeholderTextColor="#8aa698"
           value={q}
           onChangeText={setQ}
         />
@@ -272,7 +272,7 @@ export default function DiscoveryPanel({
         {(
           [
             ['🛒', 'My cart', '#e9f6ef', () => setTab('Cart'), cartCount],
-            ['📍', 'Nearby sellers', '#e6ecfb', () => setTab('Nearby'), 0],
+            ['📍', 'Nearby sellers', '#e6fbf0', () => setTab('Nearby'), 0],
             [
               '🛵',
               'Request delivery',
@@ -780,9 +780,9 @@ function SponsoredCard({ listing: l, onPress }: { listing: Listing; onPress: () 
   );
 }
 
-const BRAND = '#26408f',
+const BRAND = '#1f754a',
   ACCENT = '#f5a524',
-  INK = '#18213a';
+  INK = '#143022';
 const s = StyleSheet.create({
   locRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   locPill: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -792,7 +792,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 18,
-    backgroundColor: '#e8ecf7',
+    backgroundColor: '#e8f7f0',
   },
   mapText: { fontSize: 13, fontWeight: '700', color: BRAND },
   searchBox: {
@@ -803,9 +803,9 @@ const s = StyleSheet.create({
     paddingRight: 6,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#f1f3f8',
+    backgroundColor: '#f1f8f4',
     borderWidth: 1,
-    borderColor: '#dfe3ee',
+    borderColor: '#dfeee6',
   },
   searchInput: { flex: 1, fontSize: 15, color: INK, height: '100%' },
   filterButton: {
@@ -816,12 +816,12 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
-  body: { fontSize: 13, lineHeight: 20, color: '#6b7390' },
+  body: { fontSize: 13, lineHeight: 20, color: '#587667' },
   input: {
     padding: 13,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#d4d9e8',
+    borderColor: '#d4e8de',
     backgroundColor: '#fff',
     fontSize: 14,
     color: INK,
@@ -834,13 +834,13 @@ const s = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#dbe0ec',
+    borderColor: '#dbece3',
   },
   chipActive: { backgroundColor: BRAND, borderColor: BRAND },
-  chipText: { fontSize: 13, color: '#3a4770', fontWeight: '600' },
+  chipText: { fontSize: 13, color: '#305c46', fontWeight: '600' },
   bold: { fontSize: 14, color: INK, fontWeight: '700' },
-  small: { fontSize: 12, lineHeight: 17, color: '#7e86a0' },
-  filterBox: { padding: 16, backgroundColor: '#eef1f9', borderRadius: 18, gap: 12 },
+  small: { fontSize: 12, lineHeight: 17, color: '#7ea08f' },
+  filterBox: { padding: 16, backgroundColor: '#eef9f3', borderRadius: 18, gap: 12 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { fontSize: 19, fontWeight: '800', color: INK, letterSpacing: -0.3 },
   seeAll: { fontSize: 13, fontWeight: '700', color: BRAND },
@@ -850,9 +850,9 @@ const s = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e2e6f0',
+    borderColor: '#e2f0e9',
     overflow: 'hidden',
-    shadowColor: '#1b2547',
+    shadowColor: '#163a28',
     shadowOpacity: 0.07,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -860,7 +860,7 @@ const s = StyleSheet.create({
   },
   dealPicture: {
     height: 116,
-    backgroundColor: '#e3e8f5',
+    backgroundColor: '#e3f5ec',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -887,7 +887,7 @@ const s = StyleSheet.create({
   dealBody: { padding: 11, gap: 3 },
   dealTitle: { fontSize: 14, fontWeight: '700', color: INK },
   dealPrice: { fontSize: 17, fontWeight: '800', color: BRAND },
-  dealUnit: { fontSize: 13, fontWeight: '600', color: '#6b7390' },
+  dealUnit: { fontSize: 13, fontWeight: '600', color: '#587667' },
   dealFoot: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -895,7 +895,7 @@ const s = StyleSheet.create({
     gap: 6,
     marginTop: 2,
   },
-  rating: { flex: 1, fontSize: 12, color: '#4b5574', fontWeight: '600' },
+  rating: { flex: 1, fontSize: 12, color: '#3d5f4e', fontWeight: '600' },
   cart: {
     width: 32,
     height: 32,
@@ -945,32 +945,32 @@ const s = StyleSheet.create({
   quickBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
   adScroller: { borderRadius: 18 },
   adSlide: { borderRadius: 18, overflow: 'hidden' },
-  adBanner: { width: '100%', aspectRatio: 2, borderRadius: 18, backgroundColor: '#eef1fa' },
+  adBanner: { width: '100%', aspectRatio: 2, borderRadius: 18, backgroundColor: '#eefaf4' },
   adFallback: { padding: 18, justifyContent: 'center', gap: 6 },
   adPill: {
     position: 'absolute',
     top: 10,
     left: 10,
-    backgroundColor: 'rgba(12,18,40,0.6)',
+    backgroundColor: 'rgba(10,33,21,0.6)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
   },
   adPillText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#cfd5e6' },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#cfe6db' },
   dotOn: { width: 18, backgroundColor: BRAND },
   shopCard: {
     width: 170,
     borderRadius: 16,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e2e6f0',
+    borderColor: '#e2f0e9',
     overflow: 'hidden',
   },
   shopPicture: {
     height: 96,
-    backgroundColor: '#eef1fa',
+    backgroundColor: '#eefaf4',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -985,7 +985,7 @@ const s = StyleSheet.create({
   },
   featuredTagText: { fontSize: 10, fontWeight: '900', color: '#3b2600' },
   adTitle: { fontSize: 15, fontWeight: '800', color: INK },
-  adBody: { fontSize: 12, color: '#5d6684', lineHeight: 17 },
+  adBody: { fontSize: 12, color: '#4c6c5c', lineHeight: 17 },
   plannerPromo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -995,7 +995,7 @@ const s = StyleSheet.create({
     backgroundColor: BRAND,
   },
   plannerTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  plannerText: { fontSize: 12, color: '#d6def5', lineHeight: 17 },
+  plannerText: { fontSize: 12, color: '#d6f5e6', lineHeight: 17 },
   plannerArrow: { fontSize: 26, color: ACCENT },
   riderTitle: { fontSize: 14, fontWeight: '800', color: '#3b2a07' },
   riderText: { fontSize: 12, color: '#7a5a1c' },
@@ -1003,7 +1003,7 @@ const s = StyleSheet.create({
   sponsored: {
     flex: 1,
     borderRadius: 18,
-    backgroundColor: '#1c2f6e',
+    backgroundColor: '#175a39',
     padding: 10,
     overflow: 'hidden',
     gap: 6,
@@ -1026,7 +1026,7 @@ const s = StyleSheet.create({
   },
   sponsoredTitle: { fontSize: 13, fontWeight: '800', color: '#1b1503' },
   sponsoredAmount: { fontSize: 17, fontWeight: '900', color: '#1b1503' },
-  sponsoredSeller: { fontSize: 11, color: '#dbe2f7', fontWeight: '600', textAlign: 'center' },
+  sponsoredSeller: { fontSize: 11, color: '#dbf7e9', fontWeight: '600', textAlign: 'center' },
   shopNow: { backgroundColor: '#fff', borderRadius: 16, paddingVertical: 7, alignItems: 'center' },
   shopNowText: { fontSize: 12, fontWeight: '800', color: INK },
   error: {

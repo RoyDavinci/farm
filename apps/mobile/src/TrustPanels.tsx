@@ -89,7 +89,7 @@ export function ReviewForm({ bookingId }: { bookingId: string }) {
             accessibilityLabel={`Rate ${v} stars`}
             onPress={() => setScore(v)}
           >
-            <Text style={{ fontSize: 28, color: v <= score ? '#a2914f' : '#cdd3e5' }}>★</Text>
+            <Text style={{ fontSize: 28, color: v <= score ? '#a2914f' : '#cde5d9' }}>★</Text>
           </Pressable>
         ))}
       </View>
@@ -133,20 +133,20 @@ export function ReviewForm({ bookingId }: { bookingId: string }) {
   );
 }
 const s = StyleSheet.create({
-  box: { paddingVertical: 12, gap: 12, borderTopWidth: 1, borderColor: '#d8ddec' },
-  bold: { fontSize: 12, color: '#3a4c83', fontWeight: '600' },
-  body: { fontSize: 12, lineHeight: 20, color: '#6a769c' },
-  small: { fontSize: 10, color: '#7e89a9' },
-  link: { fontSize: 12, color: '#4159a1', paddingVertical: 5 },
+  box: { paddingVertical: 12, gap: 12, borderTopWidth: 1, borderColor: '#d8ece2' },
+  bold: { fontSize: 12, color: '#306b4d', fontWeight: '600' },
+  body: { fontSize: 12, lineHeight: 20, color: '#56816b' },
+  small: { fontSize: 10, color: '#7ea993' },
+  link: { fontSize: 12, color: '#35845d', paddingVertical: 5 },
   error: { fontSize: 11, color: '#a16147' },
   review: { gap: 7 },
   input: {
     padding: 13,
     borderWidth: 1,
-    borderColor: '#d2d8ea',
+    borderColor: '#d2eade',
     borderRadius: 7,
     minHeight: 70,
-    color: '#35477f',
+    color: '#2b684a',
     backgroundColor: '#fff',
     fontSize: 12,
   },

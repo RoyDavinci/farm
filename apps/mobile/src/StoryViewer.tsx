@@ -273,7 +273,7 @@ export default function StoryViewer({
                       value={reason}
                       onChangeText={setReason}
                       placeholder="Why are you reporting this story?"
-                      placeholderTextColor="#969ba9"
+                      placeholderTextColor="#96a9a0"
                       style={styles.input}
                     />
                     <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -348,8 +348,8 @@ export default function StoryViewer({
 const styles = StyleSheet.create({
   likeButton: { alignItems: 'center', paddingHorizontal: 10 },
   likeText: { color: '#f5537a', fontSize: 16, fontWeight: '900' },
-  viewText: { color: '#6b7390', fontSize: 10, fontWeight: '700' },
-  screen: { flex: 1, backgroundColor: '#0b1124' },
+  viewText: { color: '#587667', fontSize: 10, fontWeight: '700' },
+  screen: { flex: 1, backgroundColor: '#091e13' },
   media: {
     position: 'absolute',
     top: 0,
@@ -390,14 +390,14 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: '#fff',
-    backgroundColor: '#1d2742',
+    backgroundColor: '#183627',
   },
   headName: { color: '#fff', fontWeight: '700', fontSize: 14 },
   headMeta: { color: 'rgba(255, 255, 255, 0.75)', fontSize: 12 },
   icon: { color: '#fff', fontSize: 22, paddingHorizontal: 6 },
   menu: {
     alignSelf: 'flex-end',
-    backgroundColor: 'rgba(16, 21, 34, 0.96)',
+    backgroundColor: 'rgba(13,28,20, 0.96)',
     borderRadius: 12,
     paddingVertical: 4,
     minWidth: 210,
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     alignItems: 'center',
   },
-  ctaText: { color: '#161e33', fontWeight: '800', fontSize: 14 },
+  ctaText: { color: '#122a1e', fontWeight: '800', fontSize: 14 },
   ghost: {
     borderRadius: 12,
     paddingVertical: 11,

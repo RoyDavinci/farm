@@ -52,7 +52,7 @@ export default function SellerShop({ sellerId, onBack }: { sellerId: string; onB
             <View style={s.productGrid}>
               {listings.map((l) => (
                 <Pressable key={l.id} style={s.product} onPress={() => openListing(l)}>
-                  <View style={[s.productPicture, { backgroundColor: '#dce2f4' }]}>
+                  <View style={[s.productPicture, { backgroundColor: '#dcf4e8' }]}>
                     {l.thumbnail_url || l.image_url ? (
                       <Image
                         source={{ uri: (l.thumbnail_url || l.image_url)! }}
