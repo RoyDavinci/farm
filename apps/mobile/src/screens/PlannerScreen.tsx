@@ -183,6 +183,11 @@ function PlanList({
                     {p.status !== 'ACTIVE' ? ` · ${p.status.toLowerCase()}` : ''}
                     {p.target_date ? ` · by ${p.target_date}` : ''}
                   </Text>
+                  {p.access !== 'OWNER' && (
+                    <Text style={styles.shared}>
+                      Shared by {p.owner_name} · {p.access === 'EDITOR' ? 'can edit' : 'view only'}
+                    </Text>
+                  )}
                 </View>
                 <Text style={styles.chev}>›</Text>
               </View>
@@ -392,6 +397,7 @@ function PlanView({
   const [adding, setAdding] = useState(false);
   const [mealPicker, setMealPicker] = useState(false);
   const [editBudget, setEditBudget] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
   const load = useCallback(
     async () => setPlan(await request('get', '/plans/{id}', { params: { id } })),
     [id],
@@ -509,6 +515,7 @@ function PlanView({
             )
           }
         />
+        <SmallButton label="👪 Share" primary onPress={() => setSharing(!sharing)} />
         <SmallButton
           label="Duplicate"
           onPress={() =>
@@ -532,6 +539,14 @@ function PlanView({
           }
         />
       </View>
+
+      {plan.access && plan.access !== 'OWNER' && (
+        <Text style={styles.notice}>
+          Shared with you by {plan.owner_name ?? 'the owner'} ·{' '}
+          {plan.access === 'EDITOR' ? 'you can edit it together' : 'view only'}
+        </Text>
+      )}
+      {sharing && <SharePanel planId={id} />}
 
       {plan.kind === 'FOOD' && (
         <View style={styles.card}>
@@ -850,6 +865,87 @@ function ItemRow({
             </View>
           )}
         </View>
+      )}
+    </View>
+  );
+}
+
+function SharePanel({ planId }: { planId: string }) {
+  const { run, busy } = useApp();
+  const [data, setData] = useState<any>(null);
+  const [contact, setContact] = useState('');
+  const [role, setRole] = useState<'EDITOR' | 'VIEWER'>('EDITOR');
+  const load = () =>
+    void request('get', '/plans/{id}/members', { params: { id: planId } })
+      .then(setData)
+      .catch(() => {});
+  useEffect(load, [planId]);
+  return (
+    <View style={styles.card}>
+      <Text style={styles.section}>Share with family</Text>
+      <Text style={styles.meta}>
+        Add people by the email or phone number they use on Ahia. Editors can tick off items and add
+        things; viewers can only look.
+      </Text>
+      {data?.members.map((m: any) => (
+        <View key={m.user_id} style={styles.rowBetween}>
+          <Text style={styles.rowTitle}>
+            {m.name} · {m.role === 'EDITOR' ? 'can edit' : 'view only'}
+          </Text>
+          {data.you === 'OWNER' && (
+            <SmallButton
+              label="Remove"
+              danger
+              onPress={() =>
+                void run(async () => {
+                  await request('delete', '/plans/{id}/members/{userId}', {
+                    params: { id: planId, userId: m.user_id },
+                  });
+                  load();
+                })
+              }
+            />
+          )}
+        </View>
+      ))}
+      {data?.you === 'OWNER' && (
+        <>
+          <TextInput
+            style={styles.input}
+            value={contact}
+            onChangeText={setContact}
+            placeholder="Their email or phone number"
+            placeholderTextColor="#8a91a6"
+          />
+          <View style={styles.chips}>
+            <Chipish
+              label="Can edit"
+              active={role === 'EDITOR'}
+              onPress={() => setRole('EDITOR')}
+            />
+            <Chipish
+              label="View only"
+              active={role === 'VIEWER'}
+              onPress={() => setRole('VIEWER')}
+            />
+          </View>
+          <SmallButton
+            label="Share plan"
+            primary
+            disabled={busy || contact.trim().length < 5}
+            onPress={() =>
+              void run(async () => {
+                const r = await request('post', '/plans/{id}/members', {
+                  params: { id: planId },
+                  body: { contact: contact.trim(), role },
+                });
+                setContact('');
+                load();
+                return r;
+              }, 'Plan shared. They’ll get a notification.')
+            }
+          />
+        </>
       )}
     </View>
   );
@@ -1225,6 +1321,7 @@ function SmallButton({
 }
 
 const styles = StyleSheet.create({
+  shared: { fontSize: 11, fontWeight: '700', color: '#b57a10', marginTop: 2 },
   title: { fontSize: 26, fontWeight: '800', color: INK, letterSpacing: -0.5 },
   sub: { fontSize: 13, color: MUTED, marginTop: 4, lineHeight: 19 },
   kicker: {

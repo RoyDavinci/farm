@@ -22,7 +22,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import { liveUpdates, onSessionExpired, restoreToken, saveToken } from './src/api';
+import {
+  actAsSeller,
+  actingAs,
+  liveUpdates,
+  onSessionExpired,
+  onTeamAccessLost,
+  restoreToken,
+  saveToken,
+} from './src/api';
 import { AppContext, type AppState, type Tab } from './src/AppContext';
 import AuthScreen from './src/AuthScreen';
 import CommunityScreen from './src/CommunityScreen';
@@ -31,6 +39,7 @@ import CategoriesScreen from './src/CategoriesScreen';
 import CartScreen from './src/screens/CartScreen';
 import PlannerScreen from './src/screens/PlannerScreen';
 import NearbySellersScreen from './src/screens/NearbySellersScreen';
+import BusinessHubScreen from './src/screens/BusinessHubScreen';
 import { LanguageProvider, useI18n } from './src/i18n';
 import { onConnectivity } from './src/offline';
 import { onNotificationTap, registerForPush } from './src/push';
@@ -75,8 +84,21 @@ function Main() {
     });
   const [marketRefresh, setMarketRefresh] = useState(0),
     [category, setCategory] = useState(''),
-    [cartCount, setCartCount] = useState(0);
+    [cartCount, setCartCount] = useState(0),
+    [unread, setUnread] = useState({ updates: 0, messages: 0 }),
+    [inboxSection, setInboxSection] = useState<'messages' | 'updates'>('messages');
+  const refreshUnread = useCallback(() => {
+    Promise.all([request('get', '/notifications'), request('get', '/conversations')])
+      .then(([n, c]) =>
+        setUnread({
+          updates: n.filter((x: any) => !x.read_at).length,
+          messages: c.reduce((sum: number, x: any) => sum + (x.unread || 0), 0),
+        }),
+      )
+      .catch(() => {});
+  }, []);
   const refreshCart = useCallback(() => {
+    if (actingAs()) return setCartCount(0);
     request('get', '/cart')
       .then((c) => setCartCount(c.line_count))
       .catch(() => {});
@@ -95,6 +117,15 @@ function Main() {
     [history, setHistory] = useState<{ booking: Booking; events: OrderEvent[] } | null>(null);
   useEffect(
     () =>
+      onTeamAccessLost((message) => {
+        setNotice(`${message} You’re back on your own account.`);
+        void refresh();
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  useEffect(
+    () =>
       onSessionExpired(() => {
         setMe(null);
         setSeller(null);
@@ -108,24 +139,26 @@ function Main() {
       const [m, o, w, st, own] = await Promise.all([
         request('get', '/me'),
         request('get', '/bookings'),
-        request('get', '/wallet'),
+        // The shop's wallet stays with the owner; team members don't see it.
+        actingAs() ? Promise.resolve(null) : request('get', '/wallet'),
         request('get', '/settings'),
         request('get', '/listings', { query: { mine: 'true' } }),
       ]);
       setMe(m.user);
       setSeller(m.seller);
       setBookings(o);
-      setWallet(w);
+      if (w) setWallet(w);
       setSettings(st);
       setMine(own);
       refreshCart();
+      refreshUnread();
       setMarketRefresh((v) => v + 1);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [refreshCart]);
+  }, [refreshCart, refreshUnread]);
   useEffect(() => {
     restoreToken()
       .then(async (exists) => {
@@ -194,6 +227,7 @@ function Main() {
   }
   const changeTab = (t: Tab) => {
     if (t === 'Inbox') setConversationId(null);
+    if (t !== 'Inbox') setInboxSection('messages');
     setTab(t);
     setSelected(null);
     setShop(null);
@@ -279,6 +313,8 @@ function Main() {
     screen = (
       <CommunityScreen
         user={me}
+        key={inboxSection}
+        initialSection={inboxSection}
         initialConversation={conversationId}
         onBooking={() => changeTab('Bookings')}
         onShopping={() => changeTab('Riders')}
@@ -323,6 +359,7 @@ function Main() {
   else if (tab === 'Drive') screen = <DriveScreen />;
   else if (tab === 'Cart') screen = <CartScreen onChanged={refreshCart} />;
   else if (tab === 'Nearby') screen = <NearbySellersScreen />;
+  else if (tab === 'Business') screen = <BusinessHubScreen />;
   else if (tab === 'Planner') screen = <PlannerScreen onCartChanged={refreshCart} />;
   else
     screen = (
@@ -366,8 +403,11 @@ function Main() {
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Messages and updates"
-              onPress={() => changeTab('Inbox')}
+              accessibilityLabel={`Updates, ${unread.updates} unread`}
+              onPress={() => {
+                setInboxSection('updates');
+                changeTab('Inbox');
+              }}
               style={s.iconButton}
             >
               <Svg
@@ -382,6 +422,13 @@ function Main() {
               >
                 <Path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0" />
               </Svg>
+              {unread.updates > 0 && (
+                <View style={[s.countBadge, { backgroundColor: '#d63a2c' }]}>
+                  <Text style={[s.countText, { color: '#fff' }]}>
+                    {unread.updates > 99 ? '99+' : unread.updates}
+                  </Text>
+                </View>
+              )}
             </Pressable>
             <Pressable accessibilityLabel="Open account" onPress={() => changeTab('Account')}>
               <View style={s.avatar}>
@@ -404,6 +451,25 @@ function Main() {
           }
           keyboardShouldPersistTaps="handled"
         >
+          {me?.acting_member && (
+            <View style={s.acting}>
+              <Text style={s.actingText}>
+                You’re working for {seller?.business_name || me.name} as{' '}
+                {me.acting_member.role === 'MANAGER' ? 'a manager' : 'staff'}.
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() =>
+                  void run(async () => {
+                    await actAsSeller('');
+                    changeTab('Market');
+                  }, 'Back on your own account.')
+                }
+              >
+                <Text style={s.actingSwitch}>Switch back</Text>
+              </Pressable>
+            </View>
+          )}
           {settings?.payment_mode === 'demo' && (
             <View style={s.demo}>
               <Text style={s.demoText}>{t('common.demo')}</Text>
@@ -421,6 +487,7 @@ function Main() {
           onNavigate={changeTab}
           hidden={featureOn(settings, 'shopping') ? [] : ['Riders']}
           payments={!featureOn(settings, 'wallet')}
+          badges={{ Inbox: unread.messages }}
         />
       </SafeAreaView>
     </AppContext.Provider>

@@ -48,7 +48,8 @@ export default function StoryViewer({
     [reporting, setReporting] = useState(false),
     [reason, setReason] = useState(''),
     [busy, setBusy] = useState(false),
-    [notice, setNotice] = useState('');
+    [notice, setNotice] = useState(''),
+    [likes, setLikes] = useState<Record<string, { liked: boolean; count: number }>>({});
   const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -303,6 +304,33 @@ export default function StoryViewer({
                         {money(story.price_kobo)} / {story.unit}
                       </Text>
                     </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        (likes[story.id]?.liked ?? story.liked) ? 'Unlike' : 'Like'
+                      }
+                      onPress={() => {
+                        const liked = !(likes[story.id]?.liked ?? story.liked);
+                        void request('post', '/local-status/{id}/like', {
+                          params: { id: story.id },
+                          body: { liked },
+                        })
+                          .then((r) =>
+                            setLikes((m) => ({
+                              ...m,
+                              [story.id]: { liked: r.liked, count: r.like_count },
+                            })),
+                          )
+                          .catch(() => {});
+                      }}
+                      style={styles.likeButton}
+                    >
+                      <Text style={styles.likeText}>
+                        {(likes[story.id]?.liked ?? story.liked) ? '♥' : '♡'}{' '}
+                        {likes[story.id]?.count ?? story.like_count}
+                      </Text>
+                      <Text style={styles.viewText}>👁 {story.view_count}</Text>
+                    </Pressable>
                     <View style={styles.cta}>
                       <Text style={styles.ctaText}>View product</Text>
                     </View>
@@ -318,6 +346,9 @@ export default function StoryViewer({
 }
 
 const styles = StyleSheet.create({
+  likeButton: { alignItems: 'center', paddingHorizontal: 10 },
+  likeText: { color: '#f5537a', fontSize: 16, fontWeight: '900' },
+  viewText: { color: '#6b7390', fontSize: 10, fontWeight: '700' },
   screen: { flex: 1, backgroundColor: '#0b1124' },
   media: {
     position: 'absolute',

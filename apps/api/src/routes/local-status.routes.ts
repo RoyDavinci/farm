@@ -15,6 +15,7 @@ export function localStatusRoutes(deps: AppDeps) {
   r.post('/local-status/:id/events', c.event);
   r.put('/local-status/preferences', c.mute);
   r.post('/local-status/:id/report', c.report);
+  r.post('/local-status/:id/like', c.like);
   return r;
 }
 export function adminLocalStatusRoutes(deps: AppDeps) {

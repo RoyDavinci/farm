@@ -31,7 +31,8 @@ export type DirectCheckout =
       booking_id: string;
       quote: Record<string, unknown>;
       expected_fare_kobo: number;
-    };
+    }
+  | { purpose: 'subscription'; subscription_id: string };
 export function startDirectCheckout(provider: PaymentProvider, what: DirectCheckout) {
   return withRetries((idempotencyKey) =>
     request('post', '/payments/checkout', { body: { provider, ...what }, idempotencyKey }),

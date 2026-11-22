@@ -10,14 +10,16 @@ export default function CommunityScreen({
   initialConversation,
   onBooking,
   onShopping,
+  initialSection = 'messages',
 }: {
   user: any;
   initialConversation?: string | null;
   onBooking: () => void;
   onShopping: () => void;
+  initialSection?: 'messages' | 'updates';
 }) {
   const { settings } = useApp();
-  const [section, setSection] = useState<'messages' | 'updates'>('messages'),
+  const [section, setSection] = useState<'messages' | 'updates'>(initialSection),
     [conversations, setConversations] = useState<any[]>([]),
     [notifications, setNotifications] = useState<any[]>([]),
     [selected, setSelected] = useState<string | null>(initialConversation || null),

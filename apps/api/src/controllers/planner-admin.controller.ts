@@ -6,6 +6,13 @@ import type { AppDeps } from '../types/deps.js';
 export function createPlannerAdminController(deps: AppDeps) {
   const { mutate } = deps;
   const service = createPlannerAdminService(deps);
+  const getContent: RequestHandler = async (req, res) => {
+    res.json(await service.getContent(res.locals.user, requestInput(req)));
+  };
+  const saveContent: RequestHandler = (req, res) =>
+    mutate(req, res, (q, user) => service.saveContent(q, user, requestInput(req)));
+  const resetContent: RequestHandler = (req, res) =>
+    mutate(req, res, (q, user) => service.resetContent(q, user, requestInput(req)));
   const myAllergenReports: RequestHandler = async (req, res) => {
     res.json(await service.myAllergenReports(res.locals.user, requestInput(req)));
   };
@@ -20,6 +27,9 @@ export function createPlannerAdminController(deps: AppDeps) {
   const reviewAllergenReport: RequestHandler = (req, res) =>
     mutate(req, res, (q, user) => service.reviewAllergenReport(q, user, requestInput(req)));
   return {
+    getContent,
+    saveContent,
+    resetContent,
     myAllergenReports,
     listAllergenReports,
     plannerUsage,

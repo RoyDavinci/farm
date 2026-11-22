@@ -1,3 +1,4 @@
+import { queuePartnerEvent } from './partner.service.js';
 import { discoveryEvent } from './discovery-operations.service.js';
 import { listingAvailable as catalogueAvailable } from './retention.service.js';
 import { randomInt, randomUUID } from 'node:crypto';
@@ -34,6 +35,15 @@ export async function event(q: Query, b: any, to: string, actor: string | null, 
       booking.id,
     );
   }
+  // Business-plan sellers' systems hear about new orders and status changes (webhooks).
+  await queuePartnerEvent(q, b.seller_id, !b.status ? 'order.created' : 'order.status_changed', {
+    id: b.id,
+    listing_id: b.listing_id,
+    title: b.title,
+    quantity: b.quantity,
+    total_kobo: Number(b.total_kobo),
+    status: to,
+  });
 }
 
 /**

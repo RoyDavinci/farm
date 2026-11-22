@@ -28,6 +28,9 @@ const matchedBoost = `(SELECT boost.id FROM status_boosts boost WHERE boost.stat
  AND EXISTS(SELECT 1 FROM jsonb_array_elements(boost.targets) target WHERE lower(target->>'state')=lower($4::text) AND
  ((target->>'kind'='LGA' AND $5::text<>'' AND lower(target->>'name')=lower($5::text)) OR (target->>'kind'='CITY' AND $8::text<>'' AND lower(target->>'name')=lower($8::text)))) LIMIT 1)`;
 const statusSelect = `SELECT st.id,st.seller_id,st.listing_id,st.caption,st.media_url,st.thumbnail_url,st.status,st.created_at,st.expires_at,st.media_type,st.duration_seconds,
+ (SELECT COALESCE(SUM(e.views),0)::int FROM local_status_events e WHERE e.status_id=st.id) AS view_count,
+ (SELECT COUNT(*)::int FROM local_status_likes k WHERE k.status_id=st.id) AS like_count,
+ EXISTS(SELECT 1 FROM local_status_likes k WHERE k.status_id=st.id AND k.user_id=$1) AS liked,
  l.title,l.category,l.price_kobo,l.unit,l.condition,s.business_name,s.city,s.area,s.state,s.lga,
  (${activePromotion} OR ${matchedBoost} IS NOT NULL) AS sponsored,
  ${matchedBoost} AS boost_id,
@@ -289,6 +292,29 @@ export function createLocalStatusService({ db, config }: AppDeps) {
       ]);
     return { ok: true };
   }
+  /** Like or unlike a story the buyer can see. */
+  async function like(q: Query, user: any, input: RequestInput) {
+    const { liked } = z.object({ liked: z.boolean() }).parse(input.body);
+    const [st] = await q.query("SELECT id FROM local_statuses WHERE id=$1 AND status='ACTIVE'", [
+      input.params.id,
+    ]);
+    ensure(st, 404, 'NOT_FOUND', 'Status not found.');
+    if (liked)
+      await q.query(
+        'INSERT INTO local_status_likes(status_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',
+        [st.id, user.id],
+      );
+    else
+      await q.query('DELETE FROM local_status_likes WHERE status_id=$1 AND user_id=$2', [
+        st.id,
+        user.id,
+      ]);
+    const [c] = await q.query(
+      'SELECT COUNT(*)::int AS n FROM local_status_likes WHERE status_id=$1',
+      [st.id],
+    );
+    return { liked, like_count: c.n as number };
+  }
   async function report(q: Query, user: any, input: RequestInput) {
     const { reason } = z.object({ reason: z.string().trim().min(5).max(1000) }).parse(input.body),
       { args, d: scope } = areaParams(user, input);
@@ -322,5 +348,17 @@ export function createLocalStatusService({ db, config }: AppDeps) {
     await audit(q, user.id, 'local_status.remove', row.id, { reason: d.reason });
     return { ok: true };
   }
-  return { feed, publish, mine, remove, event, preferences, mute, report, adminList, moderate };
+  return {
+    feed,
+    publish,
+    mine,
+    remove,
+    event,
+    preferences,
+    mute,
+    report,
+    like,
+    adminList,
+    moderate,
+  };
 }

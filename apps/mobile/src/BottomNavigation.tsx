@@ -16,15 +16,16 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import type { Tab } from './AppContext';
 import { useI18n } from './i18n';
 
-const primary: Tab[] = ['Market', 'Categories', 'Bookings', 'Wallet'];
+const primary: Tab[] = ['Market', 'Categories', 'Bookings', 'Inbox'];
 const extra: {
-  tab: Exclude<Tab, 'Market' | 'Categories' | 'Bookings' | 'Wallet' | 'Cart' | 'Nearby'>;
+  tab: Exclude<Tab, 'Market' | 'Categories' | 'Bookings' | 'Inbox' | 'Cart' | 'Nearby'>;
 }[] = [
   { tab: 'Planner' },
+  { tab: 'Business' },
+  { tab: 'Wallet' },
   { tab: 'Sell' },
   { tab: 'Riders' },
   { tab: 'Drive' },
-  { tab: 'Inbox' },
   { tab: 'Account' },
 ];
 const paths: Partial<Record<Tab, string>> = {
@@ -38,6 +39,7 @@ const paths: Partial<Record<Tab, string>> = {
   Riders: 'M4 20h16M6 16l4-11 4 7 5-3-5 10',
   Drive: 'M3 16h2m4 0h6m4 0h2M5 12l3-6h8l3 6M3 12h18v6H3zM8 6V4h8v2',
   Inbox: 'M4 4h16v13H9l-5 4zM8 8h8m-8 4h5',
+  Business: 'M4 20V9l8-5 8 5v11M9 20v-6h6v6M8 11h.01M16 11h.01',
   Account: 'M5 21v-3a7 7 0 0 1 14 0v3M16 6a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
 };
 function Icon({ name, active = false }: { name: Tab | 'More'; active?: boolean }) {
@@ -68,6 +70,7 @@ export default function BottomNavigation({
   onNavigate,
   hidden = [],
   payments = false,
+  badges = {},
 }: {
   tab: Tab;
   onNavigate: (tab: Tab) => void;
@@ -75,6 +78,8 @@ export default function BottomNavigation({
   hidden?: Tab[];
   /** Wallet feature off: the Wallet tab holds payments, refunds and payouts instead. */
   payments?: boolean;
+  /** Unread counts shown on tabs (e.g. Chat). */
+  badges?: Partial<Record<Tab, number>>;
 }) {
   const { t } = useI18n();
   const label = (name: Tab) =>
@@ -151,6 +156,11 @@ export default function BottomNavigation({
               <Icon name={name} active={tab === name} />
             </View>
             <Text style={[styles.label, tab === name && styles.selectedLabel]}>{label(name)}</Text>
+            {!!badges[name] && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{badges[name]! > 99 ? '99+' : badges[name]}</Text>
+              </View>
+            )}
             {tab === name && <View style={styles.underline} />}
           </Pressable>
         ))}
@@ -277,6 +287,19 @@ const styles = StyleSheet.create({
   selectedIcon: { backgroundColor: '#e6eaf6' },
   label: { fontSize: 11, color: '#697087', fontWeight: '500' },
   selectedLabel: { color: '#26408f', fontWeight: '700' },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: '22%',
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: '#d63a2c',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
   underline: {
     position: 'absolute',
     bottom: -9,

@@ -25,6 +25,7 @@ export function revenueRoutes(deps: AppDeps) {
   r.put('/admin/ads/:id', c.updateAd);
   r.post('/admin/ads/:id/status', c.setAdStatus);
   r.post('/admin/ads/:id/payments', c.recordAdPayment);
+  r.post('/admin/ads/:id/image', ...c.uploadAdImage);
   r.get('/admin/delivery-partners', c.adminPartners);
   r.post('/admin/delivery-partners', c.savePartner);
   r.put('/admin/delivery-partners/:id', c.updatePartner);

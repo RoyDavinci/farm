@@ -94,3 +94,22 @@ export async function api<T = any>(
 
 /** Typed API calls from the contract: request('get', '/admin/payouts'). */
 export const request = createRequest(api);
+
+/** Uploads one file as multipart form data (for example an advert image). */
+export async function upload<T = any>(path: string, field: string, file: File): Promise<T> {
+  const form = new FormData();
+  form.append(field, file);
+  const response = await fetch(`${base}${path}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  const data = await response.json();
+  if (!response.ok)
+    throw new ApiError(
+      data.error?.message || 'Upload failed.',
+      data.error?.code || 'ERROR',
+      response.status,
+    );
+  return data;
+}

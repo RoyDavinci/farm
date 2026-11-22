@@ -6,6 +6,13 @@ import type { AppDeps } from '../types/deps.js';
 export function createPlannerController(deps: AppDeps) {
   const { mutate } = deps;
   const service = createPlannerService(deps);
+  const listMembers: RequestHandler = async (req, res) => {
+    res.json(await service.listMembers(res.locals.user, requestInput(req)));
+  };
+  const shareWith: RequestHandler = (req, res) =>
+    mutate(req, res, (q, user) => service.shareWith(q, user, requestInput(req)));
+  const removeMember: RequestHandler = (req, res) =>
+    mutate(req, res, (q, user) => service.removeMember(q, user, requestInput(req)));
   const listTemplates: RequestHandler = async (req, res) => {
     res.json(await service.listTemplates(res.locals.user, requestInput(req)));
   };
@@ -52,6 +59,9 @@ export function createPlannerController(deps: AppDeps) {
   const buildGroceryList: RequestHandler = (req, res) =>
     mutate(req, res, (q, user) => service.buildGroceryList(q, user, requestInput(req)));
   return {
+    listMembers,
+    shareWith,
+    removeMember,
     listTemplates,
     listRecipes,
     getDietProfile,

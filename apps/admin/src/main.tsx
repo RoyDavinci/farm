@@ -19,6 +19,8 @@ import {
   type Seller,
 } from '@ahia/shared';
 import {
+  Sparkles,
+  BookOpenText,
   Handshake,
   Newspaper,
   ChartColumn,
@@ -88,6 +90,7 @@ import {
   RevenuePage,
   VerificationsPage,
 } from './pages/BusinessPages';
+import { GrowthPage, PlannerContentPage } from './pages/GrowthPages';
 import PromotionsPage from './pages/PromotionsPage';
 import SellersPage from './pages/SellersPage';
 import SettingsPage from './pages/SettingsPage';
@@ -137,6 +140,8 @@ const pageArea: Record<Page, string> = {
   Revenue: 'revenue',
   Advertising: 'ads',
   'Delivery partners': 'delivery-partners',
+  'Planner content': 'planner',
+  Growth: 'subscriptions',
   Promotions: 'promotions',
   Drivers: 'drivers',
   Deliveries: 'deliveries',
@@ -188,6 +193,7 @@ const navGroups: { label: string; items: (readonly [Page, LucideIcon])[] }[] = [
     label: 'Money',
     items: [
       ['Revenue', ChartColumn],
+      ['Growth', Sparkles],
       ['Payouts', Banknote],
       ['Refunds', RotateCcw],
       ['Reconciliation', ArrowLeftRight],
@@ -213,6 +219,7 @@ const navGroups: { label: string; items: (readonly [Page, LucideIcon])[] }[] = [
     items: [
       ['Analytics', ChartLine],
       ['Planner', ClipboardList],
+      ['Planner content', BookOpenText],
       ['Audit log', ScrollText],
       ['Email queue', Mail],
       ['Staff', ShieldCheck],
@@ -489,6 +496,8 @@ function App() {
                       Revenue: 'Income by stream, revenue switches and promotion prices.',
                       Advertising: 'Adverts from local businesses and featured shops.',
                       'Delivery partners': 'Logistics companies, their riders and agreed rates.',
+                      'Planner content': 'Plan types, recipes and ingredients the planner uses.',
+                      Growth: 'Subscriptions, membership, market research and integrations.',
                       'Allergen reports':
                         'Missing or wrong allergen information reported by buyers.',
                       Promotions: 'Sponsored listings, clearly labelled for buyers.',
@@ -557,6 +566,8 @@ function App() {
             {page === 'Revenue' && <RevenuePage />}
             {page === 'Advertising' && <AdvertisingPage />}
             {page === 'Delivery partners' && <DeliveryPartnersPage />}
+            {page === 'Planner content' && <PlannerContentPage />}
+            {page === 'Growth' && <GrowthPage />}
             {page === 'Allergen reports' && <AllergenReportsPage />}
             {page === 'Promotions' && <PromotionsPage />}
             {page === 'Staff' && <StaffPage />}

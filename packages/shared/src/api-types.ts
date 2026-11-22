@@ -132,6 +132,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/admin/ads/{id}/image': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['revenue.uploadAdImage'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/admin/ads/{id}/payments': {
     parameters: {
       query?: never;
@@ -596,6 +612,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/admin/integrations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['partner.integrations'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/admin/ledger': {
     parameters: {
       query?: never;
@@ -670,6 +702,22 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['local-status.moderate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/market-reports': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['growth.researchReport'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -863,6 +911,38 @@ export interface paths {
     put?: never;
     post: operations['payouts.resolvePayout'];
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/planner/content': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['planner-admin.getContent'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/planner/content/{type}/{key}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations['planner-admin.saveContent'];
+    post?: never;
+    delete: operations['planner-admin.resetContent'];
     options?: never;
     head?: never;
     patch?: never;
@@ -1294,6 +1374,70 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['status-boost.review'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/subscription-plans': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['growth.adminPlans'];
+    put?: never;
+    post: operations['growth.createPlan'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/subscription-plans/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations['growth.updatePlan'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/subscriptions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['growth.adminSubscriptions'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/subscriptions/{id}/activate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['growth.activateSubscription'];
     delete?: never;
     options?: never;
     head?: never;
@@ -2564,6 +2708,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/local-status/{id}/like': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['local-status.like'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/local-status/{id}/report': {
     parameters: {
       query?: never;
@@ -2772,6 +2932,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/me/subscriptions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['growth.mySubscriptions'];
+    put?: never;
+    post: operations['growth.subscribe'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/me/subscriptions/{id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['growth.cancelSubscription'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/me/teams': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['growth.myTeams'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/media': {
     parameters: {
       query?: never;
@@ -2910,6 +3118,54 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['parcels.quote'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/partner/listings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['partner-api.listings'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/partner/listings/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations['partner-api.updateListing'];
+    trace?: never;
+  };
+  '/v1/partner/orders': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['partner-api.orders'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -3252,6 +3508,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/plans/{id}/members': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['planner.listMembers'];
+    put?: never;
+    post: operations['planner.shareWith'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/plans/{id}/members/{userId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['planner.removeMember'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/preorder-interests': {
     parameters: {
       query?: never;
@@ -3380,6 +3668,118 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/rfqs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['growth.createRfq'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/rfqs/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['growth.getRfq'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/rfqs/{id}/close': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['growth.closeRfq'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/rfqs/{id}/quotes': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['growth.submitQuote'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/rfqs/{id}/quotes/{quoteId}/accept': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['growth.acceptQuote'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/rfqs/mine': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['growth.myRfqs'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/rfqs/open': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['growth.openRfqs'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/riders/nearby': {
     parameters: {
       query?: never;
@@ -3476,6 +3876,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/sellers/me/ai/listing-assist': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['growth.listingAssist'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/sellers/me/analytics': {
     parameters: {
       query?: never;
@@ -3484,6 +3900,54 @@ export interface paths {
       cookie?: never;
     };
     get: operations['retention.getSellerAnalytics'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/sellers/me/api-keys': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['partner.createKey'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/sellers/me/api-keys/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['partner.revokeKey'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/sellers/me/business-report': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['growth.businessReport'];
     put?: never;
     post?: never;
     delete?: never;
@@ -3540,6 +4004,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/sellers/me/integrations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['partner.listKeys'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/sellers/me/listings/import': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['growth.importListings'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/sellers/me/location': {
     parameters: {
       query?: never;
@@ -3554,6 +4050,22 @@ export interface paths {
     options?: never;
     head?: never;
     patch: operations['geography.updateSellerLocation'];
+    trace?: never;
+  };
+  '/v1/sellers/me/market-insights': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['growth.marketInsights'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   '/v1/sellers/me/promotions': {
@@ -3572,6 +4084,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/sellers/me/team': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['growth.listTeam'];
+    put?: never;
+    post: operations['growth.addTeamMember'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/sellers/me/team/{userId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['growth.removeTeamMember'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/sellers/me/verification': {
     parameters: {
       query?: never;
@@ -3583,6 +4127,38 @@ export interface paths {
     put?: never;
     post: operations['business-verification.applyForVerification'];
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/sellers/me/webhooks': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['partner.createWebhook'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/sellers/me/webhooks/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['partner.deleteWebhook'];
     options?: never;
     head?: never;
     patch?: never;
@@ -3764,6 +4340,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/subscription-plans': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['growth.listPlans'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/voice/{id}/action': {
     parameters: {
       query?: never;
@@ -3922,6 +4514,9 @@ export interface components {
       sponsored: boolean;
       boost_id: string | null;
       distance_km: number | null;
+      view_count: number;
+      like_count: number;
+      liked: boolean;
     };
     NearbyRider: {
       id: string;
@@ -4459,6 +5054,9 @@ export interface components {
       sponsored: boolean;
       boost_id: string | null;
       distance_km: number | null;
+      view_count: number;
+      like_count: number;
+      liked: boolean;
     };
     Error: {
       error: {
@@ -4799,6 +5397,37 @@ export interface operations {
         content: {
           'application/json': {
             id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'revenue.uploadAdImage': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            image_url: string;
           };
         };
       };
@@ -5949,6 +6578,40 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'partner.integrations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            providers: {
+              kind: string;
+              provider: string;
+              connected: boolean;
+              options: string[];
+              purpose: string;
+            }[];
+            partner_api: {
+              active_keys: number;
+              webhooks: number;
+              failed_deliveries: number;
+            };
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'admin.listLedger': {
     parameters: {
       query?: never;
@@ -6141,6 +6804,41 @@ export interface operations {
         content: {
           'application/json': {
             ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.researchReport': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            state: string;
+            generated_at: string;
+            rows: {
+              category: string;
+              sellers: number;
+              listings: number;
+              median_price_kobo: number | null;
+              orders_30_days: number | null;
+              gmv_30_days_kobo: number | null;
+              searches_30_days: number;
+              suppressed: boolean;
+            }[];
+            note: string;
           };
         };
       };
@@ -6685,6 +7383,119 @@ export interface operations {
             updated_at: string;
           } & {
             [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner-admin.getContent': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            templates: {
+              key: string;
+              title: string;
+              custom: boolean;
+              data: {
+                [key: string]: unknown;
+              };
+            }[];
+            recipes: {
+              key: string;
+              title: string;
+              custom: boolean;
+              data: {
+                [key: string]: unknown;
+              };
+            }[];
+            ingredients: {
+              key: string;
+              title: string;
+              custom: boolean;
+              data: {
+                [key: string]: unknown;
+              };
+            }[];
+            hidden: {
+              type: string;
+              key: string;
+            }[];
+            help: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner-admin.saveContent': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        type: string;
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner-admin.resetContent': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        type: string;
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
           };
         };
       };
@@ -7975,6 +8786,195 @@ export interface operations {
           'application/json': {
             ok: boolean;
             refund_kobo: number;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.adminPlans': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            /** @enum {string} */
+            audience: 'SELLER' | 'BUYER';
+            name: string;
+            description: string;
+            price_kobo: number;
+            period_days: number;
+            features: {
+              [key: string]: unknown;
+            };
+            active: boolean;
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.createPlan': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          audience: 'SELLER' | 'BUYER';
+          name: string;
+          /** @default  */
+          description?: string;
+          price_kobo: number;
+          period_days: number;
+          /** @default {} */
+          features?: {
+            [key: string]: boolean | number;
+          };
+          /** @default true */
+          active?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.updatePlan': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          audience: 'SELLER' | 'BUYER';
+          name: string;
+          /** @default  */
+          description?: string;
+          price_kobo: number;
+          period_days: number;
+          /** @default {} */
+          features?: {
+            [key: string]: boolean | number;
+          };
+          /** @default true */
+          active?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.adminSubscriptions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            plan_id: string;
+            /** @enum {string} */
+            status: 'PENDING_PAYMENT' | 'ACTIVE' | 'CANCELLED' | 'EXPIRED';
+            fee_kobo: number;
+            starts_at: string | null;
+            ends_at: string | null;
+            plan_name: string;
+            user_name: string;
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.activateSubscription': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          reference: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
           };
         };
       };
@@ -11633,6 +12633,40 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'local-status.like': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            liked: boolean;
+            like_count: number;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'local-status.report': {
     parameters: {
       query?: {
@@ -12191,6 +13225,145 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'growth.mySubscriptions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            subscriptions: ({
+              id: string;
+              plan_id: string;
+              /** @enum {string} */
+              status: 'PENDING_PAYMENT' | 'ACTIVE' | 'CANCELLED' | 'EXPIRED';
+              fee_kobo: number;
+              starts_at: string | null;
+              ends_at: string | null;
+            } & {
+              [key: string]: unknown;
+            })[];
+            seller_features: {
+              plan: string | null;
+            } & {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.subscribe': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          plan_id: string;
+          /** @enum {string} */
+          pay_with?: 'proceeds' | 'card' | 'transfer';
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            pay_by_card?: boolean;
+            /** @enum {string} */
+            status: 'ACTIVE' | 'PENDING_PAYMENT';
+            message: string;
+          } & {
+            [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.cancelSubscription': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.myTeams': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            seller_id: string;
+            business_name: string;
+            area: string;
+            city: string;
+            /** @enum {string} */
+            role: 'MANAGER' | 'STAFF';
+            added_at: string;
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'media.uploadPhoto': {
     parameters: {
       query?: never;
@@ -12632,6 +13805,95 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'partner-api.listings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            title: string;
+            status: string;
+            variants: unknown[];
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'partner-api.updateListing': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          stock?: number;
+          price_kobo?: number;
+          /** @enum {string} */
+          status?: 'ACTIVE' | 'PAUSED';
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'partner-api.orders': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            status: string;
+            total_kobo: number;
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'wallet.startCheckout': {
     parameters: {
       query?: never;
@@ -12663,6 +13925,14 @@ export interface operations {
                 [key: string]: unknown;
               };
               expected_fare_kobo: number;
+            }
+          | {
+              /** @constant */
+              purpose: 'subscription';
+              /** @enum {string} */
+              provider: 'paystack' | 'flutterwave';
+              /** Format: uuid */
+              subscription_id: string;
             };
       };
     };
@@ -13776,6 +15046,110 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'planner.listMembers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            owner: {
+              user_id: string;
+              name: string;
+            };
+            members: {
+              user_id: string;
+              name: string;
+              /** @enum {string} */
+              role: 'VIEWER' | 'EDITOR';
+              created_at: string;
+            }[];
+            /** @enum {string} */
+            you: 'OWNER' | 'EDITOR' | 'VIEWER';
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.shareWith': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          contact: string;
+          /**
+           * @default EDITOR
+           * @enum {string}
+           */
+          role?: 'VIEWER' | 'EDITOR';
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+            name: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.removeMember': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'discovery-operations.interests': {
     parameters: {
       query?: never;
@@ -14054,6 +15428,263 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'growth.createRfq': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @default  */
+          business_name?: string;
+          title: string;
+          category: string;
+          quantity: number;
+          unit: string;
+          /** @default  */
+          details?: string;
+          /** @default  */
+          state?: string;
+          /** @default  */
+          city?: string;
+          needed_by?: string | null;
+          budget_kobo?: number | null;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.getRfq': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            title: string;
+            category: string;
+            quantity: number;
+            unit: string;
+            /** @enum {string} */
+            status: 'OPEN' | 'AWARDED' | 'CLOSED';
+            budget_kobo: number | null;
+            needed_by: string | null;
+            quotes: ({
+              id: string;
+              total_kobo: number;
+              delivery_days: number;
+              business_name: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+          } & {
+            [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.closeRfq': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.submitQuote': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          total_kobo: number;
+          delivery_days: number;
+          /** @default  */
+          note?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.acceptQuote': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+        quoteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+            seller_id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.myRfqs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            title: string;
+            category: string;
+            quantity: number;
+            unit: string;
+            /** @enum {string} */
+            status: 'OPEN' | 'AWARDED' | 'CLOSED';
+            budget_kobo: number | null;
+            needed_by: string | null;
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.openRfqs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            title: string;
+            category: string;
+            quantity: number;
+            unit: string;
+            /** @enum {string} */
+            status: 'OPEN' | 'AWARDED' | 'CLOSED';
+            budget_kobo: number | null;
+            needed_by: string | null;
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'shopping.nearbyRiders': {
     parameters: {
       query?: {
@@ -14293,6 +15924,50 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'growth.listingAssist': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          title: string;
+          /** @default  */
+          description?: string;
+          category: string;
+          /** @default piece */
+          unit?: string;
+          price_kobo?: number;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            title: string;
+            description: string;
+            tips: string[];
+            price: {
+              median_kobo: number;
+              low_kobo: number;
+              high_kobo: number;
+              sellers: number;
+            } | null;
+            source: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'retention.getSellerAnalytics': {
     parameters: {
       query?: never;
@@ -14354,6 +16029,107 @@ export interface operations {
             } & {
               [key: string]: unknown;
             })[];
+          } & {
+            [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'partner.createKey': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          name: string;
+          /**
+           * @default [
+           *       "listings:read",
+           *       "orders:read"
+           *     ]
+           */
+          scopes?: ('listings:read' | 'listings:write' | 'orders:read')[];
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            key: string;
+            message: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'partner.revokeKey': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.businessReport': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            days: number;
+            sales: {
+              requests: number;
+              completed: number;
+              lost: number;
+              gross_kobo: number;
+              net_kobo: number;
+            };
+            actions: string[];
+            source: string;
           } & {
             [key: string]: unknown;
           };
@@ -14593,6 +16369,82 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'partner.listKeys': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            keys: ({
+              id: string;
+              name: string;
+              key_prefix: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+            webhooks: ({
+              id: string;
+              url: string;
+              active: boolean;
+            } & {
+              [key: string]: unknown;
+            })[];
+            docs: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.importListings': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          items: {
+            title: string;
+            description: string;
+            category: string;
+            unit: string;
+            price_kobo: number;
+            stock: number;
+          }[];
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            created: number;
+            ids: string[];
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'geography.updateSellerLocation': {
     parameters: {
       query?: never;
@@ -14619,6 +16471,40 @@ export interface operations {
           'application/json': {
             ok: boolean;
             status: string;
+          } & {
+            [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.marketInsights': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            category: string;
+            state: string;
+            sellers: number;
+            listings: number;
+            price: {
+              median_kobo: number;
+              p25_kobo: number;
+              p75_kobo: number;
+            } | null;
+            note: string;
           } & {
             [key: string]: unknown;
           };
@@ -14660,6 +16546,108 @@ export interface operations {
           } & {
             [key: string]: unknown;
           })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.listTeam': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            seats: number;
+            members: ({
+              user_id: string;
+              name: string;
+              role: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+            activity: ({
+              member_name: string;
+              method: string;
+              path: string;
+              status: number;
+            } & {
+              [key: string]: unknown;
+            })[];
+            note: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.addTeamMember': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          contact: string;
+          /**
+           * @default STAFF
+           * @enum {string}
+           */
+          role?: 'MANAGER' | 'STAFF';
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.removeTeamMember': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -14743,6 +16731,74 @@ export interface operations {
           'application/json': {
             /** @constant */
             status: 'PENDING';
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'partner.createWebhook': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uri */
+          url: string;
+          /**
+           * @default [
+           *       "order.created",
+           *       "order.status_changed"
+           *     ]
+           */
+          events?: ('order.created' | 'order.status_changed')[];
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            secret: string;
+            message: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'partner.deleteWebhook': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
           };
         };
       };
@@ -15149,6 +17205,41 @@ export interface operations {
             product_clicks: number;
             bookings: number;
             completed_bookings: number;
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'growth.listPlans': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            /** @enum {string} */
+            audience: 'SELLER' | 'BUYER';
+            name: string;
+            description: string;
+            price_kobo: number;
+            period_days: number;
+            features: {
+              [key: string]: unknown;
+            };
+            active: boolean;
           } & {
             [key: string]: unknown;
           })[];

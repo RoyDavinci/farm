@@ -50,6 +50,13 @@ export async function verifyFunding(
     );
     if (locked.purpose === 'booking' && locked.target_id)
       await applyToBooking(q, c, { user_id: locked.user_id, target_id: locked.target_id });
+    if (locked.purpose === 'subscription' && locked.target_id)
+      await applyToSubscription(q, {
+        user_id: locked.user_id,
+        target_id: locked.target_id,
+        amount_kobo: Number(f.amount_kobo),
+        reference: ref,
+      });
     return { ok: true };
   });
 }
@@ -78,6 +85,44 @@ async function applyToBooking(q: Query, c: Config, f: { user_id: string; target_
       reason: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+/**
+ * A card payment for a seller plan or membership starts it straight away and becomes revenue. If
+ * the plan was cancelled meanwhile or the amount differs, the money stays as an unapplied balance
+ * and is refunded to the card.
+ */
+async function applyToSubscription(
+  q: Query,
+  f: { user_id: string; target_id: string; amount_kobo: number; reference: string },
+) {
+  const [sub] = await q.query(
+    `SELECT s.*,p.period_days,p.name FROM subscriptions s JOIN subscription_plans p ON p.id=s.plan_id
+     WHERE s.id=$1 AND s.user_id=$2 AND s.status='PENDING_PAYMENT' FOR UPDATE OF s`,
+    [f.target_id, f.user_id],
+  );
+  if (!sub || Number(sub.fee_kobo) !== f.amount_kobo) {
+    logger.warn('card payment not applied to subscription; it will be refunded', {
+      subscription: f.target_id,
+    });
+    return;
+  }
+  await ledger(q, sub.id, [
+    { account: 'wallet', owner: f.user_id, amount: -f.amount_kobo },
+    { account: 'platform_revenue', amount: f.amount_kobo },
+  ]);
+  await q.query(
+    "UPDATE subscriptions SET status='ACTIVE',payment_reference=$1,starts_at=now(),ends_at=now()+$2::int*interval '1 day' WHERE id=$3",
+    [f.reference, sub.period_days, sub.id],
+  );
+  const { notify } = await import('./communications.service.js');
+  await notify(
+    q,
+    f.user_id,
+    'subscription',
+    `${sub.name} is active`,
+    'Thank you! Your card payment went through.',
+  );
 }
 
 /** Hosted checkout uses short claim/finalize transactions around external I/O. */
@@ -130,7 +175,7 @@ export async function startFunding(
   actor: FundingActor,
   identity: { key: string; fingerprint: string },
   input: import('../validators/funding.validators.js').FundingInput & {
-    purpose?: 'wallet' | 'booking' | 'delivery';
+    purpose?: 'wallet' | 'booking' | 'delivery' | 'subscription';
     target_id?: string;
   },
 ): Promise<FundingCheckout> {

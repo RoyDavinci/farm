@@ -4,8 +4,14 @@ import type { Query } from '../database/client.js';
 import { ensure } from '../lib/errors.js';
 import type { RequestInput } from '../lib/http.js';
 import type { AppDeps } from '../types/deps.js';
-import { allergenNames, recipeByKey } from '../config/recipes.js';
-import { templateByKey } from '../config/planner-templates.js';
+import { allergenNames } from '../config/recipes.js';
+import {
+  ingredientSchema,
+  invalidatePlannerContent,
+  plannerContent,
+  recipeSchema,
+  templateSchema,
+} from './planner-content.service.js';
 import { audit } from './audit.service.js';
 import { notify } from './communications.service.js';
 
@@ -38,7 +44,12 @@ export function createPlannerAdminService(deps: AppDeps) {
       ensure(l, 404, 'NOT_FOUND', 'That product was not found.');
     }
     if (d.recipe)
-      ensure(recipeByKey(d.recipe), 400, 'UNKNOWN_RECIPE', 'That recipe was not found.');
+      ensure(
+        (await plannerContent(q)).recipes.some((r) => r.key === d.recipe),
+        400,
+        'UNKNOWN_RECIPE',
+        'That recipe was not found.',
+      );
     const [open] = await q.query(
       "SELECT COUNT(*)::int AS n FROM allergen_reports WHERE reporter_id=$1 AND created_at>now()-interval '1 day'",
       [user.id],
@@ -86,9 +97,12 @@ export function createPlannerAdminService(deps: AppDeps) {
        ORDER BY (r.status IN ('OPEN','REVIEWING')) DESC,(r.issue='REACTION') DESC,r.created_at DESC LIMIT 200`,
       [status],
     );
+    const contentRecipes = (await plannerContent(db)).recipes;
     return rows.map((r: any) => ({
       ...r,
-      recipe_name: r.recipe ? (recipeByKey(r.recipe)?.name ?? r.recipe) : null,
+      recipe_name: r.recipe
+        ? (contentRecipes.find((x) => x.key === r.recipe)?.name ?? r.recipe)
+        : null,
       allergen_labels: (r.allergens || []).map(
         (a: string) => allergenNames[a as keyof typeof allergenNames] || a,
       ),
@@ -182,12 +196,15 @@ export function createPlannerAdminService(deps: AppDeps) {
       `SELECT to_char(d,'YYYY-MM-DD') AS day,(SELECT COUNT(*)::int FROM plans p WHERE p.created_at::date=d::date) AS plans
        FROM generate_series(current_date-13,current_date,interval '1 day') d ORDER BY d`,
     );
+    const content = await plannerContent(db);
     const pct = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);
     return {
       plans: { ...plans, completion_rate: pct(plans.completed, plans.total) },
       by_template: byTemplate.map((t: any) => ({
         ...t,
-        title: t.template ? (templateByKey(t.template)?.title ?? t.template) : 'Other',
+        title: t.template
+          ? (content.templates.find((x) => x.key === t.template)?.title ?? t.template)
+          : 'Other',
       })),
       items: { ...items, linked_rate: pct(items.linked, items.total) },
       conversion: {
@@ -204,7 +221,7 @@ export function createPlannerAdminService(deps: AppDeps) {
       budgets: { ...budget, adherence_rate: pct(budget.within_budget, budget.with_budget) },
       top_recipes: recipes.map((r: any) => ({
         ...r,
-        name: recipeByKey(r.recipe)?.name ?? r.recipe,
+        name: content.recipes.find((x) => x.key === r.recipe)?.name ?? r.recipe,
       })),
       diet: {
         profiles: suppress(diet.profiles),
@@ -222,7 +239,104 @@ export function createPlannerAdminService(deps: AppDeps) {
     };
   }
 
+  // ---------- editable planner content ----------
+  const contentType = z.enum(['TEMPLATE', 'RECIPE', 'INGREDIENT']);
+  async function getContent(_user: any, _input?: RequestInput) {
+    const c = await plannerContent(db);
+    const disabled = await db.query('SELECT type,key FROM planner_content WHERE NOT active');
+    return {
+      templates: c.templates.map((t) => ({
+        key: t.key,
+        title: t.title,
+        custom: c.custom.TEMPLATE.has(t.key),
+        data: t,
+      })),
+      recipes: c.recipes.map((r) => ({
+        key: r.key,
+        title: r.name,
+        custom: c.custom.RECIPE.has(r.key),
+        data: r,
+      })),
+      ingredients: Object.entries(c.ingredients).map(([key, x]) => ({
+        key,
+        title: x.name,
+        custom: c.custom.INGREDIENT.has(key),
+        data: x,
+      })),
+      hidden: disabled,
+      help: 'Edit the JSON and save. Saving changes a default or adds a new item; Hide removes it from the app; Reset returns a default to the built-in version.',
+    };
+  }
+  async function saveContent(q: Query, user: any, input: RequestInput) {
+    const type = contentType.parse(input.params.type);
+    const key = z
+      .string()
+      .regex(/^[a-z0-9_-]{2,60}$/)
+      .parse(input.params.key);
+    const body = z
+      .object({ data: z.unknown().optional(), active: z.boolean().default(true) })
+      .parse(input.body);
+    let data: unknown = {};
+    if (body.active) {
+      const schema = {
+        TEMPLATE: templateSchema,
+        RECIPE: recipeSchema,
+        INGREDIENT: ingredientSchema,
+      }[type];
+      const parsed = (schema as z.ZodType).safeParse(body.data);
+      ensure(
+        parsed.success,
+        400,
+        'INVALID_CONTENT',
+        `Check the ${type.toLowerCase()}: ${parsed.error?.issues
+          .map((i) => `${i.path.join('.')} ${i.message}`)
+          .slice(0, 3)
+          .join('; ')}`,
+      );
+      data = parsed.data;
+      ensure(
+        type === 'INGREDIENT' || (data as any).key === key,
+        400,
+        'KEY_MISMATCH',
+        'The key in the JSON must match.',
+      );
+      if (type === 'RECIPE') {
+        const { ingredients } = await plannerContent(q);
+        const unknown = Object.keys((data as any).per_serving).filter((k) => !ingredients[k]);
+        ensure(
+          !unknown.length,
+          400,
+          'UNKNOWN_INGREDIENT',
+          `Add these ingredients first: ${unknown.join(', ')}.`,
+        );
+      }
+    }
+    await q.query(
+      `INSERT INTO planner_content(type,key,data,active,updated_by) VALUES($1,$2,$3,$4,$5)
+       ON CONFLICT(type,key) DO UPDATE SET data=EXCLUDED.data,active=EXCLUDED.active,updated_by=EXCLUDED.updated_by,updated_at=now()`,
+      [type, key, JSON.stringify(data), body.active, user.id],
+    );
+    await audit(
+      q,
+      user.id,
+      body.active ? 'planner_content.save' : 'planner_content.hide',
+      `${type}:${key}`,
+    );
+    invalidatePlannerContent();
+    return { ok: true };
+  }
+  async function resetContent(q: Query, user: any, input: RequestInput) {
+    const type = contentType.parse(input.params.type);
+    await q.query('DELETE FROM planner_content WHERE type=$1 AND key=$2', [type, input.params.key]);
+    await audit(q, user.id, 'planner_content.reset', `${type}:${input.params.key}`);
+    invalidatePlannerContent();
+    return { ok: true };
+  }
+
   return {
+    getContent,
+    saveContent,
+    resetContent,
     reportAllergen,
     myAllergenReports,
     listAllergenReports,

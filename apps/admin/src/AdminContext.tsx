@@ -36,6 +36,8 @@ export type Page =
   | 'Revenue'
   | 'Advertising'
   | 'Delivery partners'
+  | 'Planner content'
+  | 'Growth'
   | 'Deliveries'
   | 'Staff';
 export interface AdminState {

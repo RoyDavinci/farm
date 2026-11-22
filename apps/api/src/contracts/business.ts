@@ -159,6 +159,7 @@ export const businessResponses: Record<string, z.ZodType> = {
   'revenue.updateAd': id,
   'revenue.setAdStatus': ok,
   'revenue.recordAdPayment': ok,
+  'revenue.uploadAdImage': z.object({ image_url: z.string() }),
   'revenue.adminPartners': z.array(
     z.looseObject({
       id: z.string(),

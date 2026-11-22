@@ -23,7 +23,9 @@ export function createLocalStatusController(deps: AppDeps) {
     deps.mutate(req, res, (q, u) => service.mute(q, u, requestInput(req)));
   const report: RequestHandler = (req, res) =>
     deps.mutate(req, res, (q, u) => service.report(q, u, requestInput(req)));
-  return { feed, mine, preferences, publish, remove, event, mute, report };
+  const like: RequestHandler = (req, res) =>
+    deps.mutate(req, res, (q, u) => service.like(q, u, requestInput(req)));
+  return { feed, mine, preferences, publish, remove, event, mute, report, like };
 }
 export function createAdminLocalStatusController(deps: AppDeps) {
   const service = createLocalStatusService(deps);

@@ -25,6 +25,9 @@ export const LocalStatus = z
     sponsored: z.boolean(),
     boost_id: z.string().nullable(),
     distance_km: z.number().nullable(),
+    view_count: z.number().int(),
+    like_count: z.number().int(),
+    liked: z.boolean(),
   })
   .meta({ id: 'LocalStatus' });
 const ok = z.object({ ok: z.boolean() });
@@ -33,6 +36,7 @@ export const localStatusResponses: Record<string, z.ZodType> = {
     items: z.array(LocalStatus),
     next_cursor: z.string().nullable(),
   }),
+  'local-status.like': z.object({ liked: z.boolean(), like_count: z.number().int() }),
   'local-status.publish': z.object({ id: z.string(), expires_at: z.string() }),
   'local-status.mine': z.array(
     z.looseObject({

@@ -13,7 +13,8 @@ export type Tab =
   | 'Account'
   | 'Cart'
   | 'Planner'
-  | 'Nearby';
+  | 'Nearby'
+  | 'Business';
 
 export interface AppState {
   me: any;

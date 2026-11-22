@@ -11,6 +11,7 @@ import { localStatusResponses } from './local-status.js';
 import { shoppingResponses } from './shopping.js';
 import { plannerResponses } from './planner.js';
 import { businessResponses } from './business.js';
+import { growthResponses } from './growth.js';
 import type { z } from 'zod';
 import { operationResponses } from './operations.js';
 import { coreResponses } from './responses.js';
@@ -35,6 +36,7 @@ export const responses: Record<string, z.ZodType> = {
   ...shoppingResponses,
   ...plannerResponses,
   ...businessResponses,
+  ...growthResponses,
   ...localStatusResponses,
   ...statusBoostResponses,
   ...coreResponses,

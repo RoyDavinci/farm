@@ -7,6 +7,9 @@ import { plannerAdminRoutes } from './planner-admin.routes.js';
 import { businessVerificationRoutes } from './business-verification.routes.js';
 import { revenueRoutes } from './revenue.routes.js';
 import { casesRoutes } from './cases.routes.js';
+import { growthRoutes } from './growth.routes.js';
+import { partnerRoutes } from './partner.routes.js';
+import { partnerApiRoutes } from './partner-api.routes.js';
 import { parcelRoutes, adminParcelRoutes } from './parcels.routes.js';
 import {
   returnsOperationsRoutes,
@@ -67,6 +70,8 @@ export function apiRoutes(
 ) {
   const r = Router();
   r.use('/auth', guards.authLimiter, authRoutes(deps));
+  // Partner systems use an API key instead of a user session.
+  r.use(partnerApiRoutes(deps));
   r.use(guards.authenticate);
   // Every admin path is checked against the user's staff role before any router can serve it.
   r.use('/admin', guards.requireStaff);
@@ -107,6 +112,8 @@ export function apiRoutes(
   r.use(businessVerificationRoutes(deps));
   r.use(revenueRoutes(deps));
   r.use(casesRoutes(deps));
+  r.use(growthRoutes(deps));
+  r.use(partnerRoutes(deps));
   r.use(walletRoutes(deps));
 
   r.use('/admin', adminMarketOperationsRoutes(deps));

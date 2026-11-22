@@ -511,12 +511,13 @@ export const recipes: Recipe[] = [
 export const recipeByKey = (key: string) => recipes.find((x) => x.key === key);
 
 /** What a recipe contains: known allergens, possible allergens and diet tags. */
-export function recipeFacts(recipe: Recipe) {
+export function recipeFacts(recipe: Recipe, ing: Record<string, Ingredient> = ingredients) {
   const allergens = new Set<string>(),
     may = new Set<string>(),
     tags = new Set<string>();
   for (const key of Object.keys(recipe.per_serving)) {
-    const x = ingredients[key];
+    const x = ing[key];
+    if (!x) continue;
     x.allergens?.forEach((a) => allergens.add(a));
     x.may?.forEach((a) => may.add(a));
     x.tags?.forEach((t) => tags.add(t));
@@ -537,8 +538,12 @@ export interface DietProfile {
  * ingredient or a food the diet rules out. WARNING: may contain an allergen, or contains an
  * intolerance. Never claims a recipe is safe: OK only means nothing recorded conflicts.
  */
-export function checkRecipe(recipe: Recipe, profile: DietProfile | null) {
-  const facts = recipeFacts(recipe);
+export function checkRecipe(
+  recipe: Recipe,
+  profile: DietProfile | null,
+  ing: Record<string, Ingredient> = ingredients,
+) {
+  const facts = recipeFacts(recipe, ing);
   const reasons: string[] = [];
   let status: 'OK' | 'WARNING' | 'EXCLUDED' = 'OK';
   if (!profile) return { status, reasons, ...facts };
@@ -550,7 +555,8 @@ export function checkRecipe(recipe: Recipe, profile: DietProfile | null) {
       reasons.push(`Contains ${label(a)}`);
     }
   for (const key of Object.keys(recipe.per_serving)) {
-    const x = ingredients[key];
+    const x = ing[key];
+    if (!x) continue;
     if (avoid.some((a) => a && (x.name.toLowerCase().includes(a) || key.includes(a)))) {
       status = 'EXCLUDED';
       reasons.push(`Contains ${x.name}, which you avoid`);
@@ -579,8 +585,12 @@ export function checkRecipe(recipe: Recipe, profile: DietProfile | null) {
 }
 
 /** Rounds a shopping quantity up to a sensible step. */
-export function shoppingQuantity(key: string, amount: number) {
-  const x = ingredients[key];
+export function shoppingQuantity(
+  key: string,
+  amount: number,
+  ing: Record<string, Ingredient> = ingredients,
+) {
+  const x = ing[key];
   const step = x.step ?? (['piece', 'pack'].includes(x.unit) ? 1 : 0.5);
   return Math.max(step, Math.ceil(amount / step - 1e-9) * step);
 }

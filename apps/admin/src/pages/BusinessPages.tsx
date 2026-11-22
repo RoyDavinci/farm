@@ -2,7 +2,7 @@ import { money } from '@ahia/shared';
 import { BadgeCheck, Banknote, Megaphone, RefreshCw, Store, Truck } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../AdminContext';
-import { request } from '../api';
+import { request, upload } from '../api';
 import { Badge, Empty, Stat } from '../ui';
 
 const naira = (kobo: number) => money(Number(kobo || 0));
@@ -584,6 +584,7 @@ export function AdvertisingPage() {
               {(ads || []).map((a: any) => (
                 <tr key={a.id}>
                   <td>
+                    {a.image_url && <img className="ad-thumb" src={a.image_url} alt="" />}
                     <b>{a.title}</b>
                     <small>{a.advertiser}</small>
                     <small>{a.contact_phone || a.contact_email}</small>
@@ -672,6 +673,21 @@ export function AdvertisingPage() {
                           Pause
                         </button>
                       )}
+                      <label className="secondary compact file-button">
+                        {a.image_url ? 'Change image' : 'Upload image'}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file)
+                              void action(async () => {
+                                await upload(`/admin/ads/${a.id}/image`, 'image', file);
+                                await reloadAds();
+                              }, 'Image uploaded. Wide banners (2:1) look best.');
+                          }}
+                        />
+                      </label>
                       <button
                         className="secondary compact"
                         onClick={() =>

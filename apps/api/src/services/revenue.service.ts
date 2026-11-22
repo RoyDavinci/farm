@@ -8,6 +8,9 @@ import { audit } from './audit.service.js';
 import { notify } from './communications.service.js';
 import { ledger, lockedBalance } from './ledger.service.js';
 import { verifiedSql } from './business-verification.service.js';
+import { stateAt } from '../config/nigeria-states.js';
+import { storage } from '../lib/storage.js';
+import sharp from 'sharp';
 
 export const monetisationKeys = [
   'transaction_commission',
@@ -101,6 +104,7 @@ const STREAM_SQL = `CASE
   WHEN EXISTS(SELECT 1 FROM payouts x WHERE x.id=l.reference) THEN 'payout_fees'
   WHEN EXISTS(SELECT 1 FROM return_journeys x WHERE x.id=l.reference) THEN 'return_transport'
   WHEN EXISTS(SELECT 1 FROM disputes x WHERE x.id=l.reference) THEN 'refund_adjustments'
+  WHEN EXISTS(SELECT 1 FROM subscriptions x WHERE x.id=l.reference) THEN 'subscriptions'
   ELSE 'other' END`;
 export const streamLabels: Record<string, string> = {
   transaction_commission: 'Transaction commission',
@@ -115,6 +119,7 @@ export const streamLabels: Record<string, string> = {
   payout_fees: 'Payout fees',
   return_transport: 'Return transport',
   refund_adjustments: 'Refund adjustments',
+  subscriptions: 'Subscriptions and membership',
   other: 'Other',
 };
 const n = (v: unknown) => Number(v ?? 0);
@@ -222,9 +227,15 @@ export function createRevenueService(deps: AppDeps) {
   /** Featured shops for the Home rail; nearest first when the buyer shares an area. */
   async function featuredSellers(user: any, input: RequestInput) {
     const d = z
-      .object({ state: z.string().max(40).optional(), lga: z.string().max(60).optional() })
+      .object({
+        state: z.string().max(40).optional(),
+        lga: z.string().max(60).optional(),
+        lat: z.coerce.number().min(-90).max(90).optional(),
+        lng: z.coerce.number().min(-180).max(180).optional(),
+      })
       .parse(input.query);
     if (!(await monetisation(db)).featured_sellers) return [];
+    if (!d.state && d.lat != null && d.lng != null) d.state = stateAt(d.lat, d.lng);
     return db.query(
       `SELECT s.user_id AS seller_id,s.business_name,s.business_type,s.area,s.city,s.state,${verifiedSql()} AS verified,
          COALESCE((SELECT ROUND(AVG(r.score),1)::float8 FROM ratings r WHERE r.seller_id=s.user_id),0) AS rating_avg,
@@ -290,9 +301,13 @@ export function createRevenueService(deps: AppDeps) {
         lga: z.string().max(60).optional(),
         category: z.string().max(60).optional(),
         limit: z.coerce.number().int().min(1).max(5).default(1),
+        lat: z.coerce.number().min(-90).max(90).optional(),
+        lng: z.coerce.number().min(-180).max(180).optional(),
       })
       .parse(input.query);
     if (!(await monetisation(db)).local_ads) return [];
+    // A buyer who shares their location is placed in a state for targeting.
+    if (!d.state && d.lat != null && d.lng != null) d.state = stateAt(d.lat, d.lng);
     const rows = await db.query(
       `UPDATE ad_campaigns SET impressions=impressions+1 WHERE id IN (
          SELECT id FROM ad_campaigns WHERE status='ACTIVE' AND starts_at<=now() AND ends_at>now() AND paid_kobo>=price_kobo
@@ -406,6 +421,39 @@ export function createRevenueService(deps: AppDeps) {
     ]);
     await audit(q, user.id, 'ad.payment', a.id, d);
     return { ok: true };
+  }
+
+  /** Staff upload an advert banner (JPEG, PNG or WebP); stored and served like product photos. */
+  async function uploadAdImage(user: any, input: RequestInput) {
+    const [a] = await db.query('SELECT id FROM ad_campaigns WHERE id=$1', [input.params.id]);
+    ensure(a, 404, 'NOT_FOUND', 'Campaign not found.');
+    ensure(input.file, 400, 'IMAGE_REQUIRED', 'Choose a JPEG, PNG or WebP image under 5 MB.');
+    const meta = await sharp(input.file.buffer, { limitInputPixels: 40000000 })
+      .metadata()
+      .catch(() => null);
+    ensure(
+      meta && ['jpeg', 'png', 'webp'].includes(meta.format || ''),
+      400,
+      'INVALID_IMAGE',
+      'This file is not a supported image.',
+    );
+    const full = await sharp(input.file.buffer, { limitInputPixels: 40000000 })
+      .rotate()
+      .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toBuffer();
+    const key = randomUUID();
+    const store = storage(deps.config);
+    const storageKey = `ads/${a.id}/${key}.webp`;
+    await store.put(storageKey, full, 'image/webp');
+    const url = `${deps.config.publicApiUrl.replace(/\/$/, '')}/media/${key}.webp`;
+    await db.query(
+      'INSERT INTO media(id,owner_id,url,thumbnail_url,storage_provider,storage_key,thumbnail_key) VALUES($1,$2,$3,$3,$4,$5,$5)',
+      [key, user.id, url, store.provider(), storageKey],
+    );
+    await db.query('UPDATE ad_campaigns SET image_url=$1 WHERE id=$2', [url, a.id]);
+    await db.transaction((q) => audit(q, user.id, 'ad.image', a.id, { url }));
+    return { image_url: url };
   }
 
   // ---------- delivery partners ----------
@@ -535,6 +583,7 @@ export function createRevenueService(deps: AppDeps) {
     saveAd,
     setAdStatus,
     recordAdPayment,
+    uploadAdImage,
     adminPartners,
     savePartner,
     assignPartnerDriver,

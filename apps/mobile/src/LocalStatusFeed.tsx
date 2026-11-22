@@ -424,6 +424,8 @@ export default function LocalStatusFeed({
   );
 }
 
+const compact = (n: number) =>
+  n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : String(n || 0);
 const ago = (iso: string) => {
   const m = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
   return m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`;
@@ -473,6 +475,9 @@ function FeaturedStory({
                   ? `${Math.max(1, Math.round(story.distance_km))} km away · `
                   : ''}
                 {ago(story.created_at)}
+              </Text>
+              <Text numberOfLines={1} style={styles.sellerMeta}>
+                👁 {compact(story.view_count)} · ♥ {compact(story.like_count)}
               </Text>
             </View>
           </View>

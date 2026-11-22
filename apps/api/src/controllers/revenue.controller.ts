@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'express';
+import multer from 'multer';
 import { requestInput } from '../lib/http.js';
 import { createRevenueService } from '../services/revenue.service.js';
 import type { AppDeps } from '../types/deps.js';
@@ -6,6 +7,19 @@ import type { AppDeps } from '../types/deps.js';
 export function createRevenueController(deps: AppDeps) {
   const { mutate } = deps;
   const service = createRevenueService(deps);
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+    fileFilter(_req, file, cb) {
+      cb(null, ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype));
+    },
+  });
+  const uploadAdImage: RequestHandler[] = [
+    upload.single('image'),
+    async (req, res) => {
+      res.status(201).json(await service.uploadAdImage(res.locals.user, requestInput(req)));
+    },
+  ];
   const listPackages: RequestHandler = async (req, res) => {
     res.json(await service.listPackages(res.locals.user, requestInput(req)));
   };
@@ -64,6 +78,7 @@ export function createRevenueController(deps: AppDeps) {
   const updatePartner: RequestHandler = (req, res) =>
     mutate(req, res, (q, user) => service.savePartner(q, user, requestInput(req)));
   return {
+    uploadAdImage,
     updatePackage,
     updateAd,
     updatePartner,

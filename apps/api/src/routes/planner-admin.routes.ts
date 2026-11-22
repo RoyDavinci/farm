@@ -9,6 +9,9 @@ export function plannerAdminRoutes(deps: AppDeps) {
   r.get('/planner/allergen-reports', c.myAllergenReports);
   r.post('/planner/allergen-reports', c.reportAllergen);
   r.get('/admin/planner/usage', c.plannerUsage);
+  r.get('/admin/planner/content', c.getContent);
+  r.put('/admin/planner/content/:type/:key', c.saveContent);
+  r.delete('/admin/planner/content/:type/:key', c.resetContent);
   r.get('/admin/allergen-reports', c.listAllergenReports);
   r.post('/admin/allergen-reports/:id/review', c.reviewAllergenReport);
   return r;

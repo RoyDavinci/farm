@@ -18,6 +18,9 @@ export function plannerRoutes(deps: AppDeps) {
   r.patch('/plans/:id', c.updatePlan);
   r.delete('/plans/:id', c.deletePlan);
   r.post('/plans/:id/duplicate', c.duplicatePlan);
+  r.get('/plans/:id/members', c.listMembers);
+  r.post('/plans/:id/members', c.shareWith);
+  r.delete('/plans/:id/members/:userId', c.removeMember);
   r.post('/plans/:id/items', c.addItem);
   r.patch('/plans/:id/items/:itemId', c.updateItem);
   r.delete('/plans/:id/items/:itemId', c.deleteItem);

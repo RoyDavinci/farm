@@ -1,3 +1,4 @@
+import { MembershipCard, MyTeams } from './BusinessHubScreen';
 import DiscoveryPreferencesPanel from '../DiscoveryPreferencesPanel';
 import { Text, View } from 'react-native';
 import AccountPanel from '../AccountPanel';
@@ -14,6 +15,8 @@ export default function AccountScreen({ onSignedOut }: { onSignedOut: () => void
   return (
     <>
       <Text style={s.heading}>{t('account.heading')}</Text>
+      <MembershipCard />
+      <MyTeams />
       <View style={s.orderCard}>
         <Text style={s.sectionTitle}>{t('account.language')}</Text>
         <View style={s.chipWrap}>

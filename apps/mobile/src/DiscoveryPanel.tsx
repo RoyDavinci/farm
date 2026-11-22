@@ -8,7 +8,16 @@ import { featureOn } from './features';
 import { type Listing, money } from '@ahia/shared';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Dimensions,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import MapPanel from './MapPanel';
 import { request } from './request';
 export default function DiscoveryPanel({
@@ -29,15 +38,6 @@ export default function DiscoveryPanel({
     [ads, setAds] = useState<any[]>([]),
     [adPage, setAdPage] = useState(0),
     [adWidth, setAdWidth] = useState(0);
-  useEffect(() => {
-    if (!featureOn(settings, 'promotions')) return;
-    void request('get', '/featured-sellers', { query: {} })
-      .then(setFeatured)
-      .catch(() => {});
-    void request('get', '/ads', { query: { limit: 3, ...(category ? { category } : {}) } })
-      .then(setAds)
-      .catch(() => {});
-  }, [settings, refreshVersion, category]);
   const [q, setQ] = useState(''),
     [city, setCity] = useState(''),
     [area, setArea] = useState(''),
@@ -69,6 +69,31 @@ export default function DiscoveryPanel({
       .then(setConfig)
       .catch(() => {});
   }, []);
+  useEffect(() => {
+    if (!featureOn(settings, 'promotions')) return;
+    void (async () => {
+      // Use the buyer's location for targeting only if they already allowed it.
+      let where: { lat?: number; lng?: number } = point
+        ? { lat: point.latitude, lng: point.longitude }
+        : {};
+      if (!point)
+        try {
+          const p = await Location.getForegroundPermissionsAsync();
+          const last = p.granted ? await Location.getLastKnownPositionAsync() : null;
+          if (last) where = { lat: last.coords.latitude, lng: last.coords.longitude };
+        } catch {
+          // no location: untargeted adverts only
+        }
+      void request('get', '/featured-sellers', { query: where as any })
+        .then(setFeatured)
+        .catch(() => {});
+      void request('get', '/ads', {
+        query: { limit: 3, ...(category ? { category } : {}), ...where } as any,
+      })
+        .then(setAds)
+        .catch(() => {});
+    })();
+  }, [settings, refreshVersion, category, point]);
   const sequence = useRef(0);
   const params = JSON.stringify({
     q,
@@ -325,7 +350,10 @@ export default function DiscoveryPanel({
                     })
                     .catch(() => {})
                 }
-                style={[s.adSlide, { width: adWidth || 340 }]}
+                style={[
+                  s.adSlide,
+                  { width: adWidth || Math.min(780, Dimensions.get('window').width) - 44 },
+                ]}
               >
                 {a.image_url ? (
                   <Image source={{ uri: a.image_url }} style={s.adBanner} resizeMode="cover" />

@@ -24,7 +24,7 @@ export const cartCheckoutInput = z.object({
 export async function ownPlanItem(q: Query, userId: string, planItemId?: string | null) {
   if (!planItemId) return null;
   const [row] = await q.query(
-    'SELECT i.id FROM plan_items i JOIN plans p ON p.id=i.plan_id WHERE i.id=$1 AND p.user_id=$2',
+    "SELECT i.id FROM plan_items i JOIN plans p ON p.id=i.plan_id WHERE i.id=$1 AND (p.user_id=$2 OR EXISTS(SELECT 1 FROM plan_members m WHERE m.plan_id=p.id AND m.user_id=$2 AND m.role='EDITOR'))",
     [planItemId, userId],
   );
   ensure(row, 404, 'PLAN_ITEM_NOT_FOUND', 'That plan item was not found.');

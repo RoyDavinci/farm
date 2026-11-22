@@ -5,7 +5,6 @@ import { ensure } from '../lib/errors.js';
 import type { RequestInput } from '../lib/http.js';
 import type { AppDeps } from '../types/deps.js';
 import {
-  planTemplates,
   readRequest,
   templateByKey,
   templateItems,
@@ -15,14 +14,13 @@ import {
   allergenNames,
   checkRecipe,
   dietPatterns,
-  ingredients,
-  recipeByKey,
-  recipes,
   shoppingQuantity,
   type DietProfile,
 } from '../config/recipes.js';
 import { unitPrice } from './catalog.service.js';
+import { plannerContent } from './planner-content.service.js';
 import { activePromotion } from './promotions.service.js';
+import { notify } from './communications.service.js';
 import { verifiedSql } from './business-verification.service.js';
 
 const tiers = ['BASIC', 'STANDARD', 'PREMIUM'] as const;
@@ -97,6 +95,11 @@ export const dietProfileInput = z.object({
   consent: z.boolean().default(false),
 });
 export const planReadInput = z.object({ text: z.string().trim().min(1).max(300) });
+export const planShareInput = z.object({
+  /** Email or phone number of an existing Ahia account. */
+  contact: z.string().trim().min(5).max(160),
+  role: z.enum(['VIEWER', 'EDITOR']).default('EDITOR'),
+});
 
 const CONFIRMED = "('ACCEPTED','READY_FOR_PICKUP','COMPLETED')";
 const n = (v: unknown) => Number(v ?? 0);
@@ -115,12 +118,32 @@ export function createPlannerService(deps: AppDeps) {
     );
     return (p as DietProfile) ?? null;
   }
-  async function ownPlan(q: Query, userId: string, planId: string, lock = false) {
+  /**
+   * A plan the user may use: the owner can do anything; shared members can view, and editors can
+   * also change items, meals and the budget. Others get "not found".
+   */
+  async function ownPlan(
+    q: Query,
+    userId: string,
+    planId: string,
+    lock = false,
+    need: 'view' | 'edit' | 'owner' = lock ? 'edit' : 'view',
+  ) {
     const [plan] = await q.query(
-      `SELECT * FROM plans WHERE id=$1 AND user_id=$2${lock ? ' FOR UPDATE' : ''}`,
+      `SELECT p.*,CASE WHEN p.user_id=$2 THEN 'OWNER' ELSE m.role END AS access
+       FROM plans p LEFT JOIN plan_members m ON m.plan_id=p.id AND m.user_id=$2
+       WHERE p.id=$1 AND (p.user_id=$2 OR m.user_id IS NOT NULL)${lock ? ' FOR UPDATE OF p' : ''}`,
       [planId, userId],
     );
     ensure(plan, 404, 'PLAN_NOT_FOUND', 'Plan not found.');
+    ensure(
+      need === 'view' || plan.access === 'OWNER' || (need === 'edit' && plan.access === 'EDITOR'),
+      403,
+      'PLAN_READ_ONLY',
+      need === 'owner'
+        ? 'Only the person who created this plan can do that.'
+        : 'This plan was shared with you to view only.',
+    );
     return plan;
   }
   const touch = (q: Query, planId: string) =>
@@ -128,7 +151,8 @@ export function createPlannerService(deps: AppDeps) {
 
   // ---------- reference data ----------
   async function listTemplates(_user?: any, _input?: RequestInput) {
-    return planTemplates.map((t) => ({
+    const { templates } = await plannerContent(db);
+    return templates.map((t) => ({
       key: t.key,
       kind: t.kind,
       title: t.title,
@@ -141,8 +165,9 @@ export function createPlannerService(deps: AppDeps) {
   }
   async function listRecipes(user: any, _input?: RequestInput) {
     const profile = await profileOf(user.id);
+    const { recipes, ingredients } = await plannerContent(db);
     return recipes.map((r) => {
-      const check = checkRecipe(r, profile);
+      const check = checkRecipe(r, profile, ingredients);
       const cost = Object.entries(r.per_serving).reduce(
         (sum, [key, qty]) => sum + qty * ingredients[key].price,
         0,
@@ -169,7 +194,7 @@ export function createPlannerService(deps: AppDeps) {
     });
   }
   async function readText(_user: any, input: RequestInput) {
-    return readRequest(planReadInput.parse(input.body).text);
+    return readRequest(planReadInput.parse(input.body).text, (await plannerContent(db)).templates);
   }
 
   // ---------- diet profile (sensitive) ----------
@@ -304,7 +329,10 @@ export function createPlannerService(deps: AppDeps) {
 
   async function listPlans(user: any, _input?: RequestInput) {
     const plans = await db.query(
-      "SELECT * FROM plans WHERE user_id=$1 ORDER BY (status='ACTIVE') DESC,updated_at DESC LIMIT 50",
+      `SELECT p.*,CASE WHEN p.user_id=$1 THEN 'OWNER' ELSE m.role END AS access,u.name AS owner_name
+       FROM plans p JOIN users u ON u.id=p.user_id LEFT JOIN plan_members m ON m.plan_id=p.id AND m.user_id=$1
+       WHERE p.user_id=$1 OR m.user_id IS NOT NULL
+       ORDER BY (p.status='ACTIVE') DESC,p.updated_at DESC LIMIT 80`,
       [user.id],
     );
     const sums = await summarise(plans.map((p: any) => p.id));
@@ -324,12 +352,14 @@ export function createPlannerService(deps: AppDeps) {
       status: p.status,
       created_at: p.created_at,
       updated_at: p.updated_at,
+      access: (p.access ?? 'OWNER') as 'OWNER' | 'EDITOR' | 'VIEWER',
+      owner_name: p.owner_name ?? null,
     };
   }
 
   async function createPlan(q: Query, user: any, input: RequestInput) {
     const d = planCreateInput.parse(input.body);
-    const t = templateByKey(d.template);
+    const t = templateByKey(d.template, (await plannerContent(q)).templates);
     ensure(t, 400, 'UNKNOWN_TEMPLATE', 'Choose one of the plan types.');
     const [count] = await q.query('SELECT COUNT(*)::int AS n FROM plans WHERE user_id=$1', [
       user.id,
@@ -378,6 +408,7 @@ export function createPlannerService(deps: AppDeps) {
 
   async function getPlan(user: any, input: RequestInput) {
     const plan = await ownPlan(db, user.id, input.params.id);
+    const content = await plannerContent(db);
     // Items with a completed order are bought.
     await db.query(
       `UPDATE plan_items i SET status='PURCHASED',updated_at=now() WHERE i.plan_id=$1 AND i.status IN ('PLANNED','SAVED','UNAVAILABLE')
@@ -450,7 +481,7 @@ export function createPlannerService(deps: AppDeps) {
       }),
       meals: planMeals.map((m: any) => ({
         ...m,
-        recipe_name: recipeByKey(m.recipe)?.name ?? m.recipe,
+        recipe_name: content.recipes.find((r) => r.key === m.recipe)?.name ?? m.recipe,
       })),
     };
   }
@@ -471,7 +502,7 @@ export function createPlannerService(deps: AppDeps) {
     return { ok: true };
   }
   async function deletePlan(q: Query, user: any, input: RequestInput) {
-    const plan = await ownPlan(q, user.id, input.params.id, true);
+    const plan = await ownPlan(q, user.id, input.params.id, true, 'owner');
     await q.query('DELETE FROM plans WHERE id=$1', [plan.id]);
     return { ok: true };
   }
@@ -739,9 +770,10 @@ export function createPlannerService(deps: AppDeps) {
   async function addMeal(q: Query, user: any, input: RequestInput) {
     const d = planMealInput.parse(input.body);
     const plan = await ownPlan(q, user.id, input.params.id, true);
-    const recipe = recipeByKey(d.recipe);
+    const content = await plannerContent(q);
+    const recipe = content.recipes.find((r) => r.key === d.recipe);
     ensure(recipe, 400, 'UNKNOWN_RECIPE', 'Choose a recipe from the list.');
-    const check = checkRecipe(recipe, await profileOf(user.id));
+    const check = checkRecipe(recipe, await profileOf(user.id), content.ingredients);
     ensure(
       check.status !== 'EXCLUDED',
       409,
@@ -776,12 +808,13 @@ export function createPlannerService(deps: AppDeps) {
    */
   async function buildGroceryList(q: Query, user: any, input: RequestInput) {
     const plan = await ownPlan(q, user.id, input.params.id, true);
+    const content = await plannerContent(q);
     const planMeals = await q.query('SELECT recipe,servings FROM plan_meals WHERE plan_id=$1', [
       plan.id,
     ]);
     const totals = new Map<string, number>();
     for (const m of planMeals) {
-      const recipe = recipeByKey(m.recipe);
+      const recipe = content.recipes.find((r) => r.key === m.recipe);
       if (!recipe) continue;
       for (const [key, qty] of Object.entries(recipe.per_serving))
         totals.set(key, (totals.get(key) || 0) + qty * m.servings);
@@ -800,8 +833,9 @@ export function createPlannerService(deps: AppDeps) {
       updated = 0,
       removed = 0;
     for (const [key, amount] of totals) {
-      const x = ingredients[key];
-      const quantity = shoppingQuantity(key, amount);
+      const x = content.ingredients[key];
+      if (!x) continue;
+      const quantity = shoppingQuantity(key, amount, content.ingredients);
       const budget = Math.round(quantity * x.price * 100);
       const allergens = [...new Set([...(x.allergens || []), ...(x.may || [])])];
       const found: any = byKey.get(key);
@@ -845,7 +879,69 @@ export function createPlannerService(deps: AppDeps) {
     return { added, updated, removed };
   }
 
+  // ---------- sharing ----------
+  async function listMembers(user: any, input: RequestInput) {
+    const plan = await ownPlan(db, user.id, input.params.id);
+    const members = await db.query(
+      `SELECT m.user_id,u.name,m.role,m.created_at FROM plan_members m JOIN users u ON u.id=m.user_id
+       WHERE m.plan_id=$1 ORDER BY m.created_at`,
+      [plan.id],
+    );
+    const [owner] = await db.query('SELECT id,name FROM users WHERE id=$1', [plan.user_id]);
+    return { owner: { user_id: owner.id, name: owner.name }, members, you: plan.access };
+  }
+  async function shareWith(q: Query, user: any, input: RequestInput) {
+    const d = planShareInput.parse(input.body);
+    const plan = await ownPlan(q, user.id, input.params.id, true, 'owner');
+    const [invitee] = await q.query(
+      "SELECT id,name FROM users WHERE (lower(email)=lower($1) OR phone=$1) AND status='ACTIVE'",
+      [d.contact.trim()],
+    );
+    ensure(
+      invitee,
+      404,
+      'USER_NOT_FOUND',
+      'No Ahia account uses that email or phone number. Ask them to create one first.',
+    );
+    ensure(invitee.id !== user.id, 400, 'OWN_PLAN', 'This is already your plan.');
+    const [count] = await q.query('SELECT COUNT(*)::int AS n FROM plan_members WHERE plan_id=$1', [
+      plan.id,
+    ]);
+    ensure(count.n < 20, 400, 'MEMBER_LIMIT', 'A plan can be shared with up to 20 people.');
+    await q.query(
+      `INSERT INTO plan_members(plan_id,user_id,role,invited_by) VALUES($1,$2,$3,$4)
+       ON CONFLICT(plan_id,user_id) DO UPDATE SET role=EXCLUDED.role`,
+      [plan.id, invitee.id, d.role, user.id],
+    );
+    await notify(
+      q,
+      invitee.id,
+      'plan',
+      'A plan was shared with you',
+      `${user.name} shared “${plan.title}” with you${d.role === 'EDITOR' ? ' to edit together' : ''}. Open My Planner to see it.`,
+    );
+    return { ok: true, name: invitee.name as string };
+  }
+  async function removeMember(q: Query, user: any, input: RequestInput) {
+    const plan = await ownPlan(
+      q,
+      user.id,
+      input.params.id,
+      true,
+      input.params.userId === user.id ? 'view' : 'owner',
+    );
+    const [gone] = await q.query(
+      'DELETE FROM plan_members WHERE plan_id=$1 AND user_id=$2 RETURNING user_id',
+      [plan.id, input.params.userId],
+    );
+    ensure(gone, 404, 'NOT_FOUND', 'That person is not on this plan.');
+    return { ok: true };
+  }
+
   return {
+    listMembers,
+    shareWith,
+    removeMember,
     listTemplates,
     listRecipes,
     readText,

@@ -1,3 +1,4 @@
+import { deliverPartnerWebhooks } from '../services/partner.service.js';
 import { expireVoiceCalls } from '../services/voice.service.js';
 import { discoveryMaintenance } from '../services/discovery-operations.service.js';
 import { stockFreshnessReminders } from '../services/catalogue-policy.service.js';
@@ -37,6 +38,7 @@ export function startWorkers(db: Database, c: Config) {
     { name: 'push', every: 5000, run: () => deliverPush(db, c) },
     { name: 'payout-recovery', every: 60000, run: () => recoverPayouts(db, c) },
     { name: 'card-refunds', every: 60000, run: () => runCardRefunds(db, c) },
+    { name: 'partner-webhooks', every: 15000, run: () => deliverPartnerWebhooks(db) },
     { name: 'funding-recovery', every: 60000, run: () => recoverFunding(db, c) },
     {
       name: 'auth-cleanup',

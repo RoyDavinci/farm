@@ -20,6 +20,12 @@ export const checkoutInput = z.discriminatedUnion('purpose', [
     quote: z.record(z.string(), z.unknown()),
     expected_fare_kobo: z.number().int().positive(),
   }),
+  z.object({
+    purpose: z.literal('subscription'),
+    provider: z.enum(['paystack', 'flutterwave']),
+    /** A seller plan or membership waiting for card payment (from POST /me/subscriptions). */
+    subscription_id: z.uuid(),
+  }),
 ]);
 
 /**
@@ -36,6 +42,26 @@ export function createCheckoutService(deps: AppDeps) {
     const identity = readIdempotency(input);
     const d = checkoutInput.parse(input.body);
     ensure(c.payments, 503, 'PAYMENTS_DISABLED', 'Online payments are not enabled.');
+    if (d.purpose === 'subscription') {
+      const [sub] = await db.query(
+        "SELECT s.id,s.fee_kobo FROM subscriptions s WHERE s.id=$1 AND s.user_id=$2 AND s.status='PENDING_PAYMENT' AND s.payment_method='card'",
+        [d.subscription_id, user.id],
+      );
+      ensure(sub, 404, 'NOT_FOUND', 'No plan is waiting for card payment.');
+      const fee = Number(sub.fee_kobo);
+      ensure(
+        fee >= 10000 && fee <= 10000000,
+        400,
+        'AMOUNT_OUT_OF_RANGE',
+        'Online payments must be between ₦100 and ₦100,000.',
+      );
+      return startFunding(db, c, user, identity, {
+        provider: d.provider,
+        amount_kobo: fee,
+        purpose: 'subscription',
+        target_id: sub.id,
+      });
+    }
     const [b] = await db.query('SELECT * FROM bookings WHERE id=$1 AND buyer_id=$2', [
       d.booking_id,
       user.id,

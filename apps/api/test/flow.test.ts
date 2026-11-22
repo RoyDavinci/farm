@@ -16,6 +16,7 @@ import { connect, type Database } from '../src/database/client.js';
 import { expireReservations } from '../src/services/booking.service.js';
 import { recoverFunding } from '../src/services/funding-recovery.service.js';
 import { deliverPush } from '../src/services/push.service.js';
+import { deliverPartnerWebhooks } from '../src/services/partner.service.js';
 /**
  * Every JSON response is recorded and checked against the published response schemas by the
  * last test. With CONTRACT_CAPTURE=<file> the recordings are also written out (to derive schemas).
@@ -82,7 +83,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   await db.transaction(async (q) => {
     const tables = await q.query<{ tablename: string }>(
-      "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename NOT IN ('_prisma_migrations','settings','vehicle_types','catalogue_categories','market_regions','marketplace_policies','promotion_packages')",
+      "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename NOT IN ('_prisma_migrations','settings','vehicle_types','catalogue_categories','market_regions','marketplace_policies','promotion_packages','subscription_plans')",
     );
     await q.query(`TRUNCATE ${tables.map((t) => `"${t.tablename}"`).join(',')} CASCADE`);
     await q.query(
@@ -98,6 +99,16 @@ beforeEach(async () => {
        ON CONFLICT(id) DO UPDATE SET kind=EXCLUDED.kind,name=EXCLUDED.name,days=EXCLUDED.days,price_kobo=EXCLUDED.price_kobo,active=true`,
     );
     await q.query("DELETE FROM promotion_packages WHERE id NOT LIKE 'pkg-%'");
+    await q.query(
+      `INSERT INTO subscription_plans(id,audience,name,description,price_kobo,period_days,features,active) VALUES
+         ('seller-pro','SELLER','Seller Pro','',500000,30,'{"insights":true,"ai_assistant":true,"business_report":true,"bulk_import":false,"team_seats":1,"api_access":false}',true),
+         ('seller-business','SELLER','Business','',1500000,30,'{"insights":true,"ai_assistant":true,"business_report":true,"bulk_import":true,"team_seats":5,"api_access":true}',true),
+         ('ahia-plus','BUYER','Ahia Plus','',200000,30,'{"member_deals":true,"delivery_offer":true}',true)
+       ON CONFLICT(id) DO UPDATE SET audience=EXCLUDED.audience,name=EXCLUDED.name,price_kobo=EXCLUDED.price_kobo,period_days=EXCLUDED.period_days,features=EXCLUDED.features,active=true`,
+    );
+    await q.query(
+      "DELETE FROM subscription_plans WHERE id NOT IN ('seller-pro','seller-business','ahia-plus')",
+    );
     for (const [i, actor] of actors.entries()) {
       await q.query(
         'INSERT INTO users(id,name,email,phone,password_hash,admin,staff_role) VALUES($1,$2,$3,$4,$5,$6,$7)',
@@ -1572,6 +1583,38 @@ describe('pilot mode', () => {
     expect(provider.refunds).toEqual([{ transaction: ref, amount: 200000 }]);
     expect(await ledgerBalances()).toBe(0);
   });
+  it('pays for a membership by card through the Paystack checkout', async () => {
+    const provider = fakeProvider();
+    const app = pilot();
+    const sub = await as(app, 'buyer', 'post', '/me/subscriptions', {
+      plan_id: 'ahia-plus',
+      pay_with: 'card',
+    });
+    expect(sub.body).toMatchObject({ status: 'PENDING_PAYMENT', pay_by_card: true });
+    const checkout = await as(app, 'buyer', 'post', '/payments/checkout', {
+      purpose: 'subscription',
+      provider: 'paystack',
+      subscription_id: sub.body.id,
+    });
+    expect(checkout.status).toBe(200);
+    const ref = checkout.body.reference;
+    expect(provider.amounts.get(ref)).toBe(200000);
+    provider.paid.add(ref);
+    await payWebhook(app, ref);
+    await payWebhook(app, ref);
+    const [mine] = await db.query(
+      'SELECT status,payment_reference FROM subscriptions WHERE id=$1',
+      [sub.body.id],
+    );
+    expect(mine).toEqual({ status: 'ACTIVE', payment_reference: ref });
+    // The payment became revenue, not a wallet balance.
+    expect(await walletOf('buyer')).toBe(0);
+    const [rev] = await db.query(
+      "SELECT COALESCE(SUM(amount_kobo),0)::int AS total FROM ledger WHERE account='platform_revenue'",
+    );
+    expect(rev.total).toBe(200000);
+    expect(await ledgerBalances()).toBe(0);
+  });
 });
 describe('rider and call privacy', () => {
   it('never reveals exact rider positions to nearby-rider searches', async () => {
@@ -2357,6 +2400,416 @@ describe('complaint case management', () => {
       (await call('buyer', 'post', `/disputes/${id}/messages`, { body: 'Thanks!' })).body.error
         .code,
     ).toBe('CASE_CLOSED');
+  });
+});
+
+describe('growth modules', () => {
+  it('counts story views and likes', async () => {
+    const listing = await setup(10);
+    await db.query("UPDATE sellers SET state='Lagos',lga='Ikorodu' WHERE user_id='seller'");
+    await db.query(
+      `INSERT INTO local_statuses(id,seller_id,listing_id,caption,media_url,thumbnail_url,expires_at)
+       VALUES('st-1','seller',$1,'Fresh today','https://example.com/a.webp','https://example.com/a-thumb.webp',now()+interval '1 day')`,
+      [listing],
+    );
+    await db.query(
+      "INSERT INTO local_status_events(status_id,viewer_key,views,sponsored) VALUES('st-1','v1',3,false),('st-1','v2',2,false)",
+    );
+    const feed = () => call('buyer', 'get', '/local-status?state=Lagos&lga=Ikorodu');
+    expect((await feed()).body.items[0]).toMatchObject({
+      view_count: 5,
+      like_count: 0,
+      liked: false,
+    });
+    expect((await call('buyer', 'post', '/local-status/st-1/like', { liked: true })).body).toEqual({
+      liked: true,
+      like_count: 1,
+    });
+    await call('other', 'post', '/local-status/st-1/like', { liked: true });
+    expect((await feed()).body.items[0]).toMatchObject({ like_count: 2, liked: true });
+    await call('buyer', 'post', '/local-status/st-1/like', { liked: false });
+    expect((await feed()).body.items[0]).toMatchObject({ like_count: 1, liked: false });
+  });
+
+  it('shares a plan with family as viewer or editor', async () => {
+    const plan = await call('buyer', 'post', '/plans', { template: 'groceries', people: 3 });
+    const id = plan.body.id;
+    expect(
+      (await call('buyer', 'post', `/plans/${id}/members`, { contact: 'nobody@test.com' })).body
+        .error.code,
+    ).toBe('USER_NOT_FOUND');
+    await call('buyer', 'post', `/plans/${id}/members`, {
+      contact: 'other@test.com',
+      role: 'VIEWER',
+    });
+    const shared = (await call('other', 'get', '/plans')).body;
+    expect(shared[0]).toMatchObject({ id, access: 'VIEWER', owner_name: 'buyer' });
+    const detail = (await call('other', 'get', `/plans/${id}`)).body;
+    expect(
+      (await call('other', 'post', `/plans/${id}/items`, { name: 'Soap' })).body.error.code,
+    ).toBe('PLAN_READ_ONLY');
+    await call('buyer', 'post', `/plans/${id}/members`, {
+      contact: 'other@test.com',
+      role: 'EDITOR',
+    });
+    expect((await call('other', 'post', `/plans/${id}/items`, { name: 'Soap' })).status).toBe(200);
+    expect(
+      (
+        await call('other', 'patch', `/plans/${id}/items/${detail.items[0].id}`, {
+          status: 'OWNED',
+        })
+      ).status,
+    ).toBe(200);
+    expect((await call('other', 'delete', `/plans/${id}`)).body.error.code).toBe('PLAN_READ_ONLY');
+    const members = (await call('other', 'get', `/plans/${id}/members`)).body;
+    expect(members).toMatchObject({ you: 'EDITOR', owner: { user_id: 'buyer' } });
+    expect((await call('seller', 'get', `/plans/${id}`)).status).toBe(404);
+    // A member can leave; afterwards the plan is gone from their list.
+    await call('other', 'delete', `/plans/${id}/members/other`);
+    expect((await call('other', 'get', '/plans')).body).toEqual([]);
+  });
+
+  it('lets staff edit planner templates, recipes and ingredients', async () => {
+    const content = (await call('admin', 'get', '/admin/planner/content')).body;
+    const jollof = content.recipes.find((r: any) => r.key === 'jollof-rice');
+    await call('admin', 'put', '/admin/planner/content/INGREDIENT/zobo_leaves', {
+      data: {
+        name: 'Zobo leaves',
+        unit: 'kg',
+        price: 3000,
+        category: 'Food & groceries',
+        keywords: 'zobo hibiscus',
+      },
+    });
+    expect(
+      (
+        await call('admin', 'put', '/admin/planner/content/RECIPE/zobo', {
+          data: {
+            key: 'zobo',
+            name: 'Zobo drink',
+            description: 'Hibiscus drink.',
+            time: 30,
+            meals: ['LUNCH'],
+            per_serving: { unknown_thing: 1 },
+            steps: ['Boil'],
+          },
+        })
+      ).body.error.code,
+    ).toBe('UNKNOWN_INGREDIENT');
+    await call('admin', 'put', '/admin/planner/content/RECIPE/zobo', {
+      data: {
+        key: 'zobo',
+        name: 'Zobo drink',
+        description: 'Hibiscus drink.',
+        time: 30,
+        meals: ['LUNCH'],
+        per_serving: { zobo_leaves: 0.05, sugar: 0.02 },
+        steps: ['Boil the leaves', 'Sweeten and chill'],
+      },
+    });
+    await call('admin', 'put', '/admin/planner/content/RECIPE/jollof-rice', {
+      data: { ...jollof.data, name: 'Party jollof rice' },
+    });
+    await call('admin', 'put', '/admin/planner/content/TEMPLATE/wedding', { active: false });
+    const recipes = (await call('buyer', 'get', '/planner/recipes')).body;
+    expect(recipes.find((r: any) => r.key === 'zobo').name).toBe('Zobo drink');
+    expect(recipes.find((r: any) => r.key === 'jollof-rice').name).toBe('Party jollof rice');
+    const templates = (await call('buyer', 'get', '/planner/templates')).body.map(
+      (t: any) => t.key,
+    );
+    expect(templates).not.toContain('wedding');
+    await call('admin', 'delete', '/admin/planner/content/TEMPLATE/wedding');
+    await call('admin', 'delete', '/admin/planner/content/RECIPE/jollof-rice');
+    expect(
+      (await call('buyer', 'get', '/planner/templates')).body.map((t: any) => t.key),
+    ).toContain('wedding');
+    await db.query('DELETE FROM planner_content');
+    await call('admin', 'delete', '/admin/planner/content/RECIPE/zobo');
+  });
+
+  it('uploads advert images and targets adverts by the buyer’s location', async () => {
+    const ad = await call('admin', 'post', '/admin/ads', {
+      advertiser: 'Kano Grains',
+      title: 'Millet by the bag',
+      states: ['Kano'],
+      starts_at: new Date(Date.now() - 3600000).toISOString(),
+      ends_at: new Date(Date.now() + 86400000).toISOString(),
+      price_kobo: 0,
+    });
+    const png = await sharp({
+      create: { width: 400, height: 200, channels: 3, background: '#26408f' },
+    })
+      .png()
+      .toBuffer();
+    const up = await request(app)
+      .post(`/v1/admin/ads/${ad.body.id}/image`)
+      .set('Authorization', 'Bearer token-admin')
+      .attach('image', png, { filename: 'ad.png', contentType: 'image/png' });
+    expect(up.status).toBe(201);
+    expect(up.body.image_url).toMatch(/\/media\/.+\.webp$/);
+    await call('admin', 'post', `/admin/ads/${ad.body.id}/status`, { status: 'ACTIVE' });
+    expect((await call('buyer', 'get', '/ads?lat=6.5&lng=3.4')).body).toEqual([]); // Lagos
+    const kano = (await call('buyer', 'get', '/ads?lat=12.0&lng=8.5')).body;
+    expect(kano[0]).toMatchObject({ title: 'Millet by the bag', image_url: up.body.image_url });
+  });
+
+  it('sells seller plans from proceeds, gates premium tools and activates paid memberships', async () => {
+    const sale = await completedSale();
+    const [{ listing_id: listing }] = await db.query(
+      'SELECT listing_id FROM bookings WHERE id=$1',
+      [sale],
+    );
+    const assist = {
+      title: 'fresh tomatoes',
+      category: 'Vegetables',
+      unit: 'kg',
+      price_kobo: 100000,
+    };
+    expect(
+      (await call('seller', 'post', '/sellers/me/ai/listing-assist', assist)).body.error.code,
+    ).toBe('UPGRADE_REQUIRED');
+    const plans = (await call('seller', 'get', '/subscription-plans?audience=SELLER')).body;
+    expect(plans.map((p: any) => p.id)).toEqual(['seller-pro', 'seller-business']);
+    expect(
+      (await call('seller', 'post', '/me/subscriptions', { plan_id: 'seller-business' })).body.error
+        .code,
+    ).toBe('INSUFFICIENT_PROCEEDS');
+    await call('admin', 'put', '/admin/subscription-plans/seller-business', {
+      audience: 'SELLER',
+      name: 'Business',
+      price_kobo: 100000,
+      period_days: 30,
+      features: {
+        insights: true,
+        ai_assistant: true,
+        business_report: true,
+        bulk_import: true,
+        team_seats: 2,
+        api_access: true,
+      },
+    });
+    const sub = await call('seller', 'post', '/me/subscriptions', { plan_id: 'seller-business' });
+    expect(sub.body.status).toBe('ACTIVE');
+    const help = (await call('seller', 'post', '/sellers/me/ai/listing-assist', assist)).body;
+    expect(help).toMatchObject({ title: 'Fresh tomatoes', source: 'rules', price: null });
+    expect(help.tips.length).toBeGreaterThan(1);
+    const report = (await call('seller', 'get', '/sellers/me/business-report')).body;
+    expect(report.sales).toMatchObject({ completed: 1, gross_kobo: 200000 });
+    const insights = (
+      await call('seller', 'get', '/sellers/me/market-insights?category=Vegetables')
+    ).body;
+    expect(insights).toMatchObject({ sellers: 1, price: null }); // too few sellers to show prices
+    const research = (await call('admin', 'get', '/admin/market-reports')).body;
+    expect(research.rows[0]).toMatchObject({
+      category: 'Vegetables',
+      suppressed: true,
+      median_price_kobo: null,
+    });
+    // Enterprise: bulk upload and team seats.
+    const imported = await call('seller', 'post', '/sellers/me/listings/import', {
+      items: [
+        {
+          title: 'Green peppers',
+          description: 'Fresh green peppers',
+          category: 'Vegetables',
+          unit: 'kg',
+          price_kobo: 150000,
+          stock: 20,
+        },
+        {
+          title: 'Carrots',
+          description: 'Sweet carrots from Jos',
+          category: 'Vegetables',
+          unit: 'kg',
+          price_kobo: 120000,
+          stock: 15,
+        },
+      ],
+    });
+    expect(imported.body.created).toBe(2);
+    await call('seller', 'post', '/sellers/me/team', {
+      contact: 'other@test.com',
+      role: 'MANAGER',
+    });
+    expect((await call('seller', 'get', '/sellers/me/team')).body).toMatchObject({ seats: 2 });
+    // Buyer membership: paid by transfer, then activated by staff (counted as revenue).
+    const member = await call('buyer', 'post', '/me/subscriptions', { plan_id: 'ahia-plus' });
+    expect(member.body.status).toBe('PENDING_PAYMENT');
+    await call('admin', 'post', `/admin/subscriptions/${member.body.id}/activate`, {
+      reference: 'TRF-PLUS-1',
+    });
+    const mine = (await call('buyer', 'get', '/me/subscriptions')).body;
+    expect(mine.subscriptions[0]).toMatchObject({ status: 'ACTIVE', plan_id: 'ahia-plus' });
+    const income = (await call('admin', 'get', '/admin/revenue/report')).body;
+    expect(income.streams.find((s: any) => s.stream === 'subscriptions').amount_kobo).toBe(
+      100000 + 200000,
+    );
+    await call('seller', 'post', `/me/subscriptions/${sub.body.id}/cancel`);
+    expect((await call('seller', 'get', '/sellers/me/business-report')).body.error.code).toBe(
+      'UPGRADE_REQUIRED',
+    );
+    expect(listing).toBeTruthy();
+  });
+
+  it('runs a B2B request for quotes from request to award', async () => {
+    await setup(10);
+    const rfq = await call('buyer', 'post', '/rfqs', {
+      business_name: 'Mama Put Kitchen',
+      title: 'Tomatoes for our restaurant',
+      category: 'Vegetables',
+      quantity: 200,
+      unit: 'kg',
+      state: 'Lagos',
+      budget_kobo: 30000000,
+    });
+    const open = (await call('seller', 'get', '/rfqs/open')).body;
+    expect(open[0]).toMatchObject({ id: rfq.body.id, matches_my_shop: true, my_quote: null });
+    await call('seller', 'post', `/rfqs/${rfq.body.id}/quotes`, {
+      total_kobo: 25000000,
+      delivery_days: 2,
+      note: 'Weekly supply possible',
+    });
+    const detail = (await call('buyer', 'get', `/rfqs/${rfq.body.id}`)).body;
+    expect(detail.quotes[0]).toMatchObject({ business_name: 'Ada’s Farm', total_kobo: 25000000 });
+    expect((await call('other', 'get', `/rfqs/${rfq.body.id}`)).status).toBe(404);
+    const award = await call(
+      'buyer',
+      'post',
+      `/rfqs/${rfq.body.id}/quotes/${detail.quotes[0].id}/accept`,
+    );
+    expect(award.body.seller_id).toBe('seller');
+    expect((await call('buyer', 'get', '/rfqs/mine')).body[0].status).toBe('AWARDED');
+    const second = await call('buyer', 'post', '/rfqs', {
+      title: 'Onions monthly',
+      category: 'Vegetables',
+      quantity: 5,
+      unit: 'bag',
+    });
+    expect((await call('buyer', 'post', `/rfqs/${second.body.id}/close`)).status).toBe(200);
+  });
+
+  it('gives Business sellers API keys, a partner API and signed webhooks', async () => {
+    const listing = await setup(10);
+    expect(
+      (await call('seller', 'post', '/sellers/me/api-keys', { name: 'POS' })).body.error.code,
+    ).toBe('UPGRADE_REQUIRED');
+    await db.query(
+      "INSERT INTO subscriptions(id,plan_id,user_id,status,starts_at,ends_at) VALUES('sub-b','seller-business','seller','ACTIVE',now(),now()+interval '30 days')",
+    );
+    const key = await call('seller', 'post', '/sellers/me/api-keys', {
+      name: 'POS',
+      scopes: ['listings:read', 'listings:write', 'orders:read'],
+    });
+    expect(key.body.key).toMatch(/^ahia_/);
+    expect((await request(app).get('/v1/partner/listings')).status).toBe(401);
+    const api = (path: string) => request(app).get(`/v1${path}`).set('X-Api-Key', key.body.key);
+    const listings = await api('/partner/listings');
+    expect(listings.body[0]).toMatchObject({ id: listing, title: 'Fresh tomatoes' });
+    const patch = await request(app)
+      .patch(`/v1/partner/listings/${listing}`)
+      .set('X-Api-Key', key.body.key)
+      .send({ stock: 42, price_kobo: 110000 });
+    expect(patch.status).toBe(200);
+    const [v] = await db.query(
+      'SELECT stock,price_kobo FROM listing_variants WHERE listing_id=$1 AND is_primary',
+      [listing],
+    );
+    expect(v).toMatchObject({ stock: 42, price_kobo: 110000 });
+    const hook = await call('seller', 'post', '/sellers/me/webhooks', {
+      url: 'https://partner.example/hooks',
+    });
+    expect(hook.body.secret).toMatch(/^whsec_/);
+    await call('buyer', 'post', '/bookings', { listing_id: listing, quantity: 1 });
+    const sent: any[] = [];
+    const fake = (async (url: string, init: any) => {
+      sent.push({ url, ...init });
+      return new Response('ok');
+    }) as unknown as typeof fetch;
+    expect(await deliverPartnerWebhooks(db, fake)).toBe(1);
+    const body = JSON.parse(sent[0].body);
+    expect(body).toMatchObject({
+      event: 'order.created',
+      data: { listing_id: listing, status: 'REQUESTED' },
+    });
+    const signature = createHmac('sha256', hook.body.secret).update(sent[0].body).digest('hex');
+    expect(sent[0].headers['x-ahia-signature']).toBe(signature);
+    expect((await api('/partner/orders')).body[0].status).toBe('REQUESTED');
+    const integrations = (await call('admin', 'get', '/admin/integrations')).body;
+    expect(integrations.providers.find((p: any) => p.kind === 'ai')).toMatchObject({
+      provider: 'rules',
+      connected: false,
+    });
+    expect(integrations.partner_api.active_keys).toBe(1);
+    const listed = (await call('seller', 'get', '/sellers/me/integrations')).body;
+    await call('seller', 'delete', `/sellers/me/api-keys/${listed.keys[0].id}`);
+    await call('seller', 'delete', `/sellers/me/webhooks/${listed.webhooks[0].id}`);
+    expect((await api('/partner/listings')).status).toBe(401);
+  });
+
+  it('lets team members work on the shop within their role', async () => {
+    const listing = await setup(10);
+    const asTeam = (method: 'get' | 'post' | 'patch', path: string, body?: any) => {
+      const r = request(app)
+        [method](`/v1${path}`)
+        .set('Authorization', 'Bearer token-other')
+        .set('X-Act-As-Seller', 'seller')
+        .set('Idempotency-Key', randomUUID());
+      return body === undefined ? r : r.send(body);
+    };
+    expect((await asTeam('get', '/me')).body.error.code).toBe('NOT_ON_TEAM');
+    await db.query(
+      "INSERT INTO subscriptions(id,plan_id,user_id,status,starts_at,ends_at) VALUES('sub-team','seller-business','seller','ACTIVE',now(),now()+interval '30 days')",
+    );
+    await call('seller', 'post', '/sellers/me/team', { contact: 'other@test.com', role: 'STAFF' });
+    expect((await call('other', 'get', '/me/teams')).body[0]).toMatchObject({
+      seller_id: 'seller',
+      role: 'STAFF',
+      business_name: 'Ada’s Farm',
+    });
+    const me = (await asTeam('get', '/me')).body;
+    expect(me.user).toMatchObject({
+      id: 'seller',
+      admin: false,
+      acting_member: { id: 'other', role: 'STAFF' },
+    });
+    expect(me.seller.business_name).toBe('Ada’s Farm');
+    // Staff can add products and handle orders for the shop.
+    const created = await asTeam('post', '/listings', {
+      title: 'Ripe plantain',
+      description: 'Sweet ripe plantain from the farm',
+      category: 'Fruit',
+      unit: 'piece',
+      price_kobo: 50000,
+      stock: 30,
+    });
+    expect(created.status).toBe(200);
+    const [row] = await db.query('SELECT seller_id FROM listings WHERE id=$1', [created.body.id]);
+    expect(row.seller_id).toBe('seller');
+    const order = await book(listing);
+    expect((await asTeam('post', `/bookings/${order}/accept`)).status).toBe(200);
+    // Money, promotions, cancellations and the team stay with the owner (or a manager).
+    expect((await asTeam('get', '/payouts')).body.error.code).toBe('TEAM_ROLE_FORBIDDEN');
+    expect(
+      (await asTeam('post', `/listings/${listing}/promote`, { package_id: 'pkg-product-7' })).body
+        .error.code,
+    ).toBe('TEAM_ROLE_FORBIDDEN');
+    expect(
+      (await asTeam('post', `/bookings/${order}/cancel`, { reason: 'Out of stock today' })).body
+        .error.code,
+    ).toBe('TEAM_ROLE_FORBIDDEN');
+    expect((await asTeam('get', '/sellers/me/team')).body.error.code).toBe('TEAM_ROLE_FORBIDDEN');
+    // The owner sees what the team changed.
+    const team = (await call('seller', 'get', '/sellers/me/team')).body;
+    expect(team.activity.map((a: any) => a.path)).toEqual(
+      expect.arrayContaining(['/listings', `/bookings/${order}/accept`]),
+    );
+    expect(team.activity.every((a: any) => a.member_name === 'other')).toBe(true);
+    // Without a plan with team seats, or once removed, access stops.
+    await db.query("UPDATE subscriptions SET status='CANCELLED' WHERE id='sub-team'");
+    expect((await asTeam('get', '/me')).body.error.code).toBe('TEAM_PLAN_REQUIRED');
+    await db.query("UPDATE subscriptions SET status='ACTIVE' WHERE id='sub-team'");
+    await call('seller', 'delete', '/sellers/me/team/other');
+    expect((await asTeam('get', '/me')).body.error.code).toBe('NOT_ON_TEAM');
   });
 });
 

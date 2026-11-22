@@ -45,6 +45,18 @@ import {
   partnerInput,
   switchesInput,
 } from '../src/services/revenue.service.js';
+import {
+  activateInput,
+  importInput,
+  listingAssistInput,
+  planInput,
+  quoteInput,
+  rfqInput,
+  subscribeInput,
+  teamInput,
+} from '../src/services/growth.service.js';
+import { apiKeyInput, partnerListingInput, webhookInput } from '../src/services/partner.service.js';
+import { planShareInput } from '../src/services/planner.service.js';
 import { caseAssignInput, caseMessageInput, caseNoteInput } from '../src/services/cases.service.js';
 import { allergenReportInput, allergenReviewInput } from '../src/services/planner-admin.service.js';
 import { cartAddInput, cartCheckoutInput, cartUpdateInput } from '../src/services/cart.service.js';
@@ -131,6 +143,7 @@ const isPublic = (r: Route) =>
   (r.path.startsWith('/v1/auth/') && r.handler !== 'logout') ||
   r.path.startsWith('/v1/webhooks/') ||
   r.path === '/v1/payments/return' ||
+  r.path.startsWith('/v1/partner/') ||
   (r.path === '/v1/settings' && r.method === 'get');
 
 const json = (schema: z.ZodType, io: 'input' | 'output' = 'input') =>
@@ -139,6 +152,19 @@ const json = (schema: z.ZodType, io: 'input' | 'output' = 'input') =>
 const bodies: Record<string, Record<string, unknown>> = {
   'wallet.startCheckout': json(checkoutInput),
   'cart.addToCart': json(cartAddInput),
+  'planner.shareWith': json(planShareInput),
+  'growth.subscribe': json(subscribeInput),
+  'growth.createPlan': json(planInput),
+  'growth.updatePlan': json(planInput),
+  'growth.activateSubscription': json(activateInput),
+  'growth.listingAssist': json(listingAssistInput),
+  'growth.createRfq': json(rfqInput),
+  'growth.submitQuote': json(quoteInput),
+  'growth.addTeamMember': json(teamInput),
+  'growth.importListings': json(importInput),
+  'partner.createKey': json(apiKeyInput),
+  'partner.createWebhook': json(webhookInput),
+  'partner-api.updateListing': json(partnerListingInput),
   'business-verification.applyForVerification': json(verificationApplyInput),
   'business-verification.decideVerification': json(verificationDecisionInput),
   'revenue.saveSwitches': json(switchesInput),

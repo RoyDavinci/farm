@@ -716,6 +716,60 @@
         }
       }
     },
+    "/v1/admin/ads/{id}/image": {
+      "post": {
+        "operationId": "revenue.uploadAdImage",
+        "tags": [
+          "revenue"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "image_url": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "image_url"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/ads/{id}/payments": {
       "post": {
         "operationId": "revenue.recordAdPayment",
@@ -3333,6 +3387,97 @@
         }
       }
     },
+    "/v1/admin/integrations": {
+      "get": {
+        "operationId": "partner.integrations",
+        "tags": [
+          "partner"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "providers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string"
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "connected": {
+                            "type": "boolean"
+                          },
+                          "options": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "purpose": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "provider",
+                          "connected",
+                          "options",
+                          "purpose"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "partner_api": {
+                      "type": "object",
+                      "properties": {
+                        "active_keys": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "webhooks": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "failed_deliveries": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "active_keys",
+                        "webhooks",
+                        "failed_deliveries"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "providers",
+                    "partner_api"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/v1/admin/ledger": {
       "get": {
         "operationId": "admin.listLedger",
@@ -3802,6 +3947,124 @@
                 "additionalProperties": true
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/admin/market-reports": {
+      "get": {
+        "operationId": "growth.researchReport",
+        "tags": [
+          "growth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string"
+                    },
+                    "generated_at": {
+                      "type": "string"
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "category": {
+                            "type": "string"
+                          },
+                          "sellers": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "listings": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "median_price_kobo": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "orders_30_days": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "gmv_30_days_kobo": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "searches_30_days": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "suppressed": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "category",
+                          "sellers",
+                          "listings",
+                          "median_price_kobo",
+                          "orders_30_days",
+                          "gmv_30_days_kobo",
+                          "searches_30_days",
+                          "suppressed"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "generated_at",
+                    "rows",
+                    "note"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
           }
         }
       }
@@ -5104,6 +5367,272 @@
                     "updated_at"
                   ],
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/planner/content": {
+      "get": {
+        "operationId": "planner-admin.getContent",
+        "tags": [
+          "planner-admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "templates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "custom": {
+                            "type": "boolean"
+                          },
+                          "data": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "title",
+                          "custom",
+                          "data"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "recipes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "custom": {
+                            "type": "boolean"
+                          },
+                          "data": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "title",
+                          "custom",
+                          "data"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "ingredients": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "custom": {
+                            "type": "boolean"
+                          },
+                          "data": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "title",
+                          "custom",
+                          "data"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "hidden": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string"
+                          },
+                          "key": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "key"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "help": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "templates",
+                    "recipes",
+                    "ingredients",
+                    "hidden",
+                    "help"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/admin/planner/content/{type}/{key}": {
+      "delete": {
+        "operationId": "planner-admin.resetContent",
+        "tags": [
+          "planner-admin"
+        ],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "put": {
+        "operationId": "planner-admin.saveContent",
+        "tags": [
+          "planner-admin"
+        ],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -8219,6 +8748,435 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/subscription-plans": {
+      "get": {
+        "operationId": "growth.adminPlans",
+        "tags": [
+          "growth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "audience": {
+                        "type": "string",
+                        "enum": [
+                          "SELLER",
+                          "BUYER"
+                        ]
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "price_kobo": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "period_days": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "features": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      },
+                      "active": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "audience",
+                      "name",
+                      "description",
+                      "price_kobo",
+                      "period_days",
+                      "features",
+                      "active"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "growth.createPlan",
+        "tags": [
+          "growth"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "audience": {
+                    "type": "string",
+                    "enum": [
+                      "SELLER",
+                      "BUYER"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 60
+                  },
+                  "description": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 400
+                  },
+                  "price_kobo": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000000
+                  },
+                  "period_days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 366
+                  },
+                  "features": {
+                    "default": {},
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": [
+                        "boolean",
+                        "number"
+                      ]
+                    }
+                  },
+                  "active": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "audience",
+                  "name",
+                  "price_kobo",
+                  "period_days"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/subscription-plans/{id}": {
+      "put": {
+        "operationId": "growth.updatePlan",
+        "tags": [
+          "growth"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "audience": {
+                    "type": "string",
+                    "enum": [
+                      "SELLER",
+                      "BUYER"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 60
+                  },
+                  "description": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 400
+                  },
+                  "price_kobo": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000000
+                  },
+                  "period_days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 366
+                  },
+                  "features": {
+                    "default": {},
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": [
+                        "boolean",
+                        "number"
+                      ]
+                    }
+                  },
+                  "active": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "audience",
+                  "name",
+                  "price_kobo",
+                  "period_days"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/subscriptions": {
+      "get": {
+        "operationId": "growth.adminSubscriptions",
+        "tags": [
+          "growth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "plan_id": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "PENDING_PAYMENT",
+                          "ACTIVE",
+                          "CANCELLED",
+                          "EXPIRED"
+                        ]
+                      },
+                      "fee_kobo": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "starts_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "ends_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "plan_name": {
+                        "type": "string"
+                      },
+                      "user_name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "plan_id",
+                      "status",
+                      "fee_kobo",
+                      "starts_at",
+                      "ends_at",
+                      "plan_name",
+                      "user_name"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/admin/subscriptions/{id}/activate": {
+      "post": {
+        "operationId": "growth.activateSubscription",
+        "tags": [
+          "growth"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "reference": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 120
+                  }
+                },
+                "required": [
+                  "reference"
+                ]
               }
             }
           }
@@ -16409,6 +17367,69 @@
         }
       }
     },
+    "/v1/local-status/{id}/like": {
+      "post": {
+        "operationId": "local-status.like",
+        "tags": [
+          "local-status"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "liked": {
+                      "type": "boolean"
+                    },
+                    "like_count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "liked",
+                    "like_count"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/local-status/{id}/report": {
       "post": {
         "operationId": "local-status.report",
@@ -17527,6 +18548,297 @@
         }
       }
     },
+    "/v1/me/subscriptions": {
+      "get": {
+        "operationId": "growth.mySubscriptions",
+        "tags": [
+          "growth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "subscriptions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "plan_id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "PENDING_PAYMENT",
+                              "ACTIVE",
+                              "CANCELLED",
+                              "EXPIRED"
+                            ]
+                          },
+                          "fee_kobo": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "starts_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ends_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "plan_id",
+                          "status",
+                          "fee_kobo",
+                          "starts_at",
+                          "ends_at"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "seller_features": {
+                      "type": "object",
+                      "properties": {
+                        "plan": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "plan"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "subscriptions",
+                    "seller_features"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "growth.subscribe",
+        "tags": [
+          "growth"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "pay_by_card": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ACTIVE",
+                        "PENDING_PAYMENT"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "plan_id": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "pay_with": {
+                    "type": "string",
+                    "enum": [
+                      "proceeds",
+                      "card",
+                      "transfer"
+                    ]
+                  }
+                },
+                "required": [
+                  "plan_id"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/subscriptions/{id}/cancel": {
+      "post": {
+        "operationId": "growth.cancelSubscription",
+        "tags": [
+          "growth"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/teams": {
+      "get": {
+        "operationId": "growth.myTeams",
+        "tags": [
+          "growth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "seller_id": {
+                        "type": "string"
+                      },
+                      "business_name": {
+                        "type": "string"
+                      },
+                      "area": {
+                        "type": "string"
+                      },
+                      "city": {
+                        "type": "string"
+                      },
+                      "role": {
+                        "type": "string",
+                        "enum": [
+                          "MANAGER",
+                          "STAFF"
+                        ]
+                      },
+                      "added_at": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "seller_id",
+                      "business_name",
+                      "area",
+                      "city",
+                      "role",
+                      "added_at"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/v1/media": {
       "post": {
         "operationId": "media.uploadPhoto",
@@ -18545,6 +19857,177 @@
         }
       }
     },
+    "/v1/partner/listings": {
+      "get": {
+        "operationId": "partner-api.listings",
+        "tags": [
+          "partner-api"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "variants": {
+                        "type": "array",
+                        "items": {}
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "status",
+                      "variants"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/partner/listings/{id}": {
+      "patch": {
+        "operationId": "partner-api.updateListing",
+        "tags": [
+          "partner-api"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "stock": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000
+                  },
+                  "price_kobo": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000000
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ACTIVE",
+                      "PAUSED"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/partner/orders": {
+      "get": {
+        "operationId": "partner-api.orders",
+        "tags": [
+          "partner-api"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "total_kobo": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "status",
+                      "total_kobo"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/v1/payments/checkout": {
       "post": {
         "operationId": "wallet.startCheckout",
@@ -18642,6 +20125,32 @@
                       "booking_id",
                       "quote",
                       "expected_fare_kobo"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "purpose": {
+                        "type": "string",
+                        "const": "subscription"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "enum": [
+                          "paystack",
+                          "flutterwave"
+                        ]
+                      },
+                      "subscription_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    },
+                    "required": [
+                      "purpose",
+                      "provider",
+                      "subscription_id"
                     ]
                   }
                 ]
@@ -21617,6 +23126,234 @@
         }
       }
     },
+    "/v1/plans/{id}/members": {
+      "get": {
+        "operationId": "planner.listMembers",
+        "tags": [
+          "planner"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "owner": {
+                      "type": "object",
+                      "properties": {
+                        "user_id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "user_id",
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "members": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "user_id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "VIEWER",
+                              "EDITOR"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "user_id",
+                          "name",
+                          "role",
+                          "created_at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "you": {
+                      "type": "string",
+                      "enum": [
+                        "OWNER",
+                        "EDITOR",
+                        "VIEWER"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "owner",
+                    "members",
+                    "you"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "planner.shareWith",
+        "tags": [
+          "planner"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "name"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "contact": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 160
+                  },
+                  "role": {
+                    "default": "EDITOR",
+                    "type": "string",
+                    "enum": [
+                      "VIEWER",
+                      "EDITOR"
+                    ]
+                  }
+                },
+                "required": [
+                  "contact"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plans/{id}/members/{userId}": {
+      "delete": {
+        "operationId": "planner.removeMember",
+        "tags": [
+          "planner"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/v1/preorder-interests": {
       "get": {
         "operationId": "discovery-operations.interests",
@@ -22220,6 +23957,612 @@
                 "additionalProperties": true
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/rfqs": {
+      "post": {
+        "operationId": "growth.createRfq",
+        "tags": [
+          "growth"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "business_name": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 120
+                  },
+                  "category": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 60
+                  },
+                  "quantity": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 10000000
+                  },
+                  "unit": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 30
+                  },
+                  "details": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "state": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "city": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "needed_by": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "budget_kobo": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "title",
+                  "category",
+                  "quantity",
+                  "unit"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rfqs/{id}": {
+      "get": {
+        "operationId": "growth.getRfq",
+        "tags": [
+          "growth"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "number"
+                    },
+                    "unit": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "OPEN",
+                        "AWARDED",
+                        "CLOSED"
+                      ]
+                    },
+                    "budget_kobo": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "needed_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "quotes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "total_kobo": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "delivery_days": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "business_name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "total_kobo",
+                          "delivery_days",
+                          "business_name"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "category",
+                    "quantity",
+                    "unit",
+                    "status",
+                    "budget_kobo",
+                    "needed_by",
+                    "quotes"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/rfqs/{id}/close": {
+      "post": {
+        "operationId": "growth.closeRfq",
+        "tags": [
+          "growth"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rfqs/{id}/quotes": {
+      "post": {
+        "operationId": "growth.submitQuote",
+        "tags": [
+          "growth"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "total_kobo": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000000000
+                  },
+                  "delivery_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 365
+                  },
+                  "note": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "total_kobo",
+                  "delivery_days"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rfqs/{id}/quotes/{quoteId}/accept": {
+      "post": {
+        "operationId": "growth.acceptQuote",
+        "tags": [
+          "growth"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "quoteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "seller_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "seller_id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rfqs/mine": {
+      "get": {
+        "operationId": "growth.myRfqs",
+        "tags": [
+          "growth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "category": {
+                        "type": "string"
+                      },
+                      "quantity": {
+                        "type": "number"
+                      },
+                      "unit": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "OPEN",
+                          "AWARDED",
+                          "CLOSED"
+                        ]
+                      },
+                      "budget_kobo": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "needed_by": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "category",
+                      "quantity",
+                      "unit",
+                      "status",
+                      "budget_kobo",
+                      "needed_by"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/rfqs/open": {
+      "get": {
+        "operationId": "growth.openRfqs",
+        "tags": [
+          "growth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "category": {
+                        "type": "string"
+                      },
+                      "quantity": {
+                        "type": "number"
+                      },
+                      "unit": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "OPEN",
+                          "AWARDED",
+                          "CLOSED"
+                        ]
+                      },
+                      "budget_kobo": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "needed_by": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "category",
+                      "quantity",
+                      "unit",
+                      "status",
+                      "budget_kobo",
+                      "needed_by"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
           }
         }
       }
@@ -22962,6 +25305,136 @@
         }
       }
     },
+    "/v1/sellers/me/ai/listing-assist": {
+      "post": {
+        "operationId": "growth.listingAssist",
+        "tags": [
+          "growth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "tips": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "price": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "median_kobo": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "low_kobo": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "high_kobo": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "sellers": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "median_kobo",
+                            "low_kobo",
+                            "high_kobo",
+                            "sellers"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "description",
+                    "tips",
+                    "price",
+                    "source"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "description": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "category": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 60
+                  },
+                  "unit": {
+                    "default": "piece",
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "price_kobo": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "title",
+                  "category"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sellers/me/analytics": {
       "get": {
         "operationId": "retention.getSellerAnalytics",
@@ -23136,6 +25609,220 @@
                     "repeat_buyers",
                     "statuses",
                     "top_listings"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/sellers/me/api-keys": {
+      "post": {
+        "operationId": "partner.createKey",
+        "tags": [
+          "partner"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "key",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 60
+                  },
+                  "scopes": {
+                    "default": [
+                      "listings:read",
+                      "orders:read"
+                    ],
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "listings:read",
+                        "listings:write",
+                        "orders:read"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sellers/me/api-keys/{id}": {
+      "delete": {
+        "operationId": "partner.revokeKey",
+        "tags": [
+          "partner"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/sellers/me/business-report": {
+      "get": {
+        "operationId": "growth.businessReport",
+        "tags": [
+          "growth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "days": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "sales": {
+                      "type": "object",
+                      "properties": {
+                        "requests": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "completed": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "lost": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "gross_kobo": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "net_kobo": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "requests",
+                        "completed",
+                        "lost",
+                        "gross_kobo",
+                        "net_kobo"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "actions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "days",
+                    "sales",
+                    "actions",
+                    "source"
                   ],
                   "additionalProperties": {}
                 }
@@ -23639,6 +26326,186 @@
         }
       }
     },
+    "/v1/sellers/me/integrations": {
+      "get": {
+        "operationId": "partner.listKeys",
+        "tags": [
+          "partner"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "key_prefix": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "key_prefix"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "webhooks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "active": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "url",
+                          "active"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "docs": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "keys",
+                    "webhooks",
+                    "docs"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/sellers/me/listings/import": {
+      "post": {
+        "operationId": "growth.importListings",
+        "tags": [
+          "growth"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "created": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "created",
+                    "ids"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string"
+                        },
+                        "unit": {
+                          "type": "string"
+                        },
+                        "price_kobo": {
+                          "type": "number"
+                        },
+                        "stock": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "title",
+                        "description",
+                        "category",
+                        "unit",
+                        "price_kobo",
+                        "stock"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "items"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sellers/me/location": {
       "patch": {
         "operationId": "geography.updateSellerLocation",
@@ -23688,6 +26555,93 @@
                 "additionalProperties": true
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/sellers/me/market-insights": {
+      "get": {
+        "operationId": "growth.marketInsights",
+        "tags": [
+          "growth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "category": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "sellers": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "listings": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "price": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "median_kobo": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "p25_kobo": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "p75_kobo": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "median_kobo",
+                            "p25_kobo",
+                            "p75_kobo"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "category",
+                    "state",
+                    "sellers",
+                    "listings",
+                    "price",
+                    "note"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
           }
         }
       }
@@ -23773,6 +26727,210 @@
                     ],
                     "additionalProperties": {}
                   }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/sellers/me/team": {
+      "get": {
+        "operationId": "growth.listTeam",
+        "tags": [
+          "growth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "seats": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "members": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "user_id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "user_id",
+                          "name",
+                          "role"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "activity": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "member_name": {
+                            "type": "string"
+                          },
+                          "method": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "member_name",
+                          "method",
+                          "path",
+                          "status"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "seats",
+                    "members",
+                    "activity",
+                    "note"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "growth.addTeamMember",
+        "tags": [
+          "growth"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "contact": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 160
+                  },
+                  "role": {
+                    "default": "STAFF",
+                    "type": "string",
+                    "enum": [
+                      "MANAGER",
+                      "STAFF"
+                    ]
+                  }
+                },
+                "required": [
+                  "contact"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sellers/me/team/{userId}": {
+      "delete": {
+        "operationId": "growth.removeTeamMember",
+        "tags": [
+          "growth"
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -23979,6 +27137,134 @@
                 ]
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/sellers/me/webhooks": {
+      "post": {
+        "operationId": "partner.createWebhook",
+        "tags": [
+          "partner"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "secret": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "secret",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "format": "uri"
+                  },
+                  "events": {
+                    "default": [
+                      "order.created",
+                      "order.status_changed"
+                    ],
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "order.created",
+                        "order.status_changed"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "url"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sellers/me/webhooks/{id}": {
+      "delete": {
+        "operationId": "partner.deleteWebhook",
+        "tags": [
+          "partner"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
           }
         }
       }
@@ -24812,6 +28098,82 @@
                       "product_clicks",
                       "bookings",
                       "completed_bookings"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/subscription-plans": {
+      "get": {
+        "operationId": "growth.listPlans",
+        "tags": [
+          "growth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "audience": {
+                        "type": "string",
+                        "enum": [
+                          "SELLER",
+                          "BUYER"
+                        ]
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "price_kobo": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "period_days": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "features": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      },
+                      "active": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "audience",
+                      "name",
+                      "description",
+                      "price_kobo",
+                      "period_days",
+                      "features",
+                      "active"
                     ],
                     "additionalProperties": {}
                   }
@@ -25664,6 +29026,19 @@
               "number",
               "null"
             ]
+          },
+          "view_count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "like_count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "liked": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -25690,7 +29065,10 @@
           "lga",
           "sponsored",
           "boost_id",
-          "distance_km"
+          "distance_km",
+          "view_count",
+          "like_count",
+          "liked"
         ],
         "additionalProperties": false
       },
@@ -27875,6 +31253,19 @@
               "number",
               "null"
             ]
+          },
+          "view_count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "like_count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "liked": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -27901,7 +31292,10 @@
           "lga",
           "sponsored",
           "boost_id",
-          "distance_km"
+          "distance_km",
+          "view_count",
+          "like_count",
+          "liked"
         ],
         "additionalProperties": false
       },

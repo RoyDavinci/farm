@@ -609,6 +609,18 @@ export const s = StyleSheet.create({
   alert: { backgroundColor: '#e1e6f5', padding: 14, borderRadius: 8 },
   alertText: { fontSize: 12, lineHeight: 19, color: '#334a90' },
   demo: { backgroundColor: '#e0e5f2', padding: 9, borderRadius: 5 },
+  acting: {
+    backgroundColor: '#fff4d6',
+    borderColor: '#e9c46a',
+    borderWidth: 1,
+    padding: 10,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  actingText: { flex: 1, color: '#5a4200', fontSize: 13, fontWeight: '600' },
+  actingSwitch: { color: '#26408f', fontWeight: '800', fontSize: 13 },
   demoText: {
     color: '#978456',
     fontSize: 8,

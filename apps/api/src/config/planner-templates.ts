@@ -950,7 +950,8 @@ export const planTemplates: PlanTemplate[] = [
   },
 ];
 
-export const templateByKey = (key: string) => planTemplates.find((t) => t.key === key);
+export const templateByKey = (key: string, list: PlanTemplate[] = planTemplates) =>
+  list.find((t) => t.key === key);
 const tierIndex: Record<Tier, number> = { BASIC: 0, STANDARD: 1, PREMIUM: 2 };
 
 /** The template's items for these answers: quantities scaled, estimates priced at the tier. */
@@ -997,12 +998,14 @@ const num = (s: string) => words[s.toLowerCase()] ?? Number(s);
  * Reads a short request such as "furnish a 2-bedroom flat with ₦5m" into form answers: the
  * template, budget, rooms and people. Anything it can't read is left for the guided form.
  */
-export function readRequest(text: string) {
+export function readRequest(text: string, list: PlanTemplate[] = planTemplates) {
   const t = text.toLowerCase().replace(/,/g, '');
-  const scored = planTemplates
+  const scored = list
     .map((p) => ({ p, score: p.match.filter((m) => t.includes(m)).length }))
     .sort((a, b) => b.score - a.score);
-  const template = scored[0]?.score ? scored[0].p : templateByKey('custom')!;
+  const template = scored[0]?.score
+    ? scored[0].p
+    : (templateByKey('custom', list) ?? templateByKey('custom')!);
   let budget_kobo: number | null = null;
   const money =
     t.match(/(?:₦|n|ngn|naira)?\s*(\d+(?:\.\d+)?)\s*(m|mil|million|k|thousand)?\b(?:\s*naira)?/g) ||

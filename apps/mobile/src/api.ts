@@ -24,6 +24,25 @@ export function onSessionExpired(handler: () => void) {
 }
 let token = '',
   refreshToken = '';
+/**
+ * Team members work on a shop by sending X-Act-As-Seller with each request. The server limits
+ * what they can do by role; if they lose access we drop back to their own account.
+ */
+let actingSeller = '';
+let actingHandler: (message: string) => void = () => {};
+export function actingAs() {
+  return actingSeller;
+}
+export async function actAsSeller(sellerId: string) {
+  actingSeller = sellerId;
+  await put('fm-act-as', sellerId);
+}
+export function onTeamAccessLost(handler: (message: string) => void) {
+  actingHandler = handler;
+  return () => {
+    actingHandler = () => {};
+  };
+}
 let refreshing: Promise<void> | null = null;
 async function put(key: string, value: string) {
   if (Platform.OS === 'web') {
@@ -66,6 +85,8 @@ export async function saveSession(data: {
   sessionEpoch++;
   token = data.token;
   refreshToken = data.refresh_token;
+  actingSeller = '';
+  await put('fm-act-as', '');
   accountId = data.user?.id || '';
   const expected = sessionEpoch;
   if (accountId) await activateCacheAccount(accountId);
@@ -74,9 +95,14 @@ export async function saveSession(data: {
 }
 export async function restoreToken() {
   const expected = sessionEpoch;
-  const restored = await Promise.all([get('fm-token'), get('fm-refresh'), get('fm-account-id')]);
+  const restored = await Promise.all([
+    get('fm-token'),
+    get('fm-refresh'),
+    get('fm-account-id'),
+    get('fm-act-as'),
+  ]);
   if (expected !== sessionEpoch) return false;
-  [token, refreshToken, accountId] = restored;
+  [token, refreshToken, accountId, actingSeller] = restored;
   if (accountId) await activateCacheAccount(accountId);
   else await forgetAll();
   return !!(token || refreshToken);
@@ -87,6 +113,8 @@ export async function saveToken(value: string) {
   sessionEpoch++;
   token = value;
   refreshToken = '';
+  actingSeller = '';
+  void put('fm-act-as', '');
   accountId = '';
   refreshing = null;
   const expected = sessionEpoch;
@@ -117,7 +145,11 @@ async function renew(expectedEpoch: number) {
 }
 async function authenticatedFetch(path: string, options: RequestInit, allowRefresh = true) {
   const expected = sessionEpoch;
-  options.headers = { ...options.headers, ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  options.headers = {
+    ...options.headers,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(actingSeller ? { 'X-Act-As-Seller': actingSeller } : {}),
+  };
   let res = await fetch(`${API_URL}${path}`, options);
   if (expected !== sessionEpoch) throw new SessionChangedError();
   if (res.status === 401 && allowRefresh && !path.startsWith('/auth/') && refreshToken) {
@@ -199,6 +231,11 @@ export async function api<T = any>(
   }
   setOffline(false);
   const d = await response.json();
+  const code = d.error?.code;
+  if (!response.ok && actingSeller && (code === 'NOT_ON_TEAM' || code === 'TEAM_PLAN_REQUIRED')) {
+    await actAsSeller('');
+    actingHandler(d.error.message);
+  }
   if (!response.ok)
     throw new ApiError(
       d.error?.message || 'Request failed.',

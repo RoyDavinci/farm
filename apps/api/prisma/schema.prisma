@@ -1590,3 +1590,179 @@ model CaseNote {
   @@index([dispute_id, created_at], map: "case_notes_dispute_idx")
   @@map("case_notes")
 }
+
+// Growth modules (migration 20261122150000). Raw-SQL tables; foreign keys live in SQL.
+model LocalStatusLike {
+  status_id  String
+  user_id    String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([status_id, user_id])
+  @@map("local_status_likes")
+}
+
+model PlanMember {
+  plan_id    String
+  user_id    String
+  /// VIEWER or EDITOR.
+  role       String
+  invited_by String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([plan_id, user_id])
+  @@index([user_id], map: "plan_members_user_idx")
+  @@map("plan_members")
+}
+
+/// Staff-edited planner templates, recipes and ingredients (override code defaults).
+model PlannerContent {
+  /// TEMPLATE, RECIPE or INGREDIENT.
+  type       String
+  key        String
+  data       Json
+  active     Boolean  @default(true)
+  updated_by String?
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([type, key])
+  @@map("planner_content")
+}
+
+model SubscriptionPlan {
+  id          String   @id
+  /// SELLER or BUYER.
+  audience    String
+  name        String
+  description String   @default("")
+  price_kobo  BigInt
+  period_days Int
+  features    Json     @default("{}")
+  active      Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id                String    @id
+  plan_id           String
+  user_id           String
+  /// PENDING_PAYMENT, ACTIVE, CANCELLED or EXPIRED.
+  status            String
+  fee_kobo          BigInt    @default(0)
+  payment_method    String    @default("proceeds")
+  payment_reference String?
+  starts_at         DateTime? @db.Timestamptz(6)
+  ends_at           DateTime? @db.Timestamptz(6)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  cancelled_at      DateTime? @db.Timestamptz(6)
+
+  @@index([user_id, status, ends_at], map: "subscriptions_user_idx")
+  @@map("subscriptions")
+}
+
+model Rfq {
+  id            String    @id
+  buyer_id      String
+  business_name String    @default("")
+  title         String
+  category      String
+  quantity      Float
+  unit          String
+  details       String    @default("")
+  state         String    @default("")
+  city          String    @default("")
+  needed_by     DateTime? @db.Date
+  budget_kobo   BigInt?
+  /// OPEN, AWARDED or CLOSED.
+  status        String    @default("OPEN")
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([status, category, created_at(sort: Desc)], map: "rfqs_open_idx")
+  @@map("rfqs")
+}
+
+model RfqQuote {
+  id            String   @id
+  rfq_id        String
+  seller_id     String
+  total_kobo    BigInt
+  delivery_days Int
+  note          String   @default("")
+  /// SUBMITTED, ACCEPTED or DECLINED.
+  status        String   @default("SUBMITTED")
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([rfq_id, seller_id])
+  @@map("rfq_quotes")
+}
+
+model SellerTeamMember {
+  seller_id String
+  user_id   String
+  /// MANAGER or STAFF.
+  role      String
+  added_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([seller_id, user_id])
+  @@map("seller_team_members")
+}
+
+model PartnerApiKey {
+  id           String    @id
+  seller_id    String
+  name         String
+  key_prefix   String
+  key_hash     String    @unique
+  scopes       String[]  @default([])
+  created_by   String?
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  last_used_at DateTime? @db.Timestamptz(6)
+  revoked_at   DateTime? @db.Timestamptz(6)
+
+  @@map("partner_api_keys")
+}
+
+model PartnerWebhook {
+  id         String   @id
+  seller_id  String
+  url        String
+  secret     String
+  events     String[] @default([])
+  active     Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("partner_webhooks")
+}
+
+model PartnerWebhookDelivery {
+  id              String    @id
+  webhook_id      String
+  event           String
+  payload         Json
+  /// PENDING, SENT or FAILED.
+  status          String    @default("PENDING")
+  attempts        Int       @default(0)
+  last_error      String?
+  next_attempt_at DateTime  @default(now()) @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  sent_at         DateTime? @db.Timestamptz(6)
+
+  @@index([status, next_attempt_at], map: "partner_webhook_deliveries_due_idx")
+  @@map("partner_webhook_deliveries")
+}
+
+/// What team members changed on a shop account.
+model TeamActivity {
+  id         String   @id
+  seller_id  String
+  member_id  String
+  role       String
+  method     String
+  path       String
+  status     Int
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([seller_id, created_at(sort: Desc)], map: "team_activity_seller_idx")
+  @@map("team_activity")
+}
