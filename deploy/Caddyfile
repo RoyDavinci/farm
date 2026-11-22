@@ -19,7 +19,14 @@
 	file_server
 }
 
-# The bare domain and www send people to the web app.
+# The bare domain serves the landing page (apps/landing); www redirects to it.
 {$ROOT_HOSTS} {
-	redir https://{$APP_HOST}{uri}
+	root * /srv/landing
+	encode gzip
+	header /assets/* Cache-Control "public, max-age=604800"
+	file_server
+}
+
+{$WWW_HOSTS} {
+	redir https://{$ROOT_HOST}{uri} permanent
 }

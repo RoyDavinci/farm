@@ -2,17 +2,18 @@
 
 One EC2 server in London (eu-west-2) runs the whole test environment in Docker, in pilot mode.
 
-| What           | Address                                         |
-| -------------- | ----------------------------------------------- |
-| API            | https://api.ahiamarketplace.com/v1              |
-| Admin console  | https://admin.ahiamarketplace.com               |
-| Mobile web app | https://app.ahiamarketplace.com                 |
-| Health         | https://api.ahiamarketplace.com/health/ready    |
-| Site           | https://ahiamarketplace.com (redirects to app.) |
+| What           | Address                                      |
+| -------------- | -------------------------------------------- |
+| API            | https://api.ahiamarketplace.com/v1           |
+| Admin console  | https://admin.ahiamarketplace.com            |
+| Mobile web app | https://app.ahiamarketplace.com              |
+| Health         | https://api.ahiamarketplace.com/health/ready |
+| Landing page   | https://ahiamarketplace.com (www redirects)  |
 
 The domain is `DOMAIN` in `deploy/aws-test.env`; Caddy gets Let's Encrypt certificates for each address
 automatically (renewed automatically). The old `api.`, `admin.` and `app.35-177-195-6.sslip.io`
-addresses keep working, so app builds made before the switch still connect.
+addresses keep working, so app builds made before the switch still connect. The landing page is the
+static site in `apps/landing` (plain HTML and CSS, no build step).
 
 DNS (at Hostinger, the registrar): A records for `@`, `www`, `api`, `admin` and `app`, all pointing at
 `35.177.195.6`. `deploy/deploy.sh` refuses to release until all five resolve to the server, because

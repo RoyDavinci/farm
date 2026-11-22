@@ -74,7 +74,8 @@ services:
       ADMIN_HOSTS: ${ADMIN_HOSTS:?}
       APP_HOSTS: ${APP_HOSTS:?}
       ROOT_HOSTS: ${ROOT_HOSTS:?}
-      APP_HOST: ${APP_HOST:?}
+      ROOT_HOST: ${ROOT_HOST:?}
+      WWW_HOSTS: ${WWW_HOSTS:?}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./sites:/srv:ro

@@ -10,10 +10,11 @@ SSLIP="${PUBLIC_IP//./-}.sslip.io"
 HOST_SUFFIX="${DOMAIN:-$SSLIP}"
 API_URL="https://api.$HOST_SUFFIX/v1"
 if [[ $HOST_SUFFIX == $SSLIP ]]; then
-  API_HOSTS="api.$SSLIP" ADMIN_HOSTS="admin.$SSLIP" APP_HOSTS="app.$SSLIP" ROOT_HOSTS="www.$SSLIP"
+  API_HOSTS="api.$SSLIP" ADMIN_HOSTS="admin.$SSLIP" APP_HOSTS="app.$SSLIP"
+  ROOT_HOSTS="www.$SSLIP" ROOT_HOST="www.$SSLIP" WWW_HOSTS="home.$SSLIP"
 else
   API_HOSTS="api.$DOMAIN, api.$SSLIP" ADMIN_HOSTS="admin.$DOMAIN, admin.$SSLIP"
-  APP_HOSTS="app.$DOMAIN, app.$SSLIP" ROOT_HOSTS="$DOMAIN, www.$DOMAIN"
+  APP_HOSTS="app.$DOMAIN, app.$SSLIP" ROOT_HOSTS="$DOMAIN" ROOT_HOST="$DOMAIN" WWW_HOSTS="www.$DOMAIN"
   # Let's Encrypt can only issue certificates once every name points at this server.
   for h in $DOMAIN www.$DOMAIN api.$DOMAIN admin.$DOMAIN app.$DOMAIN; do
     got=$(dig +short A $h | tail -1)
@@ -30,6 +31,7 @@ echo "▸ Waiting for the server to finish its first-boot setup"
 until "${SSH[@]}" 'test -f /var/lib/zuru-ready && docker info >/dev/null 2>&1' 2>/dev/null; do sleep 5; done
 
 echo "▸ Building the admin console and the mobile web app"
+cp -R apps/landing $BUILD/sites/landing
 VITE_API_URL=$API_URL npm run build -w @ahia/admin >/dev/null
 cp -R apps/admin/dist $BUILD/sites/admin
 (cd apps/mobile && EXPO_PUBLIC_API_URL=$API_URL npx expo export --platform web --output-dir ../../$BUILD/sites/web >/dev/null)
@@ -60,7 +62,8 @@ echo "▸ Uploading configuration and sites"
   echo "ADMIN_HOSTS=$ADMIN_HOSTS"
   echo "APP_HOSTS=$APP_HOSTS"
   echo "ROOT_HOSTS=$ROOT_HOSTS"
-  echo "APP_HOST=app.$HOST_SUFFIX"
+  echo "ROOT_HOST=$ROOT_HOST"
+  echo "WWW_HOSTS=$WWW_HOSTS"
   grep -E '^POSTGRES_PASSWORD=' deploy/.env.test
 } > $BUILD/.env
 chmod 600 $BUILD/api.env $BUILD/.env
@@ -88,4 +91,4 @@ echo
 echo "API:    https://api.$HOST_SUFFIX/v1"
 echo "Admin:  https://admin.$HOST_SUFFIX"
 echo "Web:    https://app.$HOST_SUFFIX"
-[[ $HOST_SUFFIX == $SSLIP ]] || echo "Site:   https://$DOMAIN (redirects to the web app)"
+[[ $HOST_SUFFIX == $SSLIP ]] || echo "Site:   https://$DOMAIN (landing page)"
