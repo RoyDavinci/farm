@@ -147,7 +147,7 @@ function Main() {
       setMe(m.user);
       setSeller(m.seller);
       setBookings(o);
-      if (w) setWallet(w);
+      setWallet(w ?? { balance_kobo: 0, seller_payable_kobo: 0, entries: [], funding: [] });
       setSettings(st);
       setMine(own);
       refreshCart();

@@ -1729,6 +1729,7 @@ describe('security and configuration', () => {
       .set('Access-Control-Request-Method', 'POST')
       .set('Access-Control-Request-Headers', 'idempotency-key,authorization');
     expect(preflight.headers['access-control-allow-headers']).toContain('Idempotency-Key');
+    expect(preflight.headers['access-control-allow-headers']).toContain('X-Act-As-Seller');
   });
   it('refuses unsafe production configuration', async () => {
     const { productionProblems, readEnv } = await import('../src/config/env.js');

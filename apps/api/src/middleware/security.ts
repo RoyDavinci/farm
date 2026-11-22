@@ -44,7 +44,14 @@ export function corsPolicy(c: Config): RequestHandler {
       cb(null, !origin || c.origins.includes(origin));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key', 'X-Request-Id'],
+    allowedHeaders: [
+      'Authorization',
+      'Content-Type',
+      'Idempotency-Key',
+      'X-Request-Id',
+      // Team members working on a shop account (middleware/authenticate.ts).
+      'X-Act-As-Seller',
+    ],
     exposedHeaders: ['X-Request-Id', 'RateLimit', 'RateLimit-Policy', 'Retry-After'],
     credentials: false,
     maxAge: 600,

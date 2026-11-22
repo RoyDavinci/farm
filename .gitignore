@@ -24,3 +24,6 @@ apps/mobile/GoogleService-Info.plist
 # Demo catalogue photos (downloaded, not committed)
 deploy/demo/photos/
 deploy/demo/ads/
+
+# Recorded app walkthroughs (large videos)
+walkthrough/
