@@ -7,6 +7,8 @@ export function plannerRoutes(deps: AppDeps) {
   const r = Router();
   const c = createPlannerController(deps);
   r.get('/planner/templates', c.listTemplates);
+  r.get('/planner/templates/:template/wizard', c.getWizard);
+  r.post('/planner/preview', c.previewPlan);
   r.get('/planner/recipes', c.listRecipes);
   r.post('/planner/read', c.readText);
   r.get('/planner/diet-profile', c.getDietProfile);
@@ -18,6 +20,9 @@ export function plannerRoutes(deps: AppDeps) {
   r.patch('/plans/:id', c.updatePlan);
   r.delete('/plans/:id', c.deletePlan);
   r.post('/plans/:id/duplicate', c.duplicatePlan);
+  r.put('/plans/:id/answers', c.changeAnswers);
+  r.post('/plans/:id/fill-cart', c.fillCart);
+  r.post('/plans/:id/repeat', c.repeatPlan);
   r.get('/plans/:id/members', c.listMembers);
   r.post('/plans/:id/members', c.shareWith);
   r.delete('/plans/:id/members/:userId', c.removeMember);
@@ -27,6 +32,7 @@ export function plannerRoutes(deps: AppDeps) {
   r.get('/plans/:id/items/:itemId/matches', c.matches);
   r.post('/plans/:id/meals', c.addMeal);
   r.delete('/plans/:id/meals/:mealId', c.removeMeal);
+  r.post('/plans/:id/meals/:mealId/swap', c.swapMeal);
   r.post('/plans/:id/grocery-list', c.buildGroceryList);
   return r;
 }

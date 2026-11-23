@@ -142,7 +142,7 @@ export function createCartService(deps: AppDeps) {
     );
     if (planItem)
       await q.query(
-        "UPDATE plan_items SET listing_id=$1,variant_id=$2,status=CASE WHEN status IN ('PLANNED','UNAVAILABLE') THEN 'SAVED' ELSE status END,updated_at=now() WHERE id=$3",
+        "UPDATE plan_items SET listing_id=$1,variant_id=$2,status=CASE WHEN status IN ('PLANNED','UNAVAILABLE') THEN 'SAVED' ELSE status END,linked_price_kobo=CASE WHEN variant_id IS DISTINCT FROM $2 THEN (SELECT price_kobo FROM listing_variants WHERE id=$2) ELSE linked_price_kobo END,updated_at=now() WHERE id=$3",
         [l.id, variant.id, planItem],
       );
     return { id: line.id as string, quantity: line.quantity as number };

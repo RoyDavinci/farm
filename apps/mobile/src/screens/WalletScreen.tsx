@@ -6,6 +6,7 @@ import { describeFunding, startCheckout, type FundingRow, type PaymentProvider }
 import { featureOn } from '../features';
 import { useI18n } from '../i18n';
 import PayoutPanel from '../PayoutPanel';
+import { TransactionPinCard } from '../TransactionPin';
 import { request } from '../request';
 import { Badge, Button, Chip, Field, s } from '../ui';
 
@@ -155,6 +156,7 @@ export default function WalletScreen({ wallet }: { wallet: WalletData }) {
           />
         </>
       )}
+      <TransactionPinCard />
       {settings?.payment_mode === 'disabled' && (
         <Text style={s.body}>Wallet funding is not enabled on this server.</Text>
       )}

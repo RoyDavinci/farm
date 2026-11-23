@@ -45,6 +45,7 @@ export const Me = z
   .looseObject({
     user: User,
     seller: Seller.nullable(),
+    transaction_pin_set: z.boolean().optional(),
     staff_areas: z.array(z.string()).optional(),
   })
   .meta({ id: 'Me' });

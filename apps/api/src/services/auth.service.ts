@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { hashPin, transactionPin } from './transaction-pin.service.js';
 import {
   createHash,
   createHmac,
@@ -179,7 +180,9 @@ export function createAuthService(deps: AppDeps) {
   }
   /** Starts registration: validates details and emails a verification code (no account yet). */
   async function register(input: RequestInput) {
-    const d = profile.extend({ email, password }).parse(input.body);
+    const d = profile
+      .extend({ email, password, transaction_pin: transactionPin.optional() })
+      .parse(input.body);
     const [existing] = await db.query('SELECT id FROM users WHERE email=$1 OR phone=$2', [
       d.email,
       d.phone,
@@ -190,6 +193,7 @@ export function createAuthService(deps: AppDeps) {
       name: d.name,
       phone: d.phone,
       password_hash,
+      transaction_pin_hash: d.transaction_pin ? await hashPin(d.transaction_pin) : null,
     });
   }
   /**
@@ -306,8 +310,15 @@ export function createAuthService(deps: AppDeps) {
       let u: any;
       if (otp.purpose === 'register') {
         [u] = await q.query(
-          'INSERT INTO users(id,name,email,phone,password_hash,email_verified_at) VALUES($1,$2,$3,$4,$5,now()) RETURNING *',
-          [randomUUID(), otp.payload.name, otp.email, otp.payload.phone, otp.payload.password_hash],
+          'INSERT INTO users(id,name,email,phone,password_hash,transaction_pin_hash,email_verified_at) VALUES($1,$2,$3,$4,$5,$6,now()) RETURNING *',
+          [
+            randomUUID(),
+            otp.payload.name,
+            otp.email,
+            otp.payload.phone,
+            otp.payload.password_hash,
+            otp.payload.transaction_pin_hash ?? null,
+          ],
         );
       } else {
         [u] = await q.query(

@@ -83,6 +83,14 @@ export const operationResponses: Record<string, z.ZodType> = {
   'account.revokeSession': z.looseObject({
     ok: z.boolean(),
   }),
+  'account.getTransactionPin': z.looseObject({
+    set: z.boolean(),
+    locked_until: z.string().nullable(),
+  }),
+  'account.setTransactionPin': z.looseObject({
+    set: z.boolean(),
+    locked_until: z.string().nullable(),
+  }),
   'account.updateMe': z.looseObject({
     admin: z.boolean(),
     email: z.string(),

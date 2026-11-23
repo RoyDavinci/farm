@@ -17,10 +17,14 @@ import { expireReservations } from '../src/services/booking.service.js';
 import { recoverFunding } from '../src/services/funding-recovery.service.js';
 import { deliverPush } from '../src/services/push.service.js';
 import { deliverPartnerWebhooks } from '../src/services/partner.service.js';
+import { clearMarketCache, plannerReminders } from '../src/services/planner-wizard.service.js';
 /**
  * Every JSON response is recorded and checked against the published response schemas by the
  * last test. With CONTRACT_CAPTURE=<file> the recordings are also written out (to derive schemas).
  */
+/** Every test user's transaction PIN. */
+const PIN = '2580';
+const pinHash = bcrypt.hashSync(PIN, 4);
 const captures: { method: string; path: string; status: number; body: unknown }[] = [];
 function createApp(...args: Parameters<typeof buildApp>) {
   const inner = buildApp(...args);
@@ -122,6 +126,17 @@ beforeEach(async () => {
           actor === 'admin' ? 'owner' : null,
         ],
       );
+      await q.query('UPDATE users SET transaction_pin_hash=$1 WHERE id=$2', [pinHash, actor]);
+      // Sellers and riders are approved only with a selfie on file.
+      for (const [subject, kind] of [
+        ['seller', 'selfie'],
+        ['driver', 'selfie'],
+        ['driver', 'drivers_licence'],
+      ])
+        await q.query(
+          "INSERT INTO seller_documents(id,seller_id,kind,filename,mime_type,storage_provider,storage_key,subject) VALUES($1,$2,$3,'photo.webp','image/webp','local',$1,$4)",
+          [`${kind}-${subject}-${actor}`, actor, kind, subject],
+        );
       await q.query('INSERT INTO sessions VALUES($1,$2,$3)', [
         createHash('sha256').update(`token-${actor}`).digest('hex'),
         actor,
@@ -131,6 +146,7 @@ beforeEach(async () => {
   });
 });
 afterEach(() => vi.unstubAllGlobals());
+
 /** Reads the code from the newest development email (file mail mode). */
 function latestCode() {
   const folder = join(mailDir, 'mail');
@@ -198,8 +214,16 @@ describe('seller registration to pickup confirmation', () => {
       email: 'NEW@TEST.COM',
       phone: '+2348091234567',
       password: 'correct-horse-123',
+      transaction_pin: '4826',
       admin: true,
     };
+    expect(
+      (
+        await request(app)
+          .post('/v1/auth/register')
+          .send({ ...data, transaction_pin: '1234' })
+      ).status,
+    ).toBe(400);
     const reg = await request(app).post('/v1/auth/register').send(data);
     expect(reg.status).toBe(202);
     expect(reg.body.code).toBeUndefined();
@@ -214,6 +238,10 @@ describe('seller registration to pickup confirmation', () => {
     expect(verified.body.user.admin).toBe(false);
     expect(verified.body.user.email).toBe('new@test.com');
     expect(verified.body.user.password_hash).toBeUndefined();
+    const [pinRow] = await db.query('SELECT transaction_pin_hash FROM users WHERE email=$1', [
+      'new@test.com',
+    ]);
+    expect(await bcrypt.compare('4826', pinRow.transaction_pin_hash)).toBe(true);
     // Skip the one-minute resend cooldown for the sign-in code.
     await db.query("UPDATE otp_challenges SET sent_at=now()-interval '2 minutes'");
     const challenge = await request(app)
@@ -600,7 +628,17 @@ describe('seller payouts', () => {
       earner: false,
       wallet_kobo: expect.any(Number),
     });
+    expect(
+      (
+        await as(sim, 'seller', 'post', '/payouts/accounts', {
+          transaction_pin: '9999',
+          bank_code: '058',
+          account_number: '0123456789',
+        })
+      ).body.error.code,
+    ).toBe('INVALID_TRANSACTION_PIN');
     const account = await as(sim, 'seller', 'post', '/payouts/accounts', {
+      transaction_pin: PIN,
       bank_code: '058',
       account_number: '0123456789',
     });
@@ -611,15 +649,23 @@ describe('seller payouts', () => {
     expect(stored.account_cipher).not.toContain('0123456789');
     expect((await as(sim, 'seller', 'get', '/payouts')).body.available_kobo).toBe(190000);
     expect(
-      (await as(sim, 'seller', 'post', '/payouts', { amount_kobo: 190001 })).body.error.code,
+      (await as(sim, 'seller', 'post', '/payouts', { transaction_pin: PIN, amount_kobo: 190001 }))
+        .body.error.code,
     ).toBe('INSUFFICIENT_PROCEEDS');
-    expect((await as(sim, 'seller', 'post', '/payouts', { amount_kobo: 5000 })).status).toBe(400);
-    const payout = await as(sim, 'seller', 'post', '/payouts', { amount_kobo: 150000 });
+    expect(
+      (await as(sim, 'seller', 'post', '/payouts', { transaction_pin: PIN, amount_kobo: 5000 }))
+        .status,
+    ).toBe(400);
+    const payout = await as(sim, 'seller', 'post', '/payouts', {
+      transaction_pin: PIN,
+      amount_kobo: 150000,
+    });
     expect(payout.status).toBe(200);
     expect((await as(sim, 'seller', 'get', '/payouts')).body.available_kobo).toBe(40000);
     expect(
       (
         await as(sim, 'seller', 'post', '/payouts/accounts', {
+          transaction_pin: PIN,
           bank_code: '044',
           account_number: '1111111111',
         })
@@ -647,17 +693,25 @@ describe('seller payouts', () => {
       [randomUUID(), randomUUID(), randomUUID()],
     );
     expect(
-      (await as(sim, 'buyer', 'post', '/payouts', { amount_kobo: 150000 })).body.error.code,
+      (await as(sim, 'buyer', 'post', '/payouts', { transaction_pin: PIN, amount_kobo: 150000 }))
+        .body.error.code,
     ).toBe('SELLER_NOT_APPROVED');
     await as(sim, 'buyer', 'post', '/payouts/accounts', {
+      transaction_pin: PIN,
       bank_code: '058',
       account_number: '0123456789',
     });
     expect(
-      (await as(sim, 'buyer', 'post', '/payouts', { amount_kobo: 300001, source: 'wallet' })).body
-        .error.code,
+      (
+        await as(sim, 'buyer', 'post', '/payouts', {
+          transaction_pin: PIN,
+          amount_kobo: 300001,
+          source: 'wallet',
+        })
+      ).body.error.code,
     ).toBe('INSUFFICIENT_PROCEEDS');
     const payout = await as(sim, 'buyer', 'post', '/payouts', {
+      transaction_pin: PIN,
       amount_kobo: 200000,
       source: 'wallet',
     });
@@ -666,6 +720,7 @@ describe('seller payouts', () => {
     await as(sim, 'buyer', 'post', `/payouts/${payout.body.id}/cancel`);
     expect((await as(sim, 'buyer', 'get', '/payouts')).body.wallet_kobo).toBe(300000);
     const again = await as(sim, 'buyer', 'post', '/payouts', {
+      transaction_pin: PIN,
       amount_kobo: 200000,
       source: 'wallet',
     });
@@ -679,10 +734,14 @@ describe('seller payouts', () => {
     await completedSale();
     const sim = simulated();
     await as(sim, 'seller', 'post', '/payouts/accounts', {
+      transaction_pin: PIN,
       bank_code: '058',
       account_number: '0123456789',
     });
-    const first = await as(sim, 'seller', 'post', '/payouts', { amount_kobo: 100000 });
+    const first = await as(sim, 'seller', 'post', '/payouts', {
+      transaction_pin: PIN,
+      amount_kobo: 100000,
+    });
     expect(
       (
         await as(sim, 'admin', 'post', `/admin/payouts/${first.body.id}/reject`, {
@@ -690,7 +749,10 @@ describe('seller payouts', () => {
         })
       ).body.status,
     ).toBe('REJECTED');
-    const second = await as(sim, 'seller', 'post', '/payouts', { amount_kobo: 190000 });
+    const second = await as(sim, 'seller', 'post', '/payouts', {
+      transaction_pin: PIN,
+      amount_kobo: 190000,
+    });
     expect((await as(sim, 'seller', 'post', `/payouts/${second.body.id}/cancel`)).status).toBe(200);
     expect((await as(sim, 'seller', 'get', '/payouts')).body.available_kobo).toBe(190000);
     expect(await ledgerBalances()).toBe(0);
@@ -740,10 +802,12 @@ describe('seller payouts', () => {
   async function providerPayout() {
     await completedSale();
     await call('seller', 'post', '/payouts/accounts', {
+      transaction_pin: PIN,
       bank_code: '058',
       account_number: '0123456789',
     });
-    return (await call('seller', 'post', '/payouts', { amount_kobo: 150000 })).body.id as string;
+    return (await call('seller', 'post', '/payouts', { transaction_pin: PIN, amount_kobo: 150000 }))
+      .body.id as string;
   }
   const payoutRow = async (id: string) =>
     (await db.query('SELECT * FROM payouts WHERE id=$1', [id]))[0];
@@ -1186,6 +1250,20 @@ describe('delivery network', () => {
     expect(
       (await call('buyer', 'post', `/bookings/${b}/pickup`, { code: '123456' })).body.error.code,
     ).toBe('DELIVERY_IN_PROGRESS');
+    // The rider checks the goods before the seller may hand them over.
+    expect(
+      (
+        await call('seller', 'post', `/deliveries/${delivery.body.id}/handover`, {
+          pin: claim.body.pickup_pin,
+        })
+      ).body.error.code,
+    ).toBe('RIDER_CHECK_REQUIRED');
+    const checked = await call('other', 'post', `/deliveries/${delivery.body.id}/check`, {
+      note: 'Tomatoes fresh, 2 kg',
+    });
+    expect(checked.body.rider_checked_at).toBeTruthy();
+    // Prepaid: the buyer's money is already in escrow, so the rider fronts nothing.
+    expect(Number(checked.body.rider_fronted_kobo)).toBe(0);
     expect(
       (await call('seller', 'post', `/deliveries/${delivery.body.id}/handover`, { pin: '000000' }))
         .status,
@@ -1197,6 +1275,8 @@ describe('delivery network', () => {
         })
       ).body.status,
     ).toBe('PICKED_UP');
+    // Rider checked + seller confirmed: escrow is released to the seller at handover.
+    expect((await call('seller', 'get', '/payouts')).body.available_kobo).toBe(190000);
     await call('other', 'put', '/drivers/me/status', {
       online: true,
       latitude: 6.58,
@@ -1216,7 +1296,7 @@ describe('delivery network', () => {
     expect((await call('other', 'get', '/payouts')).body.available_kobo).toBe(earnings);
     expect(await ledgerBalances()).toBe(0);
   });
-  it('supports digital Pay on Delivery only when enabled and refunds fares on cancellation', async () => {
+  it('lets the rider pay the seller into escrow and the buyer pay on delivery', async () => {
     const { b, quote } = await readyForDelivery(false);
     const body = {
       vehicle_type: 'motorcycle',
@@ -1225,6 +1305,7 @@ describe('delivery network', () => {
       expected_fare_kobo: quote.fare_kobo,
       pay_on_delivery: true,
     };
+    await db.query('UPDATE settings SET pay_on_delivery_enabled=FALSE');
     expect((await call('buyer', 'post', `/bookings/${b}/delivery`, body)).body.error.code).toBe(
       'POD_DISABLED',
     );
@@ -1232,9 +1313,22 @@ describe('delivery network', () => {
     const d = await call('buyer', 'post', `/bookings/${b}/delivery`, body);
     expect(d.body.fare_paid).toBe(false);
     const claim = await call('other', 'post', `/deliveries/${d.body.id}/claim`);
-    await call('seller', 'post', `/deliveries/${d.body.id}/handover`, {
-      pin: claim.body.pickup_pin,
-    });
+    // The rider needs the item price in their wallet to pay the seller.
+    expect((await call('other', 'post', `/deliveries/${d.body.id}/check`)).body.error.code).toBe(
+      'INSUFFICIENT_BALANCE',
+    );
+    await call('other', 'post', '/wallet/demo-fund', { amount_kobo: 500000 });
+    const checked = await call('other', 'post', `/deliveries/${d.body.id}/check`);
+    expect(Number(checked.body.rider_fronted_kobo)).toBe(200000);
+    expect((await call('other', 'get', '/wallet')).body.balance_kobo).toBe(300000);
+    expect(
+      (
+        await call('seller', 'post', `/deliveries/${d.body.id}/handover`, {
+          pin: claim.body.pickup_pin,
+        })
+      ).body.status,
+    ).toBe('PICKED_UP');
+    expect((await call('seller', 'get', '/payouts')).body.available_kobo).toBe(190000);
     expect(
       (await call('other', 'post', `/deliveries/${d.body.id}/deliver`, { pin: '111111' })).body
         .error.code,
@@ -1243,13 +1337,33 @@ describe('delivery network', () => {
       (await call('buyer', 'get', `/bookings/${b}/delivery`)).body.delivery_pin,
     ).toBeUndefined();
     expect((await call('buyer', 'post', `/deliveries/${d.body.id}/pay`)).status).toBe(200);
+    // The buyer's payment repays the rider.
+    expect((await call('other', 'get', '/wallet')).body.balance_kobo).toBe(500000);
     const pinNow = (await call('buyer', 'get', `/bookings/${b}/delivery`)).body.delivery_pin;
     expect(
       (await call('other', 'post', `/deliveries/${d.body.id}/deliver`, { pin: pinNow })).body
         .status,
     ).toBe('DELIVERED');
+    // Seller was paid once, at handover.
+    expect((await call('seller', 'get', '/payouts')).body.available_kobo).toBe(190000);
     expect(await ledgerBalances()).toBe(0);
-    await db.query('UPDATE settings SET pay_on_delivery_enabled=FALSE');
+  });
+  it('returns the rider’s escrow money when the order is cancelled before collection', async () => {
+    const { b, quote } = await readyForDelivery(false);
+    const d = await call('buyer', 'post', `/bookings/${b}/delivery`, {
+      vehicle_type: 'motorcycle',
+      dropoff: drop,
+      dropoff_address: '14 Allen Avenue, Ikeja',
+      expected_fare_kobo: quote.fare_kobo,
+      pay_on_delivery: true,
+    });
+    await call('other', 'post', `/deliveries/${d.body.id}/claim`);
+    await call('other', 'post', '/wallet/demo-fund', { amount_kobo: 500000 });
+    await call('other', 'post', `/deliveries/${d.body.id}/check`);
+    expect((await call('other', 'get', '/wallet')).body.balance_kobo).toBe(300000);
+    expect((await call('buyer', 'post', `/bookings/${b}/cancel`)).status).toBe(200);
+    expect((await call('other', 'get', '/wallet')).body.balance_kobo).toBe(500000);
+    expect(await ledgerBalances()).toBe(0);
   });
   it('refunds a prepaid fare when the booking is cancelled before collection', async () => {
     const { b, quote } = await readyForDelivery();
@@ -2215,6 +2329,307 @@ describe('smart planner', () => {
   });
 });
 
+describe('step-by-step planner', () => {
+  const preview = (template: string, answers: any = {}, budget_kobo?: number) =>
+    call('buyer', 'post', '/planner/preview', { template, answers, budget_kobo });
+  it('asks guided questions for every plan type and fits the list to the budget', async () => {
+    const templates = (await call('buyer', 'get', '/planner/templates')).body;
+    const guided = templates.filter((t: any) => t.wizard).map((t: any) => t.key);
+    expect(guided).toEqual(
+      expect.arrayContaining([
+        'groceries',
+        'meal-plan',
+        'kitchen-utensils',
+        'household',
+        'home-setup',
+        'wedding',
+        'party',
+        'office-setup',
+        'back-to-school',
+      ]),
+    );
+    for (const key of guided) {
+      const w = (await call('buyer', 'get', `/planner/templates/${key}/wizard`)).body;
+      expect(w.steps.length).toBeGreaterThanOrEqual(5);
+      const p = (await preview(key, w.defaults)).body;
+      expect(p.total_kobo).toBeGreaterThan(0);
+      expect(p.have_options.length).toBeGreaterThan(0);
+      // A tight budget is met by trimming, or the shortfall is reported.
+      const tight = (await preview(key, w.defaults, Math.round(p.total_kobo * 0.7))).body;
+      expect(tight.total_kobo).toBeLessThanOrEqual(p.total_kobo);
+      if (tight.fits) expect(tight.total_kobo).toBeLessThanOrEqual(Math.round(p.total_kobo * 0.7));
+    }
+    expect((await call('buyer', 'get', '/planner/templates/custom/wizard')).status).toBe(404);
+  });
+  it('sizes a plan from the answers and leaves out what you already have', async () => {
+    const small = (await preview('home-setup', { bedrooms: 1, rooms: ['bedroom'] })).body;
+    const big = (await preview('home-setup', { bedrooms: 3, rooms: ['bedroom'] })).body;
+    expect(big.total_kobo).toBeGreaterThan(small.total_kobo);
+    // Answers switch whole sections on: AC only when picked.
+    const names = (p: any) => p.lines.map((l: any) => l.name);
+    expect(names(small)).not.toContain('Bedroom air conditioners (1 hp)');
+    const cool = (await preview('home-setup', { rooms: ['bedroom'], comfort: ['ac'] })).body;
+    expect(names(cool)).toContain('Bedroom air conditioners (1 hp)');
+    const created = await call('buyer', 'post', '/plans', {
+      template: 'home-setup',
+      answers: { bedrooms: 2, rooms: ['living', 'bedroom'], have: ['Mattress'], quality: 'BASIC' },
+      budget_kobo: 300000000,
+    });
+    expect(created.body).toMatchObject({ fits: true, budget_kobo: 300000000 });
+    const plan = (await call('buyer', 'get', `/plans/${created.body.id}`)).body;
+    expect(plan).toMatchObject({ tier: 'BASIC', rooms: 2 });
+    const mattress = plan.items.find((i: any) => i.name === 'Mattress');
+    expect(mattress.status).toBe('OWNED');
+    expect(plan.items.find((i: any) => i.name === 'Bed frame').quantity).toBe(2);
+    expect(plan.summary.estimate_kobo).toBe(created.body.total_kobo);
+  });
+  it('plans meals for chosen days, avoids dislikes and swaps a dish', async () => {
+    const answers = {
+      adults: 2,
+      kids: 1,
+      days: ['MON', 'WED', 'FRI'],
+      meals: ['BREAKFAST', 'DINNER'],
+      kitchen: ['blender', 'gas'],
+      dislikes: ['beef', 'eggs'],
+      have: ['salt', 'veg_oil'],
+    };
+    const p = (await preview('meal-plan', answers)).body;
+    expect(new Set(p.meals.map((m: any) => m.day))).toEqual(new Set([1, 3, 5]));
+    expect(p.meals.every((m: any) => ['BREAKFAST', 'DINNER'].includes(m.meal))).toBe(true);
+    expect(p.lines.some((l: any) => l.key === 'beef' || l.key === 'eggs')).toBe(false);
+    expect(p.lines.find((l: any) => l.key === 'salt')?.have).toBe(true);
+    const created = (await call('buyer', 'post', '/plans', { template: 'meal-plan', answers }))
+      .body;
+    const plan = (await call('buyer', 'get', `/plans/${created.id}`)).body;
+    expect(plan.meals.length).toBe(p.meals.length);
+    expect(plan.answers.days).toEqual(['MON', 'WED', 'FRI']);
+    expect(plan.items.find((i: any) => i.ingredient_key === 'salt')?.status).toBe('OWNED');
+    const first = plan.meals.find((m: any) => m.meal === 'DINNER');
+    const swapped = await call('buyer', 'post', `/plans/${created.id}/meals/${first.id}/swap`, {});
+    expect(swapped.body.recipe).not.toBe(first.recipe);
+    const after = (await call('buyer', 'get', `/plans/${created.id}`)).body;
+    expect(after.meals.find((m: any) => m.id === first.id).recipe).toBe(swapped.body.recipe);
+  });
+});
+describe('planner extras', () => {
+  /** Three approved sellers each selling rice by the kg. */
+  async function riceSellers() {
+    for (const [actor, naira] of [
+      ['seller', 1500],
+      ['other', 2000],
+      ['admin', 2600],
+    ] as const) {
+      await call(actor, 'post', '/sellers', {
+        business_name: `${actor} stores`,
+        business_type: 'home_based',
+        city: 'Lagos',
+        area: 'Ikorodu',
+        address: 'PRIVATE 1 Market Road',
+      });
+      await call('admin', 'post', `/admin/sellers/${actor}/review`, {
+        status: 'APPROVED',
+        reason: 'Checked',
+      });
+      const l = await call(actor, 'post', '/listings', {
+        title: 'Local rice',
+        description: 'Clean stone-free local rice',
+        category: 'Grains',
+        unit: 'kg',
+        price_kobo: naira * 100,
+        stock: 100,
+      });
+      expect(l.status).toBe(200);
+    }
+    clearMarketCache();
+  }
+  const riceOnly = {
+    adults: 2,
+    kids: 0,
+    duration: 'month',
+    staples: ['rice'],
+    protein: [],
+    extras: [],
+  };
+  it('prices items from Ahia sellers and fills the cart with the whole plan', async () => {
+    await riceSellers();
+    const p = (
+      await call('buyer', 'post', '/planner/preview', { template: 'groceries', answers: riceOnly })
+    ).body;
+    const rice = p.lines.find((l: any) => l.name === 'Rice');
+    expect(rice).toMatchObject({ price_source: 'MARKET', sellers: 3 });
+    // Standard quality uses the middle seller price: 8 kg × ₦2,000.
+    expect(rice.kobo).toBe(8 * 2000 * 100);
+    expect(p.market_count).toBeGreaterThanOrEqual(1);
+    const plan = (
+      await call('buyer', 'post', '/plans', { template: 'groceries', answers: riceOnly })
+    ).body;
+    const filled = (await call('buyer', 'post', `/plans/${plan.id}/fill-cart`, {})).body;
+    expect(filled.added).toBeGreaterThanOrEqual(1);
+    expect(filled.missing.length).toBeGreaterThan(0);
+    const cart = (await call('buyer', 'get', '/cart')).body;
+    expect(JSON.stringify(cart)).toContain('Local rice');
+    const detail = (await call('buyer', 'get', `/plans/${plan.id}`)).body;
+    const linked = detail.items.find((i: any) => i.name === 'Rice');
+    expect(linked.status).toBe('SAVED');
+    // A price drop on the chosen product is announced once.
+    await db.query('UPDATE listing_variants SET price_kobo=price_kobo/2 WHERE listing_id=$1', [
+      linked.listing.listing_id,
+    ]);
+    await plannerReminders(db);
+    await plannerReminders(db);
+    const notes = await db.query(
+      "SELECT title FROM notifications WHERE user_id='buyer' AND title LIKE 'Price drop%'",
+    );
+    expect(notes).toHaveLength(1);
+  });
+  it('reads a typed request into answers, translates questions and repeats a list', async () => {
+    const read = (
+      await call('buyer', 'post', '/planner/read', {
+        text: 'Traditional and white wedding for 300 guests with ₦8m',
+      })
+    ).body;
+    expect(read).toMatchObject({ template: 'wedding', budget_kobo: 800000000 });
+    expect(read.answers).toMatchObject({ guests: 300, ceremonies: ['trad', 'white'] });
+    const pcm = (await call('buyer', 'get', '/planner/templates/groceries/wizard?lang=pcm')).body;
+    expect(pcm.steps[0].title).toBe('Na who you dey buy for?');
+    const plan = (
+      await call('buyer', 'post', '/plans', { template: 'groceries', answers: riceOnly })
+    ).body;
+    const again = (await call('buyer', 'post', `/plans/${plan.id}/repeat`, {})).body;
+    const copy = (await call('buyer', 'get', `/plans/${again.id}`)).body;
+    expect(copy.title).toMatch(/^Grocery & foodstuff shopping · [A-Z][a-z]+ \d{4}$/);
+    expect(
+      copy.items.every((i: any) => ['PLANNED', 'SAVED', 'NOT_NEEDED'].includes(i.status)),
+    ).toBe(true);
+    expect(copy.answers.staples).toEqual(['rice']);
+  });
+  it('schedules buy-by dates, reminds, assigns to family and rebuilds from new answers', async () => {
+    const target = new Date(Date.now() + 100 * 86400000).toISOString().slice(0, 10);
+    const created = (
+      await call('buyer', 'post', '/plans', {
+        template: 'wedding',
+        answers: { ceremonies: ['white', 'reception'], covering: ['venue', 'drinks'] },
+        target_date: target,
+      })
+    ).body;
+    let plan = (await call('buyer', 'get', `/plans/${created.id}`)).body;
+    const venue = plan.items.find((i: any) => i.name === 'Hall or venue hire');
+    expect(venue.buy_by).toBe(new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10));
+    await db.query('UPDATE plan_items SET buy_by=current_date WHERE id=$1', [venue.id]);
+    await plannerReminders(db);
+    const [note] = await db.query(
+      "SELECT body FROM notifications WHERE user_id='buyer' AND title LIKE 'Time to buy%'",
+    );
+    expect(note.body).toContain('Hall or venue hire');
+    // Assigning needs the person on the plan.
+    const water = plan.items.find((i: any) => i.name === 'Bottled water');
+    expect(
+      (
+        await call('buyer', 'patch', `/plans/${created.id}/items/${water.id}`, {
+          assignee_id: 'other',
+        })
+      ).body.error.code,
+    ).toBe('NOT_A_MEMBER');
+    await call('buyer', 'post', `/plans/${created.id}/members`, { contact: 'other@test.com' });
+    await call('buyer', 'patch', `/plans/${created.id}/items/${water.id}`, {
+      assignee_id: 'other',
+    });
+    const [asked] = await db.query(
+      "SELECT title FROM notifications WHERE user_id='other' AND title LIKE 'You’re buying%'",
+    );
+    expect(asked.title).toBe('You’re buying Bottled water');
+    // New answers: 400 guests and food. The assigned item stays; food items appear.
+    await call('buyer', 'patch', `/plans/${created.id}/items/${venue.id}`, { status: 'PURCHASED' });
+    const changed = await call('buyer', 'put', `/plans/${created.id}/answers`, {
+      answers: {
+        guests: 400,
+        ceremonies: ['white', 'reception'],
+        covering: ['venue', 'drinks', 'food'],
+      },
+    });
+    expect(changed.status).toBe(200);
+    plan = (await call('buyer', 'get', `/plans/${created.id}`)).body;
+    expect(plan.items.find((i: any) => i.id === venue.id).status).toBe('PURCHASED');
+    expect(plan.items.find((i: any) => i.id === water.id).assignee_name).toBe('other');
+    expect(plan.items.some((i: any) => i.name === 'Rice (jollof and fried)')).toBe(true);
+    expect(plan.answers.guests).toBe(400);
+    expect(plan.people).toBe(400);
+  });
+});
+describe('transaction PIN and photo checks', () => {
+  it('needs the transaction PIN to withdraw or change bank details, and locks after 5 misses', async () => {
+    expect((await call('buyer', 'get', '/me/transaction-pin')).body).toEqual({
+      set: true,
+      locked_until: null,
+    });
+    const withdraw = (pin?: string) =>
+      call('buyer', 'post', '/payouts', {
+        amount_kobo: 100000,
+        source: 'wallet',
+        ...(pin ? { transaction_pin: pin } : {}),
+      });
+    expect((await withdraw()).body.error.code).toBe('TRANSACTION_PIN_MISSING');
+    expect((await withdraw('1111')).body.error.code).toBe('INVALID_TRANSACTION_PIN');
+    for (let i = 0; i < 3; i++) await withdraw('1111');
+    expect((await withdraw('1111')).body.error.code).toBe('TRANSACTION_PIN_LOCKED');
+    // Locked even with the right PIN.
+    expect((await withdraw(PIN)).body.error.code).toBe('TRANSACTION_PIN_LOCKED');
+    // The account password resets the PIN and the lock.
+    await db.query("UPDATE users SET password_hash=$1 WHERE id='buyer'", [
+      bcrypt.hashSync('correct-horse-123', 4),
+    ]);
+    expect(
+      (await call('buyer', 'put', '/me/transaction-pin', { pin: '7391', password: 'nope' })).body
+        .error.code,
+    ).toBe('INVALID_PASSWORD');
+    expect(
+      (
+        await call('buyer', 'put', '/me/transaction-pin', {
+          pin: '7391',
+          password: 'correct-horse-123',
+        })
+      ).body.set,
+    ).toBe(true);
+    expect((await withdraw('7391')).body.error?.code).not.toMatch(/TRANSACTION_PIN/);
+    // Changing it with the current PIN works too; an easy PIN is refused.
+    expect(
+      (await call('buyer', 'put', '/me/transaction-pin', { pin: '0000', current_pin: '7391' }))
+        .status,
+    ).toBe(400);
+    expect(
+      (await call('buyer', 'put', '/me/transaction-pin', { pin: '5170', current_pin: '7391' }))
+        .status,
+    ).toBe(200);
+    // Without a PIN, money can't leave the account.
+    await db.query("UPDATE users SET transaction_pin_hash=NULL WHERE id='buyer'");
+    expect((await withdraw('5170')).body.error.code).toBe('TRANSACTION_PIN_REQUIRED');
+    expect((await call('buyer', 'get', '/me')).body.transaction_pin_set).toBe(false);
+  });
+  it('approves sellers and riders only with a selfie (and a rider licence photo) on file', async () => {
+    await call('other', 'post', '/drivers', {
+      vehicle_type: 'motorcycle',
+      plate_number: 'lag-555-xy',
+      licence_number: 'ABC12345',
+      city: 'Lagos',
+    });
+    await db.query("DELETE FROM seller_documents WHERE id='drivers_licence-driver-other'");
+    const review = await call('admin', 'post', '/admin/drivers/other/review', {
+      status: 'APPROVED',
+      reason: 'Looks fine',
+    });
+    expect(review.body.error.code).toBe('PHOTO_VERIFICATION_REQUIRED');
+    expect(review.body.error.message).toMatch(/drivers licence/);
+    await db.query("DELETE FROM seller_documents WHERE id='selfie-seller-seller'");
+    expect(
+      (
+        await call('admin', 'post', '/admin/sellers/seller/review', {
+          status: 'APPROVED',
+          reason: 'Looks fine',
+        })
+      ).body.error.code,
+    ).toBe('PHOTO_VERIFICATION_REQUIRED');
+  });
+});
 describe('verified businesses', () => {
   it('verifies a business after a document review, shows the badge, suspends and expires it', async () => {
     const listing = await setup(10);
@@ -2233,6 +2648,8 @@ describe('verified businesses', () => {
         `INSERT INTO seller_documents(id,seller_id,subject,kind,filename,mime_type,storage_provider,storage_key,status) VALUES($1,'seller','seller',$2,'f.webp','image/webp','local','docs/'||$1,'PENDING')`,
         [id, kind],
       );
+    // Start without the selfie every test seller is given.
+    await db.query("DELETE FROM seller_documents WHERE id='selfie-seller-seller'");
     // Location, a selfie and an ID (NIN card or BVN) are all needed.
     expect(
       (
@@ -2563,6 +2980,25 @@ describe('growth modules', () => {
     expect((await feed()).body.items[0]).toMatchObject({ like_count: 2, liked: true });
     await call('buyer', 'post', '/local-status/st-1/like', { liked: false });
     expect((await feed()).body.items[0]).toMatchObject({ like_count: 1, liked: false });
+  });
+
+  it('lets only the seller delete their status, and hides it from the feed', async () => {
+    const listing = await setup(10);
+    await db.query("UPDATE sellers SET state='Lagos',lga='Ikorodu' WHERE user_id='seller'");
+    await db.query(
+      `INSERT INTO local_statuses(id,seller_id,listing_id,caption,media_url,thumbnail_url,expires_at)
+       VALUES('st-del','seller',$1,'Fresh today','https://example.com/a.webp','https://example.com/a-thumb.webp',now()+interval '1 day')`,
+      [listing],
+    );
+    const feed = () => call('buyer', 'get', '/local-status?state=Lagos&lga=Ikorodu');
+    expect((await feed()).body.items).toHaveLength(1);
+    expect((await call('buyer', 'delete', '/local-status/st-del')).status).toBe(404);
+    expect((await call('seller', 'delete', '/local-status/st-del')).body).toEqual({ ok: true });
+    expect((await feed()).body.items).toHaveLength(0);
+    expect((await call('seller', 'delete', '/local-status/st-del')).status).toBe(404);
+    // The product stays listed.
+    const [l] = await db.query('SELECT status FROM listings WHERE id=$1', [listing]);
+    expect(l.status).toBe('ACTIVE');
   });
 
   it('shares a plan with family as viewer or editor', async () => {
@@ -3282,8 +3718,8 @@ describe('road-distance fares', () => {
       .set('Authorization', 'Bearer token-buyer')
       .send({ vehicle_type: 'motorcycle', dropoff: to });
     expect(quote.body).toMatchObject({ distance_km: 12, distance_method: 'road' });
-    // 500 base + 12 km × 150 = ₦2,300
-    expect(quote.body.fare_kobo).toBe(230000);
+    // 12 km × ₦500 = ₦6,000
+    expect(quote.body.fare_kobo).toBe(600000);
     const d = await request(roadApp)
       .post(`/v1/bookings/${b}/delivery`)
       .set('Authorization', 'Bearer token-buyer')

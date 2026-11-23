@@ -48,46 +48,50 @@ export default function LocalStatusPublisher() {
             within 24 hours; each click attributes at most one booking. Completed value is gross,
             before fees and refunds, and is not proof that the status caused the sale.
           </Text>
-          {rows.map((row) => (
-            <View key={row.id} style={s.locationBox}>
-              <Text style={s.bold}>{row.title}</Text>
-              <Text style={s.small}>{row.caption}</Text>
-              <Text style={s.fine}>
-                {row.status === 'ACTIVE' && new Date(row.expires_at).getTime() <= Date.now()
-                  ? 'EXPIRED'
-                  : row.status}{' '}
-                · Expires {new Date(row.expires_at).toLocaleString()}
-                {row.listing_available ? '' : ' · Product unavailable'}
-              </Text>
-              {row.moderation_reason && <Text style={s.fine}>{row.moderation_reason}</Text>}
-              {row.analytics.map((a) => (
-                <Text key={String(a.sponsored)} style={s.small}>
-                  {a.sponsored ? 'Sponsored' : 'Organic'}: {a.views} views · {a.unique_viewers}{' '}
-                  unique viewers · {a.product_clicks} product clicks · {a.enquiries} enquiries ·{' '}
-                  {a.bookings} bookings · {a.accepted_bookings} accepted · {a.paid_bookings}{' '}
-                  currently paid · {a.completed_bookings} completed · {a.cancelled_bookings}{' '}
-                  cancelled/expired/declined · {money(a.completed_gross_kobo)} completed gross
+          {rows
+            .filter((row) => row.status !== 'DELETED')
+            .map((row) => (
+              <View key={row.id} style={s.locationBox}>
+                <Text style={s.bold}>{row.title}</Text>
+                <Text style={s.small}>{row.caption}</Text>
+                <Text style={s.fine}>
+                  {row.status === 'ACTIVE' && new Date(row.expires_at).getTime() <= Date.now()
+                    ? 'EXPIRED'
+                    : row.status}{' '}
+                  · Expires {new Date(row.expires_at).toLocaleString()}
+                  {row.listing_available ? '' : ' · Product unavailable'}
                 </Text>
-              ))}
-              {!row.analytics.length && <Text style={s.fine}>No views or product clicks yet.</Text>}
-              {row.status === 'ACTIVE' && new Date(row.expires_at).getTime() > Date.now() && (
-                <BoostStatusPanel statusId={row.id} />
-              )}
-              {['ACTIVE', 'EXPIRED'].includes(row.status) && (
-                <Button
-                  secondary
-                  title="Delete this status"
-                  disabled={busy}
-                  onPress={() =>
-                    void run(async () => {
-                      await request('delete', '/local-status/{id}', { params: { id: row.id } });
-                      await load();
-                    }, 'Status deleted; the product listing is unchanged.')
-                  }
-                />
-              )}
-            </View>
-          ))}
+                {row.moderation_reason && <Text style={s.fine}>{row.moderation_reason}</Text>}
+                {row.analytics.map((a) => (
+                  <Text key={String(a.sponsored)} style={s.small}>
+                    {a.sponsored ? 'Sponsored' : 'Organic'}: {a.views} views · {a.unique_viewers}{' '}
+                    unique viewers · {a.product_clicks} product clicks · {a.enquiries} enquiries ·{' '}
+                    {a.bookings} bookings · {a.accepted_bookings} accepted · {a.paid_bookings}{' '}
+                    currently paid · {a.completed_bookings} completed · {a.cancelled_bookings}{' '}
+                    cancelled/expired/declined · {money(a.completed_gross_kobo)} completed gross
+                  </Text>
+                ))}
+                {!row.analytics.length && (
+                  <Text style={s.fine}>No views or product clicks yet.</Text>
+                )}
+                {row.status === 'ACTIVE' && new Date(row.expires_at).getTime() > Date.now() && (
+                  <BoostStatusPanel statusId={row.id} />
+                )}
+                {['ACTIVE', 'EXPIRED'].includes(row.status) && (
+                  <Button
+                    secondary
+                    title="Delete this status"
+                    disabled={busy}
+                    onPress={() =>
+                      void run(async () => {
+                        await request('delete', '/local-status/{id}', { params: { id: row.id } });
+                        await load();
+                      }, 'Status deleted; the product listing is unchanged.')
+                    }
+                  />
+                )}
+              </View>
+            ))}
         </>
       )}
     </View>

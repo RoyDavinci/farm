@@ -4,16 +4,19 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { uploadSellerDocument } from './api';
 import { useApp } from './AppContext';
+import { snap } from './camera';
 import { request } from './request';
 import { Badge, Button, Chip, s } from './ui';
 
 const documentKinds = [
+  ['selfie', 'Selfie (a clear photo of your face)'],
   ['government_id', 'NIN card or slip (or passport, licence)'],
   ['business_registration', 'Business registration (CAC)'],
   ['proof_of_address', 'Proof of address'],
   ['other', 'Other supporting document'],
 ] as const;
 const driverKinds = [
+  ['selfie', 'Selfie (a clear photo of your face)'],
   ['profile_photo', 'Driver profile photo'],
   ['vehicle_photo', 'Vehicle photo'],
   ['operating_permit', 'Operating permit'],
@@ -60,12 +63,18 @@ export function VerificationDocuments({
   const chosen = missing.find(([value]) => value === kind) ?? missing[0];
   const upload = (as: string) =>
     void run(async () => {
-      const picked = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'],
-        copyToCacheDirectory: true,
-      });
-      if (picked.canceled) return;
-      await uploadSellerDocument(as, picked.assets[0] as any, subject);
+      // A selfie is taken live with the front camera; other documents can be photos or files.
+      let asset: any = null;
+      if (as === 'selfie') asset = await snap(true);
+      else {
+        const picked = await DocumentPicker.getDocumentAsync({
+          type: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'],
+          copyToCacheDirectory: true,
+        });
+        asset = picked.canceled ? null : picked.assets[0];
+      }
+      if (!asset) return;
+      await uploadSellerDocument(as, asset, subject);
       await load();
       onChange?.();
     }, 'Document uploaded for review.');
@@ -75,6 +84,12 @@ export function VerificationDocuments({
       <Text style={s.fine}>
         Documents are stored privately and only our verification team can open them. Photos or PDFs
         up to 8 MB.
+      </Text>
+      <Text style={s.small}>
+        📸 Photo verification:{' '}
+        {subject === 'driver'
+          ? 'a selfie and a photo of your driver’s licence are required before we can approve you to ride.'
+          : 'a selfie is required before we can approve your shop.'}
       </Text>
       {docs.map((d) => (
         <View key={d.id} style={s.walletEntry}>

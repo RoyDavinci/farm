@@ -1,3 +1,4 @@
+import { checkTransactionPin } from './transaction-pin.service.js';
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Config } from '../config/index.js';
@@ -339,6 +340,8 @@ export function createPayoutsService(deps: AppDeps) {
         source: z.enum(['earnings', 'wallet']).default('earnings'),
       })
       .parse(input.body);
+    const wrongPin = await checkTransactionPin(q, u.id, input.body?.transaction_pin);
+    if (wrongPin) return wrongPin;
     if (d.source === 'wallet') await accountHolder(q, u.id);
     else await approvedSeller(q, u.id);
     let source = {
@@ -444,14 +447,17 @@ export function createPayoutsService(deps: AppDeps) {
       resolved.provider === 'paystack'
         ? await payments.createRecipient(resolved.account_name, d.account_number, d.bank_code)
         : null;
-    return { d, s, resolved, recipient };
+    return { d, s, resolved, recipient, pin: input.body?.transaction_pin as unknown };
   }
   /** Stores the verified account; runs inside the caller's transaction. */
   async function saveAccount(
     q: Query,
     u: any,
-    { d, s, resolved, recipient }: Awaited<ReturnType<typeof prepareAccount>>,
+    { d, s, resolved, recipient, pin }: Awaited<ReturnType<typeof prepareAccount>>,
   ) {
+    // Changing where money goes is as sensitive as sending it.
+    const wrongPin = await checkTransactionPin(q, u.id, pin);
+    if (wrongPin) return wrongPin;
     const [busy] = await q.query(
       "SELECT id FROM payouts WHERE user_id=$1 AND status IN ('REQUESTED','PROCESSING')",
       [u.id],

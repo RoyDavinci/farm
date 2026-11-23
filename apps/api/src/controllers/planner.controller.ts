@@ -13,6 +13,20 @@ export function createPlannerController(deps: AppDeps) {
     mutate(req, res, (q, user) => service.shareWith(q, user, requestInput(req)));
   const removeMember: RequestHandler = (req, res) =>
     mutate(req, res, (q, user) => service.removeMember(q, user, requestInput(req)));
+  const changeAnswers: RequestHandler = (req, res) =>
+    mutate(req, res, (q, user) => service.changeAnswers(q, user, requestInput(req)));
+  const fillCart: RequestHandler = (req, res) =>
+    mutate(req, res, (q, user) => service.fillCart(q, user, requestInput(req)));
+  const repeatPlan: RequestHandler = (req, res) =>
+    mutate(req, res, (q, user) => service.repeatPlan(q, user, requestInput(req)));
+  const getWizard: RequestHandler = async (req, res) => {
+    res.json(await service.getWizard(res.locals.user, requestInput(req)));
+  };
+  const previewPlan: RequestHandler = async (req, res) => {
+    res.json(await service.previewPlan(res.locals.user, requestInput(req)));
+  };
+  const swapMeal: RequestHandler = (req, res) =>
+    mutate(req, res, (q, user) => service.swapMeal(q, user, requestInput(req)));
   const listTemplates: RequestHandler = async (req, res) => {
     res.json(await service.listTemplates(res.locals.user, requestInput(req)));
   };
@@ -59,6 +73,12 @@ export function createPlannerController(deps: AppDeps) {
   const buildGroceryList: RequestHandler = (req, res) =>
     mutate(req, res, (q, user) => service.buildGroceryList(q, user, requestInput(req)));
   return {
+    changeAnswers,
+    fillCart,
+    repeatPlan,
+    getWizard,
+    previewPlan,
+    swapMeal,
     listMembers,
     shareWith,
     removeMember,

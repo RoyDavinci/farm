@@ -47,7 +47,7 @@ export default function DeliveryPanel({
           vehicle_type: vehicle,
           dropoff: drop,
           dropoff_address: address,
-          pay_on_delivery: pod,
+          pay_on_delivery: payLater,
           expected_fare_kobo: quote.fare_kobo,
           weight_kg: Number(weight),
           waiting_minutes: Number(waiting),
@@ -58,6 +58,7 @@ export default function DeliveryPanel({
     setForm(false);
   }
   const token = useMapToken();
+  // Pay on delivery is the default when the server offers it (the rider pays the seller for you).
   const [delivery, setDelivery] = useState<any>(undefined),
     [options, setOptions] = useState<any>(null),
     [form, setForm] = useState(false),
@@ -68,7 +69,7 @@ export default function DeliveryPanel({
     [waiting, setWaiting] = useState('0'),
     [quote, setQuote] = useState<any>(null),
     [rider, setRider] = useState<NearbyRider | null>(null),
-    [pod, setPod] = useState(false),
+    [pod, setPod] = useState(true),
     [pin, setPin] = useState('');
   const load = useCallback(
     () =>
@@ -98,6 +99,7 @@ export default function DeliveryPanel({
       message,
     );
 
+  const payLater = !!options?.pay_on_delivery && pod && !b.paid;
   if (!b.delivery_available)
     return <Text style={s.fine}>This booking offers collection only.</Text>;
   if (delivery === undefined) return null;
@@ -120,9 +122,10 @@ export default function DeliveryPanel({
       );
     return (
       <View style={s.locationBox}>
-        <Text style={s.bold}>Delivery by a verified driver</Text>
+        <Text style={s.bold}>Delivery by a verified rider · ₦500 per km</Text>
         <Text style={s.small}>
-          Drivers are independent and approved by our team. They confirm delivery with your PIN.
+          Riders are photo-verified by our team. Your rider checks the goods at the seller before
+          collecting, and confirms delivery with your PIN.
         </Text>
         <View style={s.chipWrap}>
           {options?.vehicle_types.map((v: any) => (
@@ -196,17 +199,24 @@ export default function DeliveryPanel({
                 {money(quote.pricing.surcharge_kobo)}. {quote.pricing.reason}
               </Text>
             )}
-            {options?.pay_on_delivery && (
+            {options?.pay_on_delivery && !b.paid && (
               <Pressable onPress={() => setPod(!pod)}>
-                <Text style={s.link}>
-                  {pod ? '☑' : '☐'} Pay in the app when it arrives (Pay on Delivery)
-                </Text>
+                <Text style={s.link}>{pod ? '☑' : '☐'} Pay when it arrives (no payment now)</Text>
               </Pressable>
             )}
-            {!b.paid && !pod && (
-              <Text style={s.fine}>Pay for the booking first, or choose Pay on Delivery.</Text>
+            {payLater && (
+              <Text style={s.small}>
+                Your rider pays the seller {money(Number(b.total_kobo))} for you at pickup. When it
+                arrives you pay {money(Number(b.total_kobo) + quote.fare_kobo)} (goods + delivery)
+                in the app, then give the rider your PIN.
+              </Text>
             )}
-            {!wallet && !pod ? (
+            {!b.paid && !payLater && (
+              <Text style={s.fine}>
+                Pay for the booking first, or choose to pay when it arrives.
+              </Text>
+            )}
+            {!wallet && !payLater ? (
               <DirectPay
                 amountKobo={quote.fare_kobo}
                 disabled={!rider || address.trim().length < 8 || !b.paid}
@@ -227,11 +237,11 @@ export default function DeliveryPanel({
             ) : (
               <Button
                 title={
-                  pod
-                    ? 'Request delivery · pay on arrival'
+                  payLater
+                    ? 'Request rider · pay on arrival'
                     : `Pay ${money(quote.fare_kobo)} and request`
                 }
-                disabled={busy || !rider || address.trim().length < 8 || (!b.paid && !pod)}
+                disabled={busy || !rider || address.trim().length < 8 || (!b.paid && !payLater)}
                 onPress={() =>
                   void run(submitDelivery, 'Delivery sent to your selected rider for acceptance.')
                 }
@@ -260,7 +270,7 @@ export default function DeliveryPanel({
           />
         )}
         <Pressable onPress={() => setForm(false)}>
-          <Text style={s.link}>Collect it myself</Text>
+          <Text style={s.link}>Collect it myself instead (pay when you pick it up)</Text>
         </Pressable>
       </View>
     );
@@ -288,6 +298,15 @@ export default function DeliveryPanel({
         {delivery.distance_km} km · fare {money(Number(delivery.fare_kobo))}
         {delivery.pay_on_delivery ? ' · Pay on Delivery' : ''}
       </Text>
+      {delivery.status === 'ASSIGNED' && delivery.rider_checked_at && (
+        <Text style={s.small}>
+          ✓ Rider checked the goods at the seller
+          {delivery.rider_check_note ? `: “${delivery.rider_check_note}”` : ''}
+          {!isSeller && Number(delivery.rider_fronted_kobo)
+            ? ` · your rider paid the seller ${money(Number(delivery.rider_fronted_kobo))} for you`
+            : ''}
+        </Text>
+      )}
       {live && (
         <>
           <MapPanel
@@ -349,8 +368,23 @@ export default function DeliveryPanel({
           <Text style={s.link}>Cancel delivery</Text>
         </Pressable>
       )}
-      {isSeller && delivery.status === 'ASSIGNED' && (
+      {isSeller && delivery.status === 'ASSIGNED' && !delivery.rider_checked_at && (
+        <Text style={s.fine}>
+          Waiting for the rider to check the goods in their app. Once they confirm, payment is held
+          in escrow and you can hand over.
+        </Text>
+      )}
+      {isSeller &&
+        ['PICKED_UP', 'DELIVERED'].includes(delivery.status) &&
+        delivery.seller_released_at && (
+          <Text style={s.small}>✓ Escrow released to your earnings at handover.</Text>
+        )}
+      {isSeller && delivery.status === 'ASSIGNED' && delivery.rider_checked_at && (
         <>
+          <Text style={s.small}>
+            {money(Number(delivery.total_kobo))} is held in escrow for you. Enter the rider’s code
+            to confirm handover; the money is released to your earnings right away.
+          </Text>
           <Field
             label="Driver’s 6-digit collection PIN"
             value={pin}
@@ -361,7 +395,7 @@ export default function DeliveryPanel({
           />
           <PinScanner kind="pickup" deliveryId={delivery.id} onPin={setPin} />
           <Button
-            title="Hand over to driver"
+            title="Confirm handover · release escrow"
             disabled={busy || !/^\d{6}$/.test(pin)}
             onPress={() =>
               void act('handover', { pin }, 'Handed over. The driver is on the way to the buyer.')

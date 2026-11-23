@@ -1,3 +1,4 @@
+import { requirePhotoVerification } from './verification.service.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Query } from '../database/client.js';
@@ -86,6 +87,8 @@ export function createAdminService(deps: AppDeps) {
         reason: z.string().trim().min(3).max(500),
       })
       .parse(input.body);
+    if (d.status === 'APPROVED')
+      await requirePhotoVerification(q, input.params.id as string, 'seller');
     const [s] = await q.query(
       'UPDATE sellers SET status=$1,reason=$2 WHERE user_id=$3 RETURNING *',
       [d.status, d.reason, input.params.id],

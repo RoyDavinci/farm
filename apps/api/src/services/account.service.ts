@@ -16,9 +16,14 @@ export function createAccountService(deps: AppDeps) {
   async function getMe(user: any, input: RequestInput) {
     const u = user;
     const seller = await db.prisma.seller.findUnique({ where: { user_id: u.id } });
+    const [pin] = await db.query(
+      'SELECT transaction_pin_hash IS NOT NULL AS set FROM users WHERE id=$1',
+      [u.id],
+    );
     return {
       user: u,
       seller,
+      transaction_pin_set: !!pin?.set,
       ...(u.admin ? { staff_areas: allowedAreas(u.staff_role) } : {}),
     };
   }

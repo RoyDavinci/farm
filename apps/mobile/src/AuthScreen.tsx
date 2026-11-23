@@ -18,6 +18,8 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
     [challenge, setChallenge] = useState<any>(null),
     [form, setForm] = useState({ name: '', phone: '', email: '', password: '' }),
     [code, setCode] = useState(''),
+    [pin, setPin] = useState(''),
+    [pinAgain, setPinAgain] = useState(''),
     [newPassword, setNewPassword] = useState(''),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
@@ -221,6 +223,30 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
                   placeholder: 'At least 10 characters',
                   autoComplete: mode === 'login' ? 'current-password' : 'new-password',
                 })}
+              {mode === 'register' && (
+                <>
+                  {field('Transaction PIN (4 digits)', pin, (v) => setPin(v.replace(/\D/g, '')), {
+                    secureTextEntry: true,
+                    keyboardType: 'number-pad',
+                    maxLength: 4,
+                    placeholder: 'Needed to withdraw money',
+                  })}
+                  {field(
+                    'Confirm transaction PIN',
+                    pinAgain,
+                    (v) => setPinAgain(v.replace(/\D/g, '')),
+                    {
+                      secureTextEntry: true,
+                      keyboardType: 'number-pad',
+                      maxLength: 4,
+                    },
+                  )}
+                  <Text style={s.pinNote}>
+                    You’ll enter this PIN whenever you withdraw money or change your bank account,
+                    so nobody else can move your money.
+                  </Text>
+                </>
+              )}
               <Pressable
                 style={[s.button, busy && { opacity: 0.5 }]}
                 disabled={busy}
@@ -228,7 +254,14 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
                   void run(async () => {
                     const d =
                       mode === 'register'
-                        ? await request('post', '/auth/register', { body: form })
+                        ? await (() => {
+                            if (!/^\d{4}$/.test(pin))
+                              throw new Error('Choose a 4-digit transaction PIN.');
+                            if (pin !== pinAgain) throw new Error('The two PINs don’t match.');
+                            return request('post', '/auth/register', {
+                              body: { ...form, transaction_pin: pin },
+                            });
+                          })()
                         : mode === 'reset'
                           ? await request('post', '/auth/password/forgot', {
                               body: { email: form.email },
@@ -295,6 +328,7 @@ const s = StyleSheet.create({
   eyebrow: { fontSize: 9, letterSpacing: 1.5, color: '#55846d' },
   heading: { fontSize: 35, lineHeight: 43, color: '#1b4731', fontWeight: '700', letterSpacing: -1 },
   body: { fontSize: 13, lineHeight: 22, color: '#537865' },
+  pinNote: { fontSize: 11, lineHeight: 17, color: '#5f8571', marginTop: -10 },
   field: { gap: 8 },
   label: { fontSize: 12, color: '#396d53', fontWeight: '600' },
   input: {

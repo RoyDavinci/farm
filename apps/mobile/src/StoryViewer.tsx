@@ -55,6 +55,7 @@ export default function StoryViewer({
     [notice, setNotice] = useState(''),
     [reply, setReply] = useState(''),
     [typing, setTyping] = useState(false),
+    [confirmDelete, setConfirmDelete] = useState(false),
     [likes, setLikes] = useState<Record<string, { liked: boolean; count: number }>>({});
   const progress = useRef(new Animated.Value(0)).current;
   // Lift the reply bar above the keyboard (the bottom panel is absolutely positioned).
@@ -82,12 +83,13 @@ export default function StoryViewer({
   const story = index >= 0 ? stories[index] : undefined;
   const group = story ? stories.filter((s) => s.seller_id === story.seller_id) : [];
   const position = story ? group.findIndex((s) => s.id === story.id) : 0;
-  const paused = menu || reporting || busy || typing;
+  const paused = menu || reporting || busy || typing || confirmDelete;
   const mine = story?.seller_id === me?.id;
 
   const close = () => {
     setMenu(false);
     setReporting(false);
+    setConfirmDelete(false);
     setNotice('');
     onClose();
   };
@@ -186,6 +188,21 @@ export default function StoryViewer({
     try {
       await request('put', '/local-status/preferences', { body: { kind, target, muted: true } });
       setMenu(false);
+      onMuted();
+    } catch (e: any) {
+      setNotice(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  /** The seller removes their own status; the product listing is unchanged. */
+  const remove = async () => {
+    if (!story) return;
+    setBusy(true);
+    try {
+      await request('delete', '/local-status/{id}', { params: { id: story.id } });
+      setMenu(false);
+      setConfirmDelete(false);
       onMuted();
     } catch (e: any) {
       setNotice(e.message);
@@ -292,7 +309,21 @@ export default function StoryViewer({
                     <Text style={styles.icon}>✕</Text>
                   </Pressable>
                 </View>
-                {menu && (
+                {menu && mine && (
+                  <View style={styles.menu}>
+                    <Pressable
+                      onPress={() => {
+                        setMenu(false);
+                        setConfirmDelete(true);
+                      }}
+                    >
+                      <Text style={[styles.menuItem, { color: '#f0a090' }]}>
+                        🗑 Delete this status
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
+                {menu && !mine && (
                   <View style={styles.menu}>
                     <Pressable onPress={() => void mute('SELLER', story.seller_id)}>
                       <Text style={styles.menuItem}>Mute {story.business_name}</Text>
@@ -317,7 +348,27 @@ export default function StoryViewer({
               <View style={styles.bottom}>
                 {!!story.caption && <Text style={styles.caption}>{story.caption}</Text>}
                 {!!notice && <Text style={styles.notice}>{notice}</Text>}
-                {reporting ? (
+                {confirmDelete ? (
+                  <View style={{ gap: 8 }}>
+                    <Text style={styles.caption}>
+                      Delete this status? Buyers won’t see it any more. Your product stays listed.
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <Pressable
+                        style={[styles.cta, { flex: 1, backgroundColor: '#b8462f' }]}
+                        disabled={busy}
+                        onPress={() => void remove()}
+                      >
+                        <Text style={[styles.ctaText, { color: '#fff' }]}>
+                          {busy ? 'Deleting…' : 'Delete'}
+                        </Text>
+                      </Pressable>
+                      <Pressable style={styles.ghost} onPress={() => setConfirmDelete(false)}>
+                        <Text style={styles.ghostText}>Cancel</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : reporting ? (
                   <View style={{ gap: 8 }}>
                     <TextInput
                       value={reason}

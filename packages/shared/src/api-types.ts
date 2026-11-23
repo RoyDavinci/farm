@@ -2980,6 +2980,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/me/transaction-pin': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['account.getTransactionPin'];
+    put: operations['account.setTransactionPin'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/media': {
     parameters: {
       query?: never;
@@ -3316,6 +3332,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/planner/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['planner.previewPlan'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/planner/read': {
     parameters: {
       query?: never;
@@ -3364,6 +3396,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/planner/templates/{template}/wizard': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['planner.getWizard'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/plans': {
     parameters: {
       query?: never;
@@ -3396,6 +3444,22 @@ export interface paths {
     patch: operations['planner.updatePlan'];
     trace?: never;
   };
+  '/v1/plans/{id}/answers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations['planner.changeAnswers'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/plans/{id}/duplicate': {
     parameters: {
       query?: never;
@@ -3406,6 +3470,22 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['planner.duplicatePlan'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/plans/{id}/fill-cart': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['planner.fillCart'];
     delete?: never;
     options?: never;
     head?: never;
@@ -3508,6 +3588,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/plans/{id}/meals/{mealId}/swap': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['planner.swapMeal'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/plans/{id}/members': {
     parameters: {
       query?: never;
@@ -3535,6 +3631,22 @@ export interface paths {
     put?: never;
     post?: never;
     delete: operations['planner.removeMember'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/plans/{id}/repeat': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['planner.repeatPlan'];
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -4661,6 +4773,7 @@ export interface components {
     Me: {
       user: components['schemas']['User'];
       seller: components['schemas']['Seller'] | null;
+      transaction_pin_set?: boolean;
       staff_areas?: string[];
     } & {
       [key: string]: unknown;
@@ -13388,6 +13501,66 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'account.getTransactionPin': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            set: boolean;
+            locked_until: string | null;
+          } & {
+            [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'account.setTransactionPin': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            set: boolean;
+            locked_until: string | null;
+          } & {
+            [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'media.uploadPhoto': {
     parameters: {
       query?: never;
@@ -14380,6 +14553,83 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'planner.previewPlan': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            answers: {
+              [key: string]: unknown;
+            };
+            /** @enum {string} */
+            kind: 'meals' | 'items';
+            total_kobo: number;
+            full_kobo: number;
+            budget_kobo: number | null;
+            fits: boolean;
+            changes: string[];
+            dropped: string[];
+            item_count: number;
+            market_count: number;
+            servings: number;
+            per_serving_kobo: number;
+            meals: {
+              day: number;
+              /** @enum {string} */
+              meal: 'BREAKFAST' | 'LUNCH' | 'DINNER';
+              recipe: string;
+              name: string;
+              servings: number;
+            }[];
+            sections: {
+              section: string;
+              count: number;
+              total_kobo: number;
+            }[];
+            have_options: {
+              id: string;
+              name: string;
+              icon: string;
+              photo: string | null;
+              section: string;
+            }[];
+            lines: {
+              key: string;
+              name: string;
+              icon: string;
+              quantity: number;
+              unit: string;
+              kobo: number;
+              have: boolean;
+              photo: string | null;
+              section: string;
+              /** @enum {string} */
+              price_source: 'ESTIMATE' | 'MARKET';
+              sellers: number;
+            }[];
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'planner.readText': {
     parameters: {
       query?: never;
@@ -14402,6 +14652,9 @@ export interface operations {
         };
         content: {
           'application/json': {
+            answers: {
+              [key: string]: unknown;
+            };
             template: string;
             title: string;
             budget_kobo: number | null;
@@ -14477,7 +14730,60 @@ export interface operations {
             rooms_label: string | null;
             people_label: string | null;
             item_count: number;
+            wizard: boolean;
           }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.getWizard': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        template: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            template: {
+              key: string;
+              kind: string;
+              title: string;
+              description: string;
+            };
+            meals: boolean;
+            steps: ({
+              id: string;
+              /** @enum {string} */
+              type:
+                | 'counts'
+                | 'single'
+                | 'multi'
+                | 'chips'
+                | 'days'
+                | 'have'
+                | 'quality'
+                | 'budget'
+                | 'date';
+              title: string;
+              hint?: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+            defaults: {
+              [key: string]: unknown;
+            };
+          };
         };
       };
       default: components['responses']['Error'];
@@ -14562,6 +14868,9 @@ export interface operations {
            */
           tier?: 'BASIC' | 'STANDARD' | 'PREMIUM';
           target_date?: string | null;
+          answers?: {
+            [key: string]: number | string | string[];
+          };
         };
       };
     };
@@ -14574,6 +14883,14 @@ export interface operations {
         content: {
           'application/json': {
             id: string;
+            total_kobo?: number;
+            full_kobo?: number;
+            budget_kobo?: number | null;
+            fits?: boolean;
+            changes?: string[];
+            item_count?: number;
+            market_count?: number;
+            meal_count?: number;
           };
         };
       };
@@ -14631,6 +14948,9 @@ export interface operations {
               suggestions: string[];
               note: string;
             };
+            answers: {
+              [key: string]: unknown;
+            };
             items: {
               id: string;
               section: string;
@@ -14647,6 +14967,14 @@ export interface operations {
               /** @enum {string} */
               source: 'TEMPLATE' | 'RECIPE' | 'MANUAL';
               ingredient_key: string | null;
+              icon: string | null;
+              photo_url: string | null;
+              /** @enum {string} */
+              price_source: 'ESTIMATE' | 'MARKET';
+              market_sellers: number;
+              buy_by: string | null;
+              assignee_id: string | null;
+              assignee_name: string | null;
               allergens: string[];
               allergy_warning: string | null;
               listing: {
@@ -14747,6 +15075,47 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'planner.changeAnswers': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            total_kobo?: number;
+            full_kobo?: number;
+            budget_kobo?: number | null;
+            fits?: boolean;
+            changes?: string[];
+            item_count?: number;
+            market_count?: number;
+            meal_count?: number;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'planner.duplicatePlan': {
     parameters: {
       query?: never;
@@ -14774,6 +15143,42 @@ export interface operations {
         content: {
           'application/json': {
             id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.fillCart': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            added: number;
+            missing: string[];
+            sellers: number;
+            total_kobo: number;
           };
         };
       };
@@ -14926,6 +15331,7 @@ export interface operations {
           priority?: 'ESSENTIAL' | 'IMPORTANT' | 'OPTIONAL';
           /** @enum {string} */
           status?: 'PLANNED' | 'SAVED' | 'PURCHASED' | 'UNAVAILABLE' | 'NOT_NEEDED' | 'OWNED';
+          assignee_id?: string | null;
           listing_id?: string | null;
           variant_id?: string | null;
         };
@@ -15070,6 +15476,42 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'planner.swapMeal': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+        mealId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            recipe: string;
+            recipe_name: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'planner.listMembers': {
     parameters: {
       query?: never;
@@ -15168,6 +15610,39 @@ export interface operations {
         content: {
           'application/json': {
             ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'planner.repeatPlan': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
           };
         };
       };

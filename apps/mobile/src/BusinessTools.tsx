@@ -1,11 +1,11 @@
 import { money, type Listing } from '@ahia/shared';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import * as ImagePicker from 'expo-image-picker';
 import { uploadSellerDocument } from './api';
 import { currentPosition } from './location';
 import { useApp } from './AppContext';
+import { snap } from './camera';
 import { request } from './request';
 import { Button, Chip, Field, s } from './ui';
 
@@ -29,22 +29,6 @@ export function VerifiedBadge({ small = false }: { small?: boolean }) {
       <Text style={[styles.badgeText, small && { fontSize: 10 }]}>✓ Verified</Text>
     </View>
   );
-}
-
-/** Photographs a document or selfie with the camera (the file picker on web). */
-async function snap(front: boolean) {
-  if (Platform.OS !== 'web') {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) throw new Error('Allow camera access to take the photo.');
-  }
-  const result = await ImagePicker.launchCameraAsync({
-    mediaTypes: ['images'],
-    quality: 0.8,
-    cameraType: front ? ImagePicker.CameraType.front : ImagePicker.CameraType.back,
-  });
-  if (result.canceled) return null;
-  const a = result.assets[0];
-  return { uri: a.uri, mimeType: a.mimeType, name: a.fileName, file: (a as any).file };
 }
 
 function Check({ done, label }: { done: boolean; label: string }) {

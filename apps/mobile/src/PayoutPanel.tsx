@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useApp } from './AppContext';
 import { request } from './request';
 import { Badge, Button, Field, s } from './ui';
+import TransactionPinPanel, { PinField, useTransactionPin } from './TransactionPin';
 
 type PayoutData = PayoutSummary;
 
@@ -27,7 +28,10 @@ export default function PayoutPanel({
     [resolved, setResolved] = useState<{ account_name: string; name_match: boolean } | null>(null),
     [editing, setEditing] = useState(false),
     [amount, setAmount] = useState(''),
-    [loadError, setLoadError] = useState('');
+    [loadError, setLoadError] = useState(''),
+    [pin, setPin] = useState('');
+  const pinStatus = useTransactionPin();
+  const pinReady = pin.length === 4;
   const load = useCallback(async () => {
     try {
       setData(await request('get', '/payouts'));
@@ -75,7 +79,14 @@ export default function PayoutPanel({
         Minimum {money(data.min_kobo)} · transfer fee {money(data.fee_kobo)}.
         {data.mode === 'simulated' ? ' Development mode: payouts are simulated.' : ''}
       </Text>
-      {data.mode === 'disabled' ? (
+      {pinStatus.state?.set === false ? (
+        // No PIN yet: money can't leave the account until one is set.
+        <TransactionPinPanel
+          state={pinStatus.state}
+          startOpen
+          onSaved={() => void pinStatus.reload()}
+        />
+      ) : data.mode === 'disabled' ? (
         <Text style={s.body}>Bank payouts are not enabled on this server yet.</Text>
       ) : editing || !data.account ? (
         <>
@@ -143,17 +154,20 @@ export default function PayoutPanel({
                       </Text>
                     )}
                   </View>
+                  <PinField value={pin} onChange={setPin} />
                   <Button
                     title="Save bank account"
-                    disabled={busy}
+                    disabled={busy || !pinReady}
                     onPress={() =>
                       void run(async () => {
                         await request('post', '/payouts/accounts', {
                           body: {
                             bank_code: bankCode,
                             account_number: accountNumber,
+                            transaction_pin: pin,
                           },
                         });
+                        setPin('');
                         setEditing(false);
                         setAccountNumber('');
                         setResolved(null);
@@ -221,15 +235,17 @@ export default function PayoutPanel({
                 : `The minimum withdrawal is ${money(data.min_kobo)}.`}
             </Text>
           )}
+          <PinField value={pin} onChange={setPin} />
           <Button
             title="Withdraw to bank"
-            disabled={busy || !kobo || kobo < data.min_kobo || kobo > available}
+            disabled={busy || !kobo || kobo < data.min_kobo || kobo > available || !pinReady}
             onPress={() =>
               void run(async () => {
                 await request('post', '/payouts', {
-                  body: { amount_kobo: kobo, source },
+                  body: { amount_kobo: kobo, source, transaction_pin: pin },
                 });
                 setAmount('');
+                setPin('');
                 await load();
                 onDone?.();
               }, 'Withdrawal requested. We review it, then send it to your bank.')

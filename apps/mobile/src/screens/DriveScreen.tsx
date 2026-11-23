@@ -29,7 +29,8 @@ export default function DriveScreen() {
       licence_number: '',
       city: '',
     }),
-    [pins, setPins] = useState<Record<string, string>>({});
+    [pins, setPins] = useState<Record<string, string>>({}),
+    [notes, setNotes] = useState<Record<string, string>>({});
   const load = useCallback(async () => {
     const d = await request('get', '/drivers/me');
     setDriver(d);
@@ -196,13 +197,72 @@ export default function DriveScreen() {
               <Pressable onPress={() => directions(d.pickup_latitude, d.pickup_longitude)}>
                 <Text style={s.link}>Directions to seller ↗</Text>
               </Pressable>
-              <PinQr
-                kind="pickup"
-                deliveryId={d.id}
-                pin={d.pickup_pin}
-                title="SHOW THE SELLER THIS CODE"
-                hint="The seller scans it (or types the digits) before handing over the order."
-              />
+              {!d.rider_checked_at ? (
+                <View style={s.locationBox}>
+                  <Text style={s.bold}>1 · Check the goods</Text>
+                  <Text style={s.small}>
+                    Look at {d.quantity} {d.unit} of {d.title} at the seller. Only continue if it
+                    matches the order and is in good condition.
+                  </Text>
+                  {!d.booking_paid && (
+                    <Text style={s.small}>
+                      The buyer pays on delivery, so you pay the seller{' '}
+                      {money(Number(d.total_kobo))} from your Ahia wallet. It’s held in escrow and
+                      released to the seller when they hand over. The buyer pays you back in the app
+                      before you give them the order.
+                    </Text>
+                  )}
+                  <Field
+                    label="Note on the goods (optional)"
+                    value={notes[d.id] || ''}
+                    onChangeText={(v: string) => setNotes({ ...notes, [d.id]: v })}
+                    placeholder="e.g. 2 baskets, fresh, sealed"
+                  />
+                  <Button
+                    title={
+                      d.booking_paid
+                        ? 'Goods check out'
+                        : `Goods check out · pay ${money(Number(d.total_kobo))} to escrow`
+                    }
+                    disabled={busy}
+                    onPress={() =>
+                      void run(
+                        async () => {
+                          await request('post', '/deliveries/{id}/{action}', {
+                            params: { id: d.id, action: 'check' },
+                            body: notes[d.id] ? { note: notes[d.id] } : {},
+                          });
+                          await load();
+                        },
+                        d.booking_paid
+                          ? 'Goods checked. Show the seller your code.'
+                          : 'Goods checked and payment held in escrow. Show the seller your code.',
+                      )
+                    }
+                  />
+                  {!d.booking_paid && (
+                    <Pressable onPress={() => setTab('Wallet')}>
+                      <Text style={s.link}>Top up your wallet →</Text>
+                    </Pressable>
+                  )}
+                </View>
+              ) : (
+                <>
+                  <Text style={s.small}>
+                    ✓ Goods checked
+                    {Number(d.rider_fronted_kobo)
+                      ? ` · you paid ${money(Number(d.rider_fronted_kobo))} into escrow`
+                      : ''}
+                  </Text>
+                  <PinQr
+                    kind="pickup"
+                    deliveryId={d.id}
+                    pin={d.pickup_pin}
+                    title="2 · SHOW THE SELLER THIS CODE"
+                    hint="The seller scans it (or types the digits) to confirm handover; escrow is then released to them."
+                  />
+                </>
+              )}
               <Pressable
                 disabled={busy}
                 onPress={() =>
@@ -229,7 +289,13 @@ export default function DriveScreen() {
               </Pressable>
               {(!d.fare_paid || !d.booking_paid) && (
                 <Text style={s.fine}>
-                  Pay on Delivery: the buyer pays in their app before giving you the PIN. Never
+                  Pay on Delivery: the buyer pays{' '}
+                  {money(
+                    (d.booking_paid ? 0 : Number(d.total_kobo)) +
+                      (d.fare_paid ? 0 : Number(d.fare_kobo)),
+                  )}{' '}
+                  in their app before giving you the PIN
+                  {Number(d.rider_fronted_kobo) ? ', which pays you back for the goods' : ''}. Never
                   accept cash.
                 </Text>
               )}
@@ -276,6 +342,12 @@ export default function DriveScreen() {
                   {d.away_km} km to {d.business_name} · {d.distance_km} km trip
                 </Text>
                 <Text style={s.small}>Drop-off around {d.dropoff_area}</Text>
+                {!d.booking_paid && d.pay_on_delivery && (
+                  <Text style={s.small}>
+                    You pay the seller {money(Number(d.total_kobo))} at pickup (from your wallet);
+                    the buyer repays you on delivery.
+                  </Text>
+                )}
                 <Button
                   title="Take this job"
                   disabled={busy}

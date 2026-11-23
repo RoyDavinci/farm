@@ -26,6 +26,30 @@ export const kinds = [
 export const repeatableKinds = new Set<string>(['other']);
 export const subjects = ['seller', 'driver'] as const;
 
+/**
+ * Photo verification: a seller or rider is approved only with a selfie on file (not rejected), and
+ * a rider also needs a photo of their driver's licence.
+ */
+export async function requirePhotoVerification(
+  q: Query,
+  userId: string,
+  subject: (typeof subjects)[number],
+) {
+  const rows = await q.query<{ kind: string }>(
+    "SELECT DISTINCT kind FROM seller_documents WHERE seller_id=$1 AND subject=$2 AND status<>'REJECTED'",
+    [userId, subject],
+  );
+  const held = new Set(rows.map((r) => r.kind));
+  const needed = subject === 'driver' ? ['selfie', 'drivers_licence'] : ['selfie'];
+  const missing = needed.filter((k) => !held.has(k));
+  ensure(
+    !missing.length,
+    409,
+    'PHOTO_VERIFICATION_REQUIRED',
+    `Approve only after photo checks: missing ${missing.map((k) => k.replace('_', ' ')).join(' and ')}.`,
+  );
+}
+
 /** Validates an upload as a real PDF or image; images are re-encoded to strip metadata. */
 export async function normalizeDocument(file: Express.Multer.File) {
   if (file.mimetype === 'application/pdf' && file.buffer.subarray(0, 5).toString() === '%PDF-')

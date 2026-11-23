@@ -7,6 +7,8 @@ export function accountRoutes(deps: AppDeps) {
   const c = createAccountController(deps);
   r.get('/me', c.getMe);
   r.patch('/me', c.updateMe);
+  r.get('/me/transaction-pin', c.getTransactionPin);
+  r.put('/me/transaction-pin', c.setTransactionPin);
   r.get('/me/sessions', c.listSessions);
   r.delete('/me/sessions/:id', c.revokeSession);
   r.post('/auth/logout', c.logout);

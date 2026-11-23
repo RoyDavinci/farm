@@ -13,6 +13,7 @@ import { ensure } from '../lib/errors.js';
 import type { RequestInput } from '../lib/http.js';
 import type { AppDeps } from '../types/deps.js';
 import { audit } from './audit.service.js';
+import { requirePhotoVerification } from './verification.service.js';
 import { event } from './booking.service.js';
 import { notify } from './communications.service.js';
 import { ledger, lockedBalance } from './ledger.service.js';
@@ -35,9 +36,30 @@ export const point = z.object({
 });
 export const pin = () => String(randomInt(100000, 1000000));
 
+/**
+ * Gives a rider back the item price they put into escrow when the goods never left the seller.
+ * Once the buyer has paid (they reimbursed the rider), the escrow is the buyer's and stays with the
+ * booking, which refunds it to the buyer if the booking itself is cancelled.
+ */
+export async function returnRiderFront(q: Query, d: any) {
+  const fronted = Number(d.rider_fronted_kobo || 0);
+  if (!fronted || d.seller_released_at) return;
+  const [b] = await q.query('SELECT paid FROM bookings WHERE id=$1', [d.booking_id]);
+  if (!b.paid)
+    await ledger(q, d.id, [
+      { account: 'escrow', owner: d.booking_id, amount: -fronted },
+      { account: 'wallet', owner: d.driver_id, amount: fronted },
+    ]);
+  await q.query(
+    'UPDATE deliveries SET rider_fronted_kobo=0,rider_checked_at=NULL,rider_check_note=NULL WHERE id=$1',
+    [d.id],
+  );
+}
+
 /** Cancels an unfinished delivery and refunds a prepaid fare. Used by booking release/expiry. */
 export async function cancelDelivery(q: Query, d: any, reason: string, actor: string | null) {
   if (!['OPEN', 'ASSIGNED'].includes(d.status)) return;
+  await returnRiderFront(q, d);
   if (d.fare_paid)
     await ledger(q, d.id, [
       { account: 'delivery_escrow', owner: d.id, amount: -Number(d.fare_kobo) },
@@ -53,6 +75,19 @@ export async function cancelDelivery(q: Query, d: any, reason: string, actor: st
 }
 
 /** Business logic for deliveries requests. HTTP-free: callers pass plain input. */
+/** Moves a booking's escrow to the seller's earnings, less the platform commission. */
+async function releaseToSeller(q: Query, b: any) {
+  await ledger(q, b.id, [
+    { account: 'escrow', owner: b.id, amount: -Number(b.total_kobo) },
+    {
+      account: 'seller_payable',
+      owner: b.seller_id,
+      amount: Number(b.total_kobo) - Number(b.commission_kobo),
+    },
+    { account: 'platform_revenue', amount: Number(b.commission_kobo) },
+  ]);
+}
+
 export function createDeliveriesService(deps: AppDeps) {
   const { db } = deps;
   const routing = createRouting(deps.config, deps.redis);
@@ -290,7 +325,10 @@ export function createDeliveriesService(deps: AppDeps) {
           n.user_id,
           'delivery',
           'New delivery nearby',
-          `${qd.distance_km} km trip · earn about ₦${Math.round((qd.fare_kobo * (10000 - settings.delivery_commission_bps)) / 1000000).toLocaleString()}`,
+          `${qd.distance_km} km trip · earn about ₦${Math.round((qd.fare_kobo * (10000 - settings.delivery_commission_bps)) / 1000000).toLocaleString()}` +
+            (d.pay_on_delivery && !b.paid
+              ? ` · you pay the seller ₦${Math.round(Number(b.total_kobo) / 100).toLocaleString()} at pickup; the buyer repays you on delivery`
+              : ''),
         );
     return view({ ...delivery, booking_paid: b.paid }, u);
   }
@@ -430,7 +468,7 @@ export function createDeliveriesService(deps: AppDeps) {
   }
   async function performDeliveryAction(q: Query, u: any, input: RequestInput) {
     const action = z
-      .enum(['cancel', 'pay', 'claim', 'release', 'handover', 'deliver'])
+      .enum(['cancel', 'pay', 'claim', 'release', 'check', 'handover', 'deliver'])
       .parse(input.params.action);
 
     // Lock order matches booking cancel/expiry (booking → delivery) so the two can't deadlock.
@@ -526,6 +564,7 @@ export function createDeliveriesService(deps: AppDeps) {
           b.id,
         );
       } else {
+        await returnRiderFront(q, d);
         await q.query(
           "UPDATE deliveries SET status='OPEN',driver_id=NULL,assigned_at=NULL WHERE id=$1",
           [d.id],
@@ -539,6 +578,45 @@ export function createDeliveriesService(deps: AppDeps) {
           b.id,
         );
       }
+    } else if (action === 'check') {
+      // At the seller: the rider confirms the goods match the order. If the buyer hasn't paid yet
+      // the rider pays the item price into escrow from their wallet; the buyer repays them at the door.
+      ensure(d.driver_id === u.id, 403, 'FORBIDDEN', 'Only the assigned rider checks the goods.');
+      ensure(
+        d.status === 'ASSIGNED' && !d.rider_checked_at,
+        409,
+        'INVALID_TRANSITION',
+        'Goods can be checked once, at the seller, before collection.',
+      );
+      const body = z
+        .object({ note: z.string().trim().max(500).optional() })
+        .parse(input.body ?? {});
+      let fronted = 0;
+      if (!b.paid) {
+        fronted = Number(b.total_kobo);
+        ensure(
+          (await lockedBalance(q, u.id)) >= fronted,
+          409,
+          'INSUFFICIENT_BALANCE',
+          `Add ${Math.ceil(fronted / 100).toLocaleString()} naira to your wallet to pay the seller for this order. The buyer pays you back on delivery.`,
+        );
+        await ledger(q, d.id, [
+          { account: 'wallet', owner: u.id, amount: -fronted },
+          { account: 'escrow', owner: b.id, amount: fronted },
+        ]);
+      }
+      await q.query(
+        'UPDATE deliveries SET rider_checked_at=now(),rider_check_note=$1,rider_fronted_kobo=$2 WHERE id=$3',
+        [body.note || null, fronted, d.id],
+      );
+      await notify(
+        q,
+        d.seller_id,
+        'delivery',
+        'Rider checked the goods',
+        `${u.name} confirmed ${b.title} is in order. Payment is held in escrow; confirm handover with the rider's code to receive it.`,
+        b.id,
+      );
     } else if (action === 'cancel') {
       ensure(d.buyer_id === u.id, 403, 'FORBIDDEN', 'Only the buyer can cancel a delivery.');
       ensure(
@@ -573,10 +651,20 @@ export function createDeliveriesService(deps: AppDeps) {
         'Add money to your wallet to pay.',
       );
       if (!b.paid) {
-        await ledger(q, b.id, [
-          { account: 'wallet', owner: u.id, amount: -Number(b.total_kobo) },
-          { account: 'escrow', owner: b.id, amount: Number(b.total_kobo) },
-        ]);
+        // When the rider already paid the seller's escrow, the buyer's money repays the rider.
+        await ledger(
+          q,
+          b.id,
+          Number(d.rider_fronted_kobo)
+            ? [
+                { account: 'wallet', owner: u.id, amount: -Number(b.total_kobo) },
+                { account: 'wallet', owner: d.driver_id, amount: Number(b.total_kobo) },
+              ]
+            : [
+                { account: 'wallet', owner: u.id, amount: -Number(b.total_kobo) },
+                { account: 'escrow', owner: b.id, amount: Number(b.total_kobo) },
+              ],
+        );
         await q.query('UPDATE bookings SET paid=TRUE WHERE id=$1', [b.id]);
       }
       if (!d.fare_paid) {
@@ -614,6 +702,20 @@ export function createDeliveriesService(deps: AppDeps) {
           ? 'No driver is waiting to collect this order.'
           : 'Collect the order before delivering it.',
       );
+      if (handover) {
+        ensure(
+          d.rider_checked_at,
+          409,
+          'RIDER_CHECK_REQUIRED',
+          'The rider must check the goods in their app before you hand them over.',
+        );
+        ensure(
+          b.paid || Number(d.rider_fronted_kobo) > 0,
+          409,
+          'ESCROW_NOT_FUNDED',
+          'Payment for this order is not in escrow yet.',
+        );
+      }
       if (!handover)
         ensure(
           b.paid && d.fare_paid,
@@ -640,8 +742,18 @@ export function createDeliveriesService(deps: AppDeps) {
       }
       if (handover) {
         await q.query(
-          "UPDATE deliveries SET status='PICKED_UP',picked_up_at=now(),pin_failures=0 WHERE id=$1",
+          "UPDATE deliveries SET status='PICKED_UP',picked_up_at=now(),pin_failures=0,seller_released_at=now() WHERE id=$1",
           [d.id],
+        );
+        // Rider checked the goods and the seller confirmed handover: escrow goes to the seller.
+        await releaseToSeller(q, b);
+        await notify(
+          q,
+          d.seller_id,
+          'payout',
+          'Payment released',
+          `${Math.round((Number(b.total_kobo) - Number(b.commission_kobo)) / 100).toLocaleString()} naira for ${b.title} is now in your earnings.`,
+          b.id,
         );
         await notify(
           q,
@@ -669,15 +781,7 @@ export function createDeliveriesService(deps: AppDeps) {
         if (partner)
           await q.query('UPDATE deliveries SET partner_id=$1 WHERE id=$2', [partner.id, d.id]);
         const driverShare = Math.round((Number(d.fare_kobo) * (10000 - deliveryBps)) / 10000);
-        await ledger(q, b.id, [
-          { account: 'escrow', owner: b.id, amount: -Number(b.total_kobo) },
-          {
-            account: 'seller_payable',
-            owner: b.seller_id,
-            amount: Number(b.total_kobo) - Number(b.commission_kobo),
-          },
-          { account: 'platform_revenue', amount: Number(b.commission_kobo) },
-        ]);
+        if (!d.seller_released_at) await releaseToSeller(q, b);
         // Driver earnings share the payable account, so drivers withdraw through payouts.
         await ledger(q, d.id, [
           { account: 'delivery_escrow', owner: d.id, amount: -Number(d.fare_kobo) },
@@ -742,6 +846,8 @@ export function createAdminDeliveriesService(deps: AppDeps) {
         reason: z.string().trim().min(3).max(500),
       })
       .parse(input.body);
+    if (d.status === 'APPROVED')
+      await requirePhotoVerification(q, input.params.id as string, 'driver');
     const [driver] = await q.query(
       "UPDATE drivers SET status=$1,reason=$2,online=CASE WHEN $1='APPROVED' THEN online ELSE FALSE END WHERE user_id=$3 RETURNING *",
       [d.status, d.reason, input.params.id],

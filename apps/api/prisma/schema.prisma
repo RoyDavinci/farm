@@ -113,6 +113,10 @@ model Delivery {
   progress_stage                    String?
   inspection_started_at             DateTime?             @db.Timestamptz(6)
   inspection_accepted_at            DateTime?             @db.Timestamptz(6)
+  rider_checked_at                  DateTime?             @db.Timestamptz(6)
+  rider_check_note                  String?
+  rider_fronted_kobo                BigInt                @default(0)
+  seller_released_at                DateTime?             @db.Timestamptz(6)
   scheduled_at                      DateTime?             @db.Timestamptz(6)
   requested_rider                   User?                 @relation("delivery_requested_rider", fields: [requested_driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   requested_driver_id               String?
@@ -752,7 +756,7 @@ model Setting {
   promotion_daily_kobo     Int     @default(50000)
   delivery_commission_bps  Int     @default(1000)
   delivery_radius_km       Int     @default(15)
-  pay_on_delivery_enabled  Boolean @default(false)
+  pay_on_delivery_enabled  Boolean @default(true)
   /// Owner switches for commissions and paid features.
   monetisation             Json    @default("{\"transaction_commission\":true,\"delivery_commission\":true,\"sponsored_products\":true,\"featured_sellers\":true,\"local_ads\":true}")
 
@@ -856,6 +860,9 @@ model User {
   stock_alerts                                         StockAlert[]
   user_blocks_user_blocks_blocked_idTousers            UserBlock[]             @relation("user_blocks_blocked_idTousers")
   user_blocks_user_blocks_blocker_idTousers            UserBlock[]             @relation("user_blocks_blocker_idTousers")
+  transaction_pin_hash                                 String?
+  transaction_pin_failures                             Int                     @default(0)
+  transaction_pin_locked_until                         DateTime?               @db.Timestamptz(6)
 
   @@map("users")
 }
@@ -1364,51 +1371,63 @@ model MarketRegion {
 // Smart Planner and cart (migration 20261121160000_cart_and_planner). Foreign keys live in SQL;
 // these models carry no Prisma relations because the API queries them with raw SQL.
 model Plan {
-  id          String    @id
-  user_id     String
-  title       String
+  id                 String    @id
+  user_id            String
+  title              String
   /// HOME, EVENT, FOOD, PERSONAL, OFFICE or CUSTOM.
-  kind        String
-  template    String?
-  budget_kobo BigInt?
-  people      Int?
-  rooms       Int?
+  kind               String
+  template           String?
+  budget_kobo        BigInt?
+  people             Int?
+  rooms              Int?
   /// BASIC, STANDARD or PREMIUM.
-  tier        String    @default("STANDARD")
-  target_date DateTime? @db.Date
+  tier               String    @default("STANDARD")
+  target_date        DateTime? @db.Date
+  /// Answers from the step-by-step planner.
+  answers            Json      @default("{}")
+  repeat_reminded_at DateTime? @db.Timestamptz(6)
   /// ACTIVE, PAUSED or COMPLETED.
-  status      String    @default("ACTIVE")
-  created_at  DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+  status             String    @default("ACTIVE")
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime  @default(now()) @db.Timestamptz(6)
 
   @@index([user_id, updated_at(sort: Desc)], map: "plans_user_idx")
   @@map("plans")
 }
 
 model PlanItem {
-  id             String   @id
-  plan_id        String
-  section        String   @default("Items")
-  name           String
-  category       String?
-  keywords       String   @default("")
-  quantity       Float    @default(1)
-  unit           String   @default("piece")
+  id                String    @id
+  plan_id           String
+  section           String    @default("Items")
+  name              String
+  category          String?
+  keywords          String    @default("")
+  quantity          Float     @default(1)
+  unit              String    @default("piece")
   /// Estimate for the whole line, never a live price.
-  budget_kobo    BigInt   @default(0)
+  budget_kobo       BigInt    @default(0)
   /// ESSENTIAL, IMPORTANT or OPTIONAL.
-  priority       String   @default("IMPORTANT")
+  priority          String    @default("IMPORTANT")
   /// PLANNED, SAVED, PURCHASED, UNAVAILABLE, NOT_NEEDED or OWNED.
-  status         String   @default("PLANNED")
-  listing_id     String?
-  variant_id     String?
+  status            String    @default("PLANNED")
+  listing_id        String?
+  variant_id        String?
   /// TEMPLATE, RECIPE or MANUAL.
-  source         String   @default("MANUAL")
-  ingredient_key String?
-  allergens      String[] @default([])
-  position       Int      @default(0)
-  created_at     DateTime @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime @default(now()) @db.Timestamptz(6)
+  source            String    @default("MANUAL")
+  ingredient_key    String?
+  allergens         String[]  @default([])
+  position          Int       @default(0)
+  icon              String?
+  photo_url         String?
+  /// ESTIMATE or MARKET.
+  price_source      String    @default("ESTIMATE")
+  market_sellers    Int       @default(0)
+  buy_by            DateTime? @db.Date
+  reminded_at       DateTime? @db.Timestamptz(6)
+  assignee_id       String?
+  linked_price_kobo BigInt?
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime  @default(now()) @db.Timestamptz(6)
 
   @@index([plan_id, position], map: "plan_items_plan_idx")
   @@map("plan_items")

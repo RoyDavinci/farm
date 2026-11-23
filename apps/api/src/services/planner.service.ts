@@ -18,7 +18,13 @@ import {
   type DietProfile,
 } from '../config/recipes.js';
 import { unitPrice } from './catalog.service.js';
-import { plannerContent } from './planner-content.service.js';
+import { plannerContent, type PlannerContent } from './planner-content.service.js';
+import {
+  createPlannerWizardService,
+  scheduleItems,
+  wizardAnswers,
+} from './planner-wizard.service.js';
+import { answersFromRequest, wizardFor } from '../config/planner-wizards.js';
 import { activePromotion } from './promotions.service.js';
 import { notify } from './communications.service.js';
 import { verifiedSql } from './business-verification.service.js';
@@ -55,6 +61,8 @@ export const planCreateInput = z.object({
   rooms: z.number().int().min(1).max(20).nullable().optional(),
   tier: z.enum(tiers).default('STANDARD'),
   target_date: date.nullable().optional(),
+  /** Answers from the step-by-step planner; when given, the plan is built from them. */
+  answers: wizardAnswers.optional(),
 });
 export const planUpdateInput = z.object({
   title: z.string().trim().min(1).max(120).optional(),
@@ -74,6 +82,8 @@ export const planItemInput = z.object({
 });
 export const planItemUpdateInput = planItemInput.partial().extend({
   status: z.enum(itemStatuses).optional(),
+  /** Who is buying this: the plan owner or a member it is shared with; null to clear. */
+  assignee_id: z.string().max(60).nullable().optional(),
   listing_id: z.uuid().nullable().optional(),
   variant_id: z.uuid().nullable().optional(),
 });
@@ -101,6 +111,79 @@ export const planShareInput = z.object({
   role: z.enum(['VIEWER', 'EDITOR']).default('EDITOR'),
 });
 
+/**
+ * Turns a plan's meals into one grocery list: ingredient quantities scaled to servings and added
+ * up. Items already marked owned, bought or linked to a product keep that state.
+ */
+export async function rebuildGroceryList(q: Query, plan: { id?: any }, content: PlannerContent) {
+  const planMeals = await q.query('SELECT recipe,servings FROM plan_meals WHERE plan_id=$1', [
+    plan.id,
+  ]);
+  const totals = new Map<string, number>();
+  for (const m of planMeals) {
+    const recipe = content.recipes.find((r) => r.key === m.recipe);
+    if (!recipe) continue;
+    for (const [key, qty] of Object.entries(recipe.per_serving))
+      totals.set(key, (totals.get(key) || 0) + qty * m.servings);
+  }
+  const existing = await q.query("SELECT * FROM plan_items WHERE plan_id=$1 AND source='RECIPE'", [
+    plan.id,
+  ]);
+  const byKey = new Map(existing.map((i: any) => [i.ingredient_key, i]));
+  const [last] = await q.query(
+    'SELECT COALESCE(MAX(position),0) AS p FROM plan_items WHERE plan_id=$1',
+    [plan.id],
+  );
+  let position = n(last.p);
+  let added = 0,
+    updated = 0,
+    removed = 0;
+  for (const [key, amount] of totals) {
+    const x = content.ingredients[key];
+    if (!x) continue;
+    const quantity = shoppingQuantity(key, amount, content.ingredients);
+    const budget = Math.round(quantity * x.price * 100);
+    const allergens = [...new Set([...(x.allergens || []), ...(x.may || [])])];
+    const found: any = byKey.get(key);
+    if (found) {
+      await q.query(
+        'UPDATE plan_items SET quantity=$1,budget_kobo=$2,allergens=$3,updated_at=now() WHERE id=$4',
+        [quantity, budget, allergens, found.id],
+      );
+      updated++;
+    } else {
+      await q.query(
+        "INSERT INTO plan_items(id,plan_id,section,name,category,keywords,quantity,unit,budget_kobo,priority,source,ingredient_key,allergens,position) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'ESSENTIAL','RECIPE',$10,$11,$12)",
+        [
+          randomUUID(),
+          plan.id,
+          x.category,
+          x.name,
+          x.category,
+          x.keywords,
+          quantity,
+          x.unit,
+          budget,
+          key,
+          allergens,
+          ++position,
+        ],
+      );
+      added++;
+    }
+  }
+  for (const i of existing as any[])
+    if (
+      !totals.has(i.ingredient_key) &&
+      ['PLANNED', 'SAVED', 'UNAVAILABLE'].includes(i.status) &&
+      !i.listing_id
+    ) {
+      await q.query('DELETE FROM plan_items WHERE id=$1', [i.id]);
+      removed++;
+    }
+  return { added, updated, removed };
+}
+
 const CONFIRMED = "('ACCEPTED','READY_FOR_PICKUP','COMPLETED')";
 const n = (v: unknown) => Number(v ?? 0);
 
@@ -110,6 +193,7 @@ const n = (v: unknown) => Number(v ?? 0);
  */
 export function createPlannerService(deps: AppDeps) {
   const { db, config: c } = deps;
+  const wizard = createPlannerWizardService(deps);
 
   async function profileOf(userId: string): Promise<DietProfile | null> {
     const [p] = await db.query(
@@ -160,7 +244,8 @@ export function createPlannerService(deps: AppDeps) {
       questions: t.questions,
       rooms_label: t.roomsLabel ?? null,
       people_label: t.peopleLabel ?? null,
-      item_count: t.items.length,
+      item_count: wizardFor(t.key)?.items.length || t.items.length,
+      wizard: !!wizardFor(t.key),
     }));
   }
   async function listRecipes(user: any, _input?: RequestInput) {
@@ -194,7 +279,9 @@ export function createPlannerService(deps: AppDeps) {
     });
   }
   async function readText(_user: any, input: RequestInput) {
-    return readRequest(planReadInput.parse(input.body).text, (await plannerContent(db)).templates);
+    const text = planReadInput.parse(input.body).text;
+    const read = readRequest(text, (await plannerContent(db)).templates);
+    return { ...read, answers: answersFromRequest(read.template, read, text) };
   }
 
   // ---------- diet profile (sensitive) ----------
@@ -370,6 +457,10 @@ export function createPlannerService(deps: AppDeps) {
       'PLAN_LIMIT',
       'You can keep up to 50 plans. Delete one to start another.',
     );
+    // Step-by-step answers build a detailed plan; a plan type with no fixed list always uses them.
+    const guided = wizardFor(t.key);
+    if (guided && (d.answers || (!t.items.length && !guided.meals)))
+      return await wizard.createFromWizard(q, user, d);
     const id = randomUUID();
     await q.query(
       'INSERT INTO plans(id,user_id,title,kind,template,budget_kobo,people,rooms,tier,target_date) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
@@ -419,6 +510,7 @@ export function createPlannerService(deps: AppDeps) {
       `SELECT i.*,l.title AS listing_title,l.image_url,l.confirmed_at,l.status AS listing_status,
          (SELECT m.thumbnail_url FROM media m WHERE m.url=l.image_url) AS thumbnail_url,
          v.name AS variant_name,v.price_kobo,v.unit AS variant_unit,v.stock,v.active,v.wholesale_tiers,s.business_name,
+         (SELECT au.name FROM users au WHERE au.id=i.assignee_id) AS assignee_name,
          (SELECT json_agg(json_build_object('id',b.id,'status',b.status,'total_kobo',b.total_kobo) ORDER BY b.created_at)
             FROM bookings b WHERE b.plan_item_id=i.id) AS orders
        FROM plan_items i LEFT JOIN listings l ON l.id=i.listing_id LEFT JOIN listing_variants v ON v.id=i.variant_id
@@ -435,6 +527,7 @@ export function createPlannerService(deps: AppDeps) {
     const sums = await summarise([plan.id]);
     return {
       ...shapePlan(plan),
+      answers: plan.answers ?? {},
       summary: shapeSummary(plan, sums.get(plan.id)),
       items: items.map((i: any) => {
         const conflicts = (i.allergens || []).filter((a: string) => allergies.has(a));
@@ -451,6 +544,13 @@ export function createPlannerService(deps: AppDeps) {
           status: i.status,
           source: i.source,
           ingredient_key: i.ingredient_key,
+          icon: i.icon ?? null,
+          photo_url: i.photo_url ?? null,
+          price_source: i.price_source,
+          market_sellers: i.market_sellers,
+          buy_by: i.buy_by ? new Date(i.buy_by).toISOString().slice(0, 10) : null,
+          assignee_id: i.assignee_id ?? null,
+          assignee_name: i.assignee_name ?? null,
           allergens: i.allergens || [],
           allergy_warning: conflicts.length
             ? `Contains or may contain ${conflicts.map((a: string) => allergenNames[a as keyof typeof allergenNames] || a).join(', ')}, which is in your allergy profile.`
@@ -499,6 +599,8 @@ export function createPlannerService(deps: AppDeps) {
         plan.id,
       ],
     );
+    if (d.target_date !== undefined)
+      await scheduleItems(q, { id: plan.id, template: plan.template, target_date: d.target_date });
     return { ok: true };
   }
   async function deletePlan(q: Query, user: any, input: RequestInput) {
@@ -588,6 +690,34 @@ export function createPlannerService(deps: AppDeps) {
         variant = v.id;
       }
     }
+    let assignee = item.assignee_id;
+    if (d.assignee_id !== undefined) {
+      assignee = d.assignee_id;
+      if (assignee) {
+        const [ok] = await q.query(
+          'SELECT 1 FROM plans WHERE id=$1 AND user_id=$2 UNION SELECT 1 FROM plan_members WHERE plan_id=$1 AND user_id=$2',
+          [plan.id, assignee],
+        );
+        ensure(ok, 400, 'NOT_A_MEMBER', 'Share the plan with this person first.');
+        if (assignee !== user.id && assignee !== item.assignee_id)
+          await notify(
+            q,
+            assignee,
+            'planner',
+            `You’re buying ${item.name}`,
+            `${user.name} asked you to cover “${item.name}” for “${plan.title}”.`,
+          );
+      }
+    }
+    // Remember the price when a product is linked, to tell the customer if it drops.
+    const [linked] =
+      variant && variant !== item.variant_id
+        ? await q.query('SELECT price_kobo FROM listing_variants WHERE id=$1', [variant])
+        : [];
+    await q.query(
+      `UPDATE plan_items SET assignee_id=$1,linked_price_kobo=CASE WHEN $2::bigint IS NOT NULL THEN $2::bigint WHEN $3::text IS NULL THEN NULL ELSE linked_price_kobo END WHERE id=$4`,
+      [assignee, linked?.price_kobo ?? null, variant, item.id],
+    );
     await q.query(
       `UPDATE plan_items SET name=$1,section=$2,category=$3,keywords=$4,quantity=$5,unit=$6,budget_kobo=$7,priority=$8,status=$9,
          listing_id=$10,variant_id=$11,updated_at=now() WHERE id=$12`,
@@ -640,6 +770,15 @@ export function createPlannerService(deps: AppDeps) {
       plan.id,
     ]);
     ensure(item, 404, 'PLAN_ITEM_NOT_FOUND', 'That plan item was not found.');
+    return await findMatches(db, user, item, query);
+  }
+  /** Products that could fill a plan item, best first (or cheapest first with sort=price). */
+  async function findMatches(
+    db: Query,
+    user: any,
+    item: any,
+    query: { lat?: number; lng?: number; sort: 'best' | 'price' },
+  ) {
     const words = [
       ...new Set(
         `${item.keywords} ${item.name}`
@@ -792,6 +931,133 @@ export function createPlannerService(deps: AppDeps) {
     await touch(q, plan.id);
     return { id, warnings: check.status === 'WARNING' ? check.reasons : [] };
   }
+  /** Changes the step-by-step answers and rebuilds the plan, keeping anything acted on. */
+  async function changeAnswers(q: Query, user: any, input: RequestInput) {
+    const d = z
+      .object({
+        answers: wizardAnswers,
+        budget_kobo: kobo.nullable().optional(),
+        target_date: date.nullable().optional(),
+      })
+      .parse(input.body);
+    const plan = await ownPlan(q, user.id, input.params.id, true);
+    const result = await wizard.rebuildFromAnswers(q, user, plan, d);
+    return result;
+  }
+  /**
+   * Fills the cart with the whole plan: products already chosen, and for the rest the best
+   * in-stock match (within the estimate where possible). Items with no match are listed.
+   */
+  async function fillCart(q: Query, user: any, input: RequestInput) {
+    const plan = await ownPlan(q, user.id, input.params.id, true);
+    const items = await q.query(
+      "SELECT * FROM plan_items WHERE plan_id=$1 AND status IN ('PLANNED','SAVED') ORDER BY position",
+      [plan.id],
+    );
+    const missing: string[] = [];
+    const sellers = new Set<string>();
+    let added = 0,
+      total = 0;
+    const [count] = await q.query('SELECT COUNT(*)::int AS n FROM cart_items WHERE user_id=$1', [
+      user.id,
+    ]);
+    let room = 100 - count.n;
+    for (const item of items) {
+      if (room <= 0) {
+        missing.push(item.name);
+        continue;
+      }
+      let pick: any = null;
+      if (item.variant_id) {
+        const [v] = await q.query(
+          `SELECT l.id AS listing_id,v.id AS variant_id,v.unit,v.price_kobo,l.seller_id FROM listing_variants v JOIN listings l ON l.id=v.listing_id
+           JOIN sellers s ON s.user_id=l.seller_id
+           WHERE v.id=$1 AND v.active AND v.stock>0 AND l.status='ACTIVE' AND s.status='APPROVED' AND l.seller_id<>$2`,
+          [item.variant_id, user.id],
+        );
+        pick = v ?? null;
+      }
+      if (!pick) {
+        const found = await findMatches(q, user, item, { sort: 'best' });
+        const best =
+          found.items.find((m: any) => m.in_stock && m.within_estimate) ??
+          found.items.find((m: any) => m.in_stock);
+        if (best) {
+          const [l] = await q.query('SELECT seller_id FROM listings WHERE id=$1', [
+            best.listing_id,
+          ]);
+          pick = { ...best, seller_id: l.seller_id };
+        }
+      }
+      if (!pick) {
+        missing.push(item.name);
+        continue;
+      }
+      const sameUnit =
+        String(pick.unit).toLowerCase().replace(/e?s$/, '') ===
+        String(item.unit).toLowerCase().replace(/e?s$/, '');
+      const quantity = Math.min(1000, sameUnit ? Math.max(1, Math.ceil(n(item.quantity))) : 1);
+      await q.query(
+        `INSERT INTO cart_items(id,user_id,listing_id,variant_id,quantity,plan_item_id) VALUES($1,$2,$3,$4,$5,$6)
+         ON CONFLICT(user_id,variant_id) DO UPDATE SET quantity=GREATEST(cart_items.quantity,EXCLUDED.quantity),
+           plan_item_id=COALESCE(cart_items.plan_item_id,EXCLUDED.plan_item_id),updated_at=now()`,
+        [randomUUID(), user.id, pick.listing_id, pick.variant_id, quantity, item.id],
+      );
+      await q.query(
+        "UPDATE plan_items SET listing_id=$1,variant_id=$2,status='SAVED',linked_price_kobo=COALESCE(linked_price_kobo,$3),updated_at=now() WHERE id=$4",
+        [pick.listing_id, pick.variant_id, pick.price_kobo, item.id],
+      );
+      sellers.add(pick.seller_id);
+      total += n(pick.price_kobo) * quantity;
+      added++;
+      room--;
+    }
+    await touch(q, plan.id);
+    return { added, missing, sellers: sellers.size, total_kobo: total };
+  }
+  /** A fresh copy of a grocery, household or meal plan for the next round of shopping. */
+  async function repeatPlan(q: Query, user: any, input: RequestInput) {
+    const plan = await ownPlan(q, user.id, input.params.id, false, 'owner');
+    const [count] = await q.query('SELECT COUNT(*)::int AS n FROM plans WHERE user_id=$1', [
+      user.id,
+    ]);
+    ensure(
+      count.n < 50,
+      400,
+      'PLAN_LIMIT',
+      'You can keep up to 50 plans. Delete one to start another.',
+    );
+    const id = randomUUID();
+    const month = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    const base = String(plan.title).replace(/ · [A-Z][a-z]+ \d{4}$/, '');
+    await q.query(
+      `INSERT INTO plans(id,user_id,title,kind,template,budget_kobo,people,rooms,tier,answers)
+       SELECT $1,user_id,left($3,120),kind,template,budget_kobo,people,rooms,tier,answers FROM plans WHERE id=$2`,
+      [id, plan.id, `${base} · ${month}`],
+    );
+    // Same list, same chosen products; everything is to buy again except what wasn't needed.
+    await q.query(
+      `INSERT INTO plan_items(id,plan_id,section,name,category,keywords,quantity,unit,budget_kobo,priority,status,listing_id,variant_id,source,ingredient_key,allergens,position,icon,photo_url,price_source,market_sellers,linked_price_kobo)
+       SELECT gen_random_uuid()::text,$1,section,name,category,keywords,quantity,unit,budget_kobo,priority,
+         CASE WHEN status='NOT_NEEDED' THEN status WHEN listing_id IS NOT NULL THEN 'SAVED' ELSE 'PLANNED' END,
+         listing_id,variant_id,source,ingredient_key,allergens,position,icon,photo_url,price_source,market_sellers,linked_price_kobo
+       FROM plan_items WHERE plan_id=$2`,
+      [id, plan.id],
+    );
+    await q.query(
+      'INSERT INTO plan_meals(id,plan_id,recipe,day,meal,servings) SELECT gen_random_uuid()::text,$1,recipe,day,meal,servings FROM plan_meals WHERE plan_id=$2',
+      [id, plan.id],
+    );
+    await q.query('UPDATE plans SET repeat_reminded_at=now() WHERE id=$1', [plan.id]);
+    return { id };
+  }
+  /** Swaps a meal for the next best dish and refreshes the grocery list. */
+  async function swapMeal(q: Query, user: any, input: RequestInput) {
+    const plan = await ownPlan(q, user.id, input.params.id, true);
+    const result = await wizard.swapMeal(q, user, plan, String(input.params.mealId));
+    await touch(q, plan.id);
+    return result;
+  }
   async function removeMeal(q: Query, user: any, input: RequestInput) {
     const plan = await ownPlan(q, user.id, input.params.id, true);
     const [meal] = await q.query('DELETE FROM plan_meals WHERE id=$1 AND plan_id=$2 RETURNING id', [
@@ -802,81 +1068,12 @@ export function createPlannerService(deps: AppDeps) {
     await touch(q, plan.id);
     return { ok: true };
   }
-  /**
-   * Turns the plan's meals into one grocery list: ingredient quantities scaled to servings and
-   * added up. Items already marked owned, bought or linked to a product keep that state.
-   */
+  /** Rebuilds the grocery list from the plan's meals. */
   async function buildGroceryList(q: Query, user: any, input: RequestInput) {
     const plan = await ownPlan(q, user.id, input.params.id, true);
-    const content = await plannerContent(q);
-    const planMeals = await q.query('SELECT recipe,servings FROM plan_meals WHERE plan_id=$1', [
-      plan.id,
-    ]);
-    const totals = new Map<string, number>();
-    for (const m of planMeals) {
-      const recipe = content.recipes.find((r) => r.key === m.recipe);
-      if (!recipe) continue;
-      for (const [key, qty] of Object.entries(recipe.per_serving))
-        totals.set(key, (totals.get(key) || 0) + qty * m.servings);
-    }
-    const existing = await q.query(
-      "SELECT * FROM plan_items WHERE plan_id=$1 AND source='RECIPE'",
-      [plan.id],
-    );
-    const byKey = new Map(existing.map((i: any) => [i.ingredient_key, i]));
-    const [last] = await q.query(
-      'SELECT COALESCE(MAX(position),0) AS p FROM plan_items WHERE plan_id=$1',
-      [plan.id],
-    );
-    let position = n(last.p);
-    let added = 0,
-      updated = 0,
-      removed = 0;
-    for (const [key, amount] of totals) {
-      const x = content.ingredients[key];
-      if (!x) continue;
-      const quantity = shoppingQuantity(key, amount, content.ingredients);
-      const budget = Math.round(quantity * x.price * 100);
-      const allergens = [...new Set([...(x.allergens || []), ...(x.may || [])])];
-      const found: any = byKey.get(key);
-      if (found) {
-        await q.query(
-          'UPDATE plan_items SET quantity=$1,budget_kobo=$2,allergens=$3,updated_at=now() WHERE id=$4',
-          [quantity, budget, allergens, found.id],
-        );
-        updated++;
-      } else {
-        await q.query(
-          "INSERT INTO plan_items(id,plan_id,section,name,category,keywords,quantity,unit,budget_kobo,priority,source,ingredient_key,allergens,position) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'ESSENTIAL','RECIPE',$10,$11,$12)",
-          [
-            randomUUID(),
-            plan.id,
-            x.category,
-            x.name,
-            x.category,
-            x.keywords,
-            quantity,
-            x.unit,
-            budget,
-            key,
-            allergens,
-            ++position,
-          ],
-        );
-        added++;
-      }
-    }
-    for (const i of existing as any[])
-      if (
-        !totals.has(i.ingredient_key) &&
-        ['PLANNED', 'SAVED', 'UNAVAILABLE'].includes(i.status) &&
-        !i.listing_id
-      ) {
-        await q.query('DELETE FROM plan_items WHERE id=$1', [i.id]);
-        removed++;
-      }
+    const result = await rebuildGroceryList(q, plan, await plannerContent(q));
     await touch(q, plan.id);
-    return { added, updated, removed };
+    return result;
   }
 
   // ---------- sharing ----------
@@ -939,6 +1136,12 @@ export function createPlannerService(deps: AppDeps) {
   }
 
   return {
+    getWizard: wizard.getWizard,
+    changeAnswers,
+    fillCart,
+    repeatPlan,
+    previewPlan: wizard.previewPlan,
+    swapMeal,
     listMembers,
     shareWith,
     removeMember,
