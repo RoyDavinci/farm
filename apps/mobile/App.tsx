@@ -94,7 +94,9 @@ function Main() {
     [category, setCategory] = useState(''),
     [cartCount, setCartCount] = useState(0),
     [unread, setUnread] = useState({ updates: 0, messages: 0 }),
-    [inboxSection, setInboxSection] = useState<'messages' | 'updates'>('messages');
+    [inboxSection, setInboxSection] = useState<'messages' | 'updates'>('messages'),
+    // The order a notification opened; Orders shows it first, on its tab.
+    [focusBooking, setFocusBooking] = useState<string | null>(null);
   const refreshUnread = useCallback(() => {
     Promise.all([request('get', '/notifications'), request('get', '/conversations')])
       .then(([n, c]) =>
@@ -206,7 +208,10 @@ function Main() {
       if (data.kind === 'shopping') setTab('Riders');
       else if (data.kind === 'message') setTab('Inbox');
       else if (data.kind === 'payout') setTab('Wallet');
-      else if (data.booking_id) setTab('Bookings');
+      else if (data.booking_id) {
+        setFocusBooking(String(data.booking_id));
+        setTab('Bookings');
+      }
       void refresh();
     });
   }, [me?.id, refresh]);
@@ -236,6 +241,7 @@ function Main() {
   const changeTab = (t: Tab) => {
     if (t === 'Inbox') setConversationId(null);
     if (t !== 'Inbox') setInboxSection('messages');
+    setFocusBooking(null);
     setTab(t);
     setSelected(null);
     setShop(null);
@@ -324,7 +330,10 @@ function Main() {
         key={inboxSection}
         initialSection={inboxSection}
         initialConversation={conversationId}
-        onBooking={() => changeTab('Bookings')}
+        onBooking={(id) => {
+          changeTab('Bookings');
+          setFocusBooking(id);
+        }}
         onShopping={() => changeTab('Riders')}
       />
     );
@@ -348,7 +357,8 @@ function Main() {
         }}
       />
     );
-  else if (tab === 'Bookings') screen = <BookingsScreen outgoing={outgoing} />;
+  else if (tab === 'Bookings')
+    screen = <BookingsScreen outgoing={outgoing} incoming={incoming} focusId={focusBooking} />;
   else if (tab === 'Sell')
     screen = (
       <SellScreen

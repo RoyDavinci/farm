@@ -1,4 +1,3 @@
-import PlannerHomeCard from './PlannerHomeCard';
 import LocalStatusFeed from './LocalStatusFeed';
 import { FadeIn, PressScale, produceIcon } from './ui';
 import { VerifiedBadge } from './BusinessTools';
@@ -34,7 +33,7 @@ export default function DiscoveryPanel({
   category: string;
   onCategory: (category: string) => void;
 }) {
-  const { settings, setTab, openSeller, cartCount, run } = useApp();
+  const { settings, setTab, openSeller, run } = useApp();
   const [featured, setFeatured] = useState<any[]>([]),
     [ads, setAds] = useState<any[]>([]),
     [adPage, setAdPage] = useState(0),
@@ -272,7 +271,7 @@ export default function DiscoveryPanel({
       <View style={s.quickRow}>
         {(
           [
-            ['🛒', 'My cart', '#e9f6ef', () => setTab('Cart'), cartCount],
+            ['🗓️', 'My planner', '#e9f6ef', () => setTab('Planner'), 0],
             ['📍', 'Nearby sellers', '#e6fbf0', () => setTab('Nearby'), 0],
             [
               '🛵',
@@ -310,8 +309,6 @@ export default function DiscoveryPanel({
           </PressScale>
         ))}
       </View>
-
-      <PlannerHomeCard refreshVersion={refreshVersion} />
 
       {featureOn(settings, 'local_status') ? (
         <LocalStatusFeed

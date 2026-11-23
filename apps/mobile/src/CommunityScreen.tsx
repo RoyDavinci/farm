@@ -14,7 +14,7 @@ export default function CommunityScreen({
 }: {
   user: any;
   initialConversation?: string | null;
-  onBooking: () => void;
+  onBooking: (bookingId: string) => void;
   onShopping: () => void;
   initialSection?: 'messages' | 'updates';
 }) {
@@ -133,8 +133,9 @@ export default function CommunityScreen({
                 void run(async () => {
                   await request('post', '/notifications/read', { body: { id: n.id } });
                   if (n.kind === 'shopping') onShopping();
-                  else if (n.booking_id) onBooking();
-                  else setSection('messages');
+                  else if (n.booking_id) onBooking(n.booking_id);
+                  // Only chat notifications open Messages; others are just marked read.
+                  else if (n.kind === 'message') setSection('messages');
                 })
               }
             >
