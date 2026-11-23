@@ -232,6 +232,53 @@ describe('seller registration to pickup confirmation', () => {
     expect(
       (await request(app).get('/v1/me').set('Authorization', `Bearer ${login.body.token}`)).status,
     ).toBe(401);
+    // The device that entered a code signs in again with just the password.
+    expect(login.body.device_token).toMatch(/^[a-f0-9]{64}$/);
+    const trusted = await request(app)
+      .post('/v1/auth/login')
+      .send({ email: data.email, password: data.password, device_token: login.body.device_token });
+    expect(trusted.status).toBe(200);
+    expect(trusted.body).toMatchObject({ trusted_device: true, user: { email: 'new@test.com' } });
+    expect(
+      (await request(app).get('/v1/me').set('Authorization', `Bearer ${trusted.body.token}`))
+        .status,
+    ).toBe(200);
+    // The password is still checked, and an unknown device still gets a code.
+    expect(
+      (
+        await request(app).post('/v1/auth/login').send({
+          email: data.email,
+          password: 'wrong-password-1',
+          device_token: login.body.device_token,
+        })
+      ).status,
+    ).toBe(401);
+    await db.query("UPDATE otp_challenges SET sent_at=now()-interval '2 minutes'");
+    expect(
+      (
+        await request(app)
+          .post('/v1/auth/login')
+          .send({ email: data.email, password: data.password, device_token: 'f'.repeat(64) })
+      ).status,
+    ).toBe(202);
+    // A password reset forgets every trusted device.
+    await db.query("UPDATE otp_challenges SET sent_at=now()-interval '2 minutes'");
+    const reset = await request(app).post('/v1/auth/password/forgot').send({ email: data.email });
+    await request(app).post('/v1/auth/otp/verify').send({
+      challenge_id: reset.body.challenge_id,
+      code: latestCode(),
+      new_password: 'another-horse-456',
+    });
+    await db.query("UPDATE otp_challenges SET sent_at=now()-interval '2 minutes'");
+    expect(
+      (
+        await request(app).post('/v1/auth/login').send({
+          email: data.email,
+          password: 'another-horse-456',
+          device_token: login.body.device_token,
+        })
+      ).status,
+    ).toBe(202);
   });
   it('requires admin approval, rejects role escalation, and protects private seller addresses', async () => {
     await call('seller', 'post', '/sellers', {
@@ -2131,31 +2178,76 @@ describe('verified businesses', () => {
   it('verifies a business after a document review, shows the badge, suspends and expires it', async () => {
     const listing = await setup(10);
     const details = {
+      full_name: 'Ada Okafor',
+      home_address: '4 Palm Close, Ikorodu, Lagos',
+      latitude: 6.62,
+      longitude: 3.51,
+      id_method: 'NIN',
+      nin: '12345678901',
       legal_name: 'Ada Farms Limited',
       registration_number: 'RC 1234567',
-      contact_person: 'Ada Okafor',
-      contact_phone: '+2348000000002',
-      business_address: '12 Harvest Lane, Ikorodu',
     };
+    const doc = (id: string, kind: string) =>
+      db.query(
+        `INSERT INTO seller_documents(id,seller_id,subject,kind,filename,mime_type,storage_provider,storage_key,status) VALUES($1,'seller','seller',$2,'f.webp','image/webp','local','docs/'||$1,'PENDING')`,
+        [id, kind],
+      );
+    // Location, a selfie and an ID (NIN card or BVN) are all needed.
+    expect(
+      (
+        await call('seller', 'post', '/sellers/me/verification', {
+          ...details,
+          latitude: undefined,
+        })
+      ).status,
+    ).toBe(400);
     expect(
       (await call('seller', 'post', '/sellers/me/verification', details)).body.error.code,
-    ).toBe('DOCUMENTS_REQUIRED');
-    await db.query(
-      "INSERT INTO seller_documents(id,seller_id,subject,kind,filename,mime_type,storage_provider,storage_key,status) VALUES('doc-1','seller','seller','business_registration','cac.pdf','application/pdf','local','docs/cac.pdf','PENDING')",
-    );
+    ).toBe('SELFIE_REQUIRED');
+    await doc('doc-selfie', 'selfie');
+    expect(
+      (await call('seller', 'post', '/sellers/me/verification', details)).body.error.code,
+    ).toBe('ID_REQUIRED');
+    expect(
+      (await call('seller', 'post', '/sellers/me/verification', { ...details, id_method: 'BVN' }))
+        .status,
+    ).toBe(400);
+    await doc('doc-1', 'government_id');
     expect((await call('seller', 'post', '/sellers/me/verification', details)).body).toEqual({
       status: 'PENDING',
     });
     expect(
       (await call('seller', 'post', '/sellers/me/verification', details)).body.error.code,
     ).toBe('VERIFICATION_IN_PROGRESS');
+    // The seller sees only the last digits of their NIN; reviewers see it in full.
+    const pending = (await call('seller', 'get', '/sellers/me/verification')).body;
+    expect(pending.details.nin).toBe('•••••••8901');
+    expect(pending).toMatchObject({ has_selfie: true, has_id_card: true });
+    // A document that is pending or accepted can't be uploaded again; "other" can.
+    const upload = (kind: string) =>
+      request(app)
+        .post('/v1/sellers/me/documents')
+        .set('Authorization', 'Bearer token-seller')
+        .field('kind', kind)
+        .attach('file', Buffer.from('%PDF-1.4 test'), {
+          filename: 'd.pdf',
+          contentType: 'application/pdf',
+        });
+    expect((await upload('selfie')).body.error.code).toBe('DOCUMENT_ALREADY_SUBMITTED');
+    expect((await upload('other')).status).toBe(201);
     // Finance staff can't review businesses; operations can.
     await db.query("UPDATE users SET staff_role='finance' WHERE id='admin'");
     expect((await call('admin', 'get', '/admin/verifications')).status).toBe(403);
     await db.query("UPDATE users SET staff_role='operations' WHERE id='admin'");
     const queue = (await call('admin', 'get', '/admin/verifications')).body;
     expect(queue[0]).toMatchObject({ seller_id: 'seller', verification_status: 'PENDING' });
-    expect(queue[0].documents[0].kind).toBe('business_registration');
+    expect(queue[0].verification_details).toMatchObject({
+      full_name: 'Ada Okafor',
+      nin: '12345678901',
+      id_method: 'NIN',
+      contact_person: 'Ada Okafor',
+    });
+    expect(queue[0].documents.map((d: any) => d.kind)).toContain('selfie');
     expect(
       (
         await call('admin', 'post', '/admin/verifications/seller', {

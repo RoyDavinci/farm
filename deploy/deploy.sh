@@ -64,6 +64,7 @@ echo "▸ Uploading configuration and sites"
   echo "ROOT_HOSTS=$ROOT_HOSTS"
   echo "ROOT_HOST=$ROOT_HOST"
   echo "WWW_HOSTS=$WWW_HOSTS"
+  echo "ANDROID_APK_URL=${ANDROID_APK_URL:-/#faq}"
   grep -E '^POSTGRES_PASSWORD=' deploy/.env.test
 } > $BUILD/.env
 chmod 600 $BUILD/api.env $BUILD/.env

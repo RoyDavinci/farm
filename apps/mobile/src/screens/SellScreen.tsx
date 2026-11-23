@@ -26,6 +26,7 @@ export default function SellScreen({
 }) {
   const { seller, settings, busy, run, refresh, openSeller } = useApp();
   const { t } = useI18n();
+  const [docVersion, setDocVersion] = useState(0);
   const [profile, setProfile] = useState({
     business_name: '',
     state: '',
@@ -47,8 +48,12 @@ export default function SellScreen({
       <Text style={s.heading}>{seller ? seller.business_name : 'Meet your next customer.'}</Text>
       {seller && <SellerLocationPanel seller={seller} onSaved={refresh} />}
       {seller && <ProfileDetailsPanel subject="seller" />}
-      {seller && seller.status !== 'REJECTED' && <VerificationDocuments />}
-      {seller?.status === 'APPROVED' && <VerificationPanel />}
+      {seller && seller.status !== 'REJECTED' && (
+        <VerificationDocuments version={docVersion} onChange={() => setDocVersion((v) => v + 1)} />
+      )}
+      {seller?.status === 'APPROVED' && (
+        <VerificationPanel version={docVersion} onDocuments={() => setDocVersion((v) => v + 1)} />
+      )}
       {seller?.status === 'APPROVED' && featureOn(settings, 'promotions') && <FeatureShop />}
       {!seller || seller.status === 'REJECTED' ? (
         <>
@@ -148,7 +153,7 @@ export default function SellScreen({
               onPress={() => void shareOnWhatsApp(shopMessage(seller))}
             />
           </View>
-          {featureOn(settings, 'local_status') && <LocalStatusPublisher listings={mine} />}
+          {featureOn(settings, 'local_status') && <LocalStatusPublisher />}
           <SellerAnalytics refreshVersion={incoming.length + mine.length} />
           <Button title={t('sell.addProduce')} onPress={() => onEditListing(null)} />
           <Text style={s.sectionTitle}>{t('sell.listings')}</Text>

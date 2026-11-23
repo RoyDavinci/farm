@@ -32,6 +32,8 @@ npx eas-cli@latest init
 npx eas-cli@latest build --platform android --profile preview
 ```
 
+The landing page's "Download for Android" button links to `https://ahiamarketplace.com/android`, which redirects to `ANDROID_APK_URL` in `deploy/aws-test.env`. After a new build, set it to the build's APK link (`npx eas-cli@latest build:view <id>`, "Application Archive URL") and run `deploy/deploy.sh`. EAS deletes build files after its retention period (30 days on the free plan), so refresh the link with each build.
+
 EAS creates the Android signing key the first time. When the build finishes, open its link on an Android phone and install the APK. It talks to the AWS test environment (`EXPO_PUBLIC_API_URL` in the `preview` profile: `https://api.ahiamarketplace.com/v1`, see [test environment](deploy-aws-test.md)).
 
 **Push on Android needs Firebase:**

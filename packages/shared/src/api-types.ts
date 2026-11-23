@@ -9426,15 +9426,36 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': {
-            challenge_id: string;
-            delivery: string;
-            email: string;
-            expires_in: number;
-            resend_after: number;
-          } & {
-            [key: string]: unknown;
-          };
+          'application/json':
+            | ({
+                challenge_id: string;
+                delivery: string;
+                email: string;
+                expires_in: number;
+                resend_after: number;
+              } & {
+                [key: string]: unknown;
+              })
+            | ({
+                /** @constant */
+                trusted_device: true;
+                expires_in: number;
+                refresh_token: string;
+                token: string;
+                user: {
+                  admin: boolean;
+                  email: string;
+                  email_verified_at: string;
+                  id: string;
+                  name: string;
+                  phone: string;
+                  staff_role: string | null;
+                } & {
+                  [key: string]: unknown;
+                };
+              } & {
+                [key: string]: unknown;
+              });
         };
       };
       default: components['responses']['Error'];
@@ -9531,6 +9552,7 @@ export interface operations {
                 expires_in: number;
                 refresh_token: string;
                 token: string;
+                device_token: string;
                 user: {
                   admin: boolean;
                   email: string;
@@ -16710,12 +16732,20 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          legal_name: string;
+          full_name: string;
+          home_address: string;
+          latitude: number;
+          longitude: number;
+          /** @enum {string} */
+          id_method: 'NIN' | 'BVN';
+          nin?: string;
+          bvn?: string;
+          /** @default  */
+          legal_name?: string;
           /** @default  */
           registration_number?: string;
-          contact_person: string;
-          contact_phone: string;
-          business_address: string;
+          /** @default  */
+          contact_phone?: string;
           /** @default [] */
           operating_states?: string[];
         };

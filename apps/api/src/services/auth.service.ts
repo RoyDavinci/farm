@@ -124,6 +124,22 @@ export function createAuthService(deps: AppDeps) {
     );
     return { token, refresh_token: refresh, expires_in: 1800 };
   }
+  const TRUST_DAYS = 90;
+  /** Remembers this device so signing in again from it skips the emailed code. */
+  async function trustDevice(q: Query, uid: string, label: string) {
+    const deviceToken = randomBytes(32).toString('hex');
+    await q.query(
+      'INSERT INTO trusted_devices(id,user_id,token_hash,label,expires_at) VALUES($1,$2,$3,$4,$5)',
+      [
+        randomUUID(),
+        uid,
+        tokenHash(deviceToken),
+        label.slice(0, 160),
+        new Date(Date.now() + TRUST_DAYS * 86400000),
+      ],
+    );
+    return deviceToken;
+  }
   async function resendCode(user: any, input: RequestInput) {
     const { challenge_id } = z.object({ challenge_id: z.uuid() }).parse(input.body);
     const result = await db.transaction(async (q) => {
@@ -176,9 +192,14 @@ export function createAuthService(deps: AppDeps) {
       password_hash,
     });
   }
-  /** Checks the password and emails a sign-in code. */
+  /**
+   * Checks the password, then emails a sign-in code, unless the request comes from a device that
+   * already completed a code for this account (it sends its device token): then it signs in.
+   */
   async function login(input: RequestInput) {
-    const d = z.object({ email, password }).parse(input.body);
+    const d = z
+      .object({ email, password, device_token: z.string().min(40).max(100).optional() })
+      .parse(input.body);
     const [u] = await db.query('SELECT * FROM users WHERE email=$1', [d.email]);
     // Always perform a password check to avoid a fast account-existence probe.
     const valid = await bcrypt.compare(
@@ -191,6 +212,21 @@ export function createAuthService(deps: AppDeps) {
       'INVALID_CREDENTIALS',
       'Email or password is incorrect, or the account is unavailable.',
     );
+    if (d.device_token) {
+      const signedIn = await db.transaction(async (q) => {
+        const [device] = await q.query(
+          "UPDATE trusted_devices SET last_used_at=now(),expires_at=now()+interval '90 days' WHERE token_hash=$1 AND user_id=$2 AND expires_at>now() RETURNING id",
+          [tokenHash(d.device_token!), u.id],
+        );
+        if (!device) return null;
+        return {
+          user: publicUser(u as UserIdentity),
+          trusted_device: true as const,
+          ...(await session(q, u.id, input.header('User-Agent') || 'Unknown device')),
+        };
+      });
+      if (signedIn) return signedIn;
+    }
     return await challenge(u.email, 'login', u.id);
   }
   /** Emails a password-reset code (also for unknown addresses, to avoid account probing). */
@@ -262,6 +298,7 @@ export function createAuthService(deps: AppDeps) {
             [await bcrypt.hash(d.new_password, 12), otp.user_id],
           );
           await q.query('DELETE FROM sessions WHERE user_id=$1', [otp.user_id]);
+          await q.query('DELETE FROM trusted_devices WHERE user_id=$1', [otp.user_id]);
         }
         await q.query('UPDATE otp_challenges SET consumed_at=now() WHERE id=$1', [otp.id]);
         return { ok: true, password_reset: true };
@@ -280,9 +317,12 @@ export function createAuthService(deps: AppDeps) {
       }
       ensure(u, 401, 'ACCOUNT_UNAVAILABLE', 'This account is unavailable.');
       await q.query('UPDATE otp_challenges SET consumed_at=now() WHERE id=$1', [otp.id]);
+      const device = input.header('User-Agent') || 'Unknown device';
       return {
         user: publicUser(u),
-        ...(await session(q, u.id, input.header('User-Agent') || 'Unknown device')),
+        ...(await session(q, u.id, device)),
+        // Sent with later sign-ins from this device so they skip the code.
+        device_token: await trustDevice(q, u.id, device),
       };
     });
     return result;

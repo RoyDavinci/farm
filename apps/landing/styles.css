@@ -309,6 +309,52 @@ p {
   border-radius: 28px;
 }
 
+/* ---------- Android badge ---------- */
+.android-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 10px 22px 10px 16px;
+  border-radius: 14px;
+  background: var(--ink);
+  color: #fff;
+  text-decoration: none;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+.android-badge:hover {
+  transform: translateY(-2px);
+  background: #000;
+}
+.android-badge svg {
+  width: 30px;
+  height: 30px;
+  fill: #3ddc84;
+}
+.android-badge span {
+  display: grid;
+  line-height: 1.1;
+}
+.android-badge small {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.android-badge strong {
+  font-family: var(--head);
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+.android-badge.light {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  margin-top: 18px;
+}
+.android-badge.light:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 /* ---------- Hero ---------- */
 .hero {
   position: relative;

@@ -1766,3 +1766,18 @@ model TeamActivity {
   @@index([seller_id, created_at(sort: Desc)], map: "team_activity_seller_idx")
   @@map("team_activity")
 }
+
+// Devices that completed an emailed sign-in code (migration 20261123120000). Raw-SQL table; the
+// foreign key lives in SQL.
+model TrustedDevice {
+  id           String   @id
+  user_id      String
+  token_hash   String   @unique
+  label        String   @default("Unknown device")
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  last_used_at DateTime @default(now()) @db.Timestamptz(6)
+  expires_at   DateTime @db.Timestamptz(6)
+
+  @@index([user_id], map: "trusted_devices_user_idx")
+  @@map("trusted_devices")
+}

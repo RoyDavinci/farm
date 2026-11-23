@@ -9,7 +9,9 @@ export function createAuthController(deps: AppDeps) {
     res.status(202).json(await service.register(requestInput(req)));
   };
   const login: RequestHandler = async (req, res) => {
-    res.status(202).json(await service.login(requestInput(req)));
+    // 202 with a challenge (a code was emailed); 200 with a session from a trusted device.
+    const result = await service.login(requestInput(req));
+    res.status('token' in result ? 200 : 202).json(result);
   };
   const forgotPassword: RequestHandler = async (req, res) => {
     res.status(202).json(await service.forgotPassword(requestInput(req)));

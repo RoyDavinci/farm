@@ -124,14 +124,33 @@ export function VerificationsPage() {
                     </small>
                   </td>
                   <td>
-                    <b>{d.legal_name || '—'}</b>
+                    <b>{d.full_name || d.contact_person || '—'}</b>
+                    {d.home_address && <small>Home: {d.home_address}</small>}
+                    {d.id_method && (
+                      <small>
+                        {d.id_method === 'BVN'
+                          ? `BVN ${d.bvn || '—'}`
+                          : `NIN card${d.nin ? ` · NIN ${d.nin}` : ''}`}
+                      </small>
+                    )}
+                    {d.latitude != null && (
+                      <small>
+                        <a
+                          href={`https://www.google.com/maps?q=${d.latitude},${d.longitude}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Location when applying
+                        </a>
+                      </small>
+                    )}
                     <small>
+                      {d.legal_name || '—'} ·{' '}
                       {d.registration_number ? `CAC ${d.registration_number}` : 'Not registered'}
                     </small>
                     <small>
-                      {d.contact_person} · {d.contact_phone}
+                      {d.contact_phone} · {d.business_address}
                     </small>
-                    <small>{d.business_address}</small>
                   </td>
                   <td>
                     {r.documents.length ? (

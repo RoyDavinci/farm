@@ -19,8 +19,11 @@ export const kinds = [
   'vehicle_photo',
   'operating_permit',
   'insurance',
+  'selfie',
   'other',
 ] as const;
+/** Kinds a seller or driver may add more than one of; others are replaced only after rejection. */
+export const repeatableKinds = new Set<string>(['other']);
 export const subjects = ['seller', 'driver'] as const;
 
 /** Validates an upload as a real PDF or image; images are re-encoded to strip metadata. */
@@ -136,6 +139,20 @@ export function createVerificationService(deps: AppDeps) {
       [u.id, subject],
     );
     ensure(count.n < 20, 400, 'DOCUMENT_LIMIT', 'Remove a rejected document before adding more.');
+    if (!repeatableKinds.has(kind)) {
+      const [held] = await db.query(
+        "SELECT status FROM seller_documents WHERE seller_id=$1 AND subject=$2 AND kind=$3 AND status IN ('PENDING','ACCEPTED') LIMIT 1",
+        [u.id, subject, kind],
+      );
+      ensure(
+        !held,
+        409,
+        'DOCUMENT_ALREADY_SUBMITTED',
+        held?.status === 'ACCEPTED'
+          ? 'This document is already approved. Use “Add another document” for anything extra.'
+          : 'This document is already being reviewed. Use “Add another document” for anything extra.',
+      );
+    }
     const { bytes, mime, ext } = await normalizeDocument(input.file);
     const id = randomUUID(),
       key = `seller-documents/${u.id}/${id}.${ext}`;

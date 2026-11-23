@@ -56,6 +56,35 @@ async function get(key: string) {
     ? sessionStorage.getItem(key) || ''
     : (await SecureStore.getItemAsync(key)) || '';
 }
+/**
+ * Device tokens, one per email, from a completed sign-in code. Sending one with the password
+ * signs in without a new code. They outlive sign-out (on web they stay in localStorage).
+ */
+const DEVICE_KEY = 'fm-devices';
+async function readDevices(): Promise<Record<string, string>> {
+  try {
+    const raw =
+      Platform.OS === 'web'
+        ? localStorage.getItem(DEVICE_KEY)
+        : await SecureStore.getItemAsync(DEVICE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+export async function deviceToken(email: string) {
+  return (await readDevices())[email.trim().toLowerCase()] || undefined;
+}
+export async function rememberDevice(email: string, token: string) {
+  const all = { ...(await readDevices()), [email.trim().toLowerCase()]: token };
+  const raw = JSON.stringify(all);
+  try {
+    if (Platform.OS === 'web') localStorage.setItem(DEVICE_KEY, raw);
+    else await SecureStore.setItemAsync(DEVICE_KEY, raw);
+  } catch {
+    // Without storage the next sign-in simply asks for a code again.
+  }
+}
 let accountId = '',
   sessionEpoch = 0;
 let credentialsTail: Promise<unknown> = Promise.resolve();

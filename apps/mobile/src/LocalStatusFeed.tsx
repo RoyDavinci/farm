@@ -15,6 +15,7 @@ import { useApp } from './AppContext';
 import { currentPosition } from './location';
 import { request } from './request';
 import StoryViewer from './StoryViewer';
+import StatusComposer from './StatusComposer';
 import { Button, Field, PressScale, Pulse, s } from './ui';
 
 type Scope = {
@@ -44,7 +45,8 @@ export default function LocalStatusFeed({
   /** Shown beside the featured story (a sponsored product), or full width without one. */
   aside?: ReactNode;
 }) {
-  const { setTab, seller, settings } = useApp();
+  const { seller, settings } = useApp();
+  const [composing, setComposing] = useState(false);
   const [manual, setManual] = useState(false),
     [state, setState] = useState(''),
     [lga, setLga] = useState(''),
@@ -211,7 +213,7 @@ export default function LocalStatusFeed({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Add your status"
-              onPress={() => setTab('Sell')}
+              onPress={() => setComposing(true)}
               style={styles.circleWrap}
             >
               <View style={[styles.ring, styles.ringMine]}>
@@ -409,6 +411,11 @@ export default function LocalStatusFeed({
         </View>
       )}
 
+      <StatusComposer
+        visible={composing}
+        onClose={() => setComposing(false)}
+        onPosted={() => void load()}
+      />
       <StoryViewer
         stories={playlist}
         startId={selected}

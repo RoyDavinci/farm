@@ -7,15 +7,47 @@ import type { AppDeps } from '../types/deps.js';
 import { audit } from './audit.service.js';
 import { notify } from './communications.service.js';
 
-export const verificationApplyInput = z.object({
-  legal_name: z.string().trim().min(2).max(160),
-  /** CAC registration number, when the business is registered. */
-  registration_number: z.string().trim().max(40).default(''),
-  contact_person: z.string().trim().min(2).max(120),
-  contact_phone: z.string().trim().min(7).max(20),
-  business_address: z.string().trim().min(5).max(300),
-  operating_states: z.array(z.string().trim().min(2).max(40)).max(37).default([]),
-});
+const elevenDigits = z
+  .string()
+  .trim()
+  .regex(/^\d{11}$/, 'Enter all 11 digits.');
+export const verificationApplyInput = z
+  .object({
+    /** The owner's full name, as on their ID. */
+    full_name: z.string().trim().min(3).max(160),
+    home_address: z.string().trim().min(8).max(300),
+    /** Where the seller is when applying (their phone's location). */
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+    /** NIN: a photo of the NIN card or slip is uploaded; BVN: the number is given. */
+    id_method: z.enum(['NIN', 'BVN']),
+    nin: elevenDigits.optional(),
+    bvn: elevenDigits.optional(),
+    legal_name: z.string().trim().max(160).default(''),
+    /** CAC registration number, when the business is registered. */
+    registration_number: z.string().trim().max(40).default(''),
+    contact_phone: z.string().trim().max(20).default(''),
+    operating_states: z.array(z.string().trim().min(2).max(40)).max(37).default([]),
+  })
+  .refine((d) => d.id_method !== 'BVN' || !!d.bvn, {
+    path: ['bvn'],
+    message: 'Enter your 11-digit BVN.',
+  });
+/** What a seller must send for verification, shown in the app. */
+export const VERIFICATION_REQUIREMENTS = [
+  'Your full name, as on your ID',
+  'Your home address (only our verification team sees it)',
+  'Your current location, from your phone',
+  'A selfie, taken now',
+  'A photo of your NIN card or slip — or your BVN',
+];
+/** Keeps only the last four digits of identity numbers outside the review console. */
+const masked = (details: any) => {
+  const out = { ...(details || {}) };
+  for (const k of ['nin', 'bvn'])
+    if (typeof out[k] === 'string' && out[k]) out[k] = `•••••••${out[k].slice(-4)}`;
+  return out;
+};
 export const verificationDecisionInput = z.object({
   status: z.enum(['VERIFIED', 'REJECTED', 'INFO_REQUESTED', 'SUSPENDED']),
   note: z.string().trim().min(10).max(1000),
@@ -67,22 +99,22 @@ export function createBusinessVerificationService(deps: AppDeps) {
     );
     ensure(s, 404, 'NOT_A_SELLER', 'Register as a seller first.');
     const [docs] = await db.query(
-      "SELECT COUNT(*) FILTER (WHERE status<>'REJECTED')::int AS usable,COUNT(*)::int AS total FROM seller_documents WHERE seller_id=$1 AND subject='seller'",
+      `SELECT COUNT(*) FILTER (WHERE status<>'REJECTED')::int AS usable,
+         bool_or(kind='selfie' AND status<>'REJECTED') AS selfie,
+         bool_or(kind='government_id' AND status<>'REJECTED') AS id_card
+       FROM seller_documents WHERE seller_id=$1 AND subject='seller'`,
       [user.id],
     );
     return {
       status: s.verification_status,
-      details: s.verification_details,
+      details: masked(s.verification_details),
+      has_selfie: !!docs.selfie,
+      has_id_card: !!docs.id_card,
       verified_at: s.verified_at,
       expires_at: s.verification_expires_at,
       documents: docs.usable,
       history: await history(user.id, false),
-      requirements: [
-        'Your registered or trading business name and the person responsible',
-        'A phone number we can call to confirm',
-        'Your business address (it stays private)',
-        'At least one document uploaded under Account → Documents: business registration (CAC), the owner’s government ID, or proof of address',
-      ],
+      requirements: VERIFICATION_REQUIREMENTS,
       means: VERIFICATION_MEANS,
     };
   }
@@ -112,24 +144,36 @@ export function createBusinessVerificationService(deps: AppDeps) {
           : 'You are already verified. You can renew in the last 30 days.',
     );
     const [docs] = await q.query(
-      "SELECT COUNT(*)::int AS n FROM seller_documents WHERE seller_id=$1 AND subject='seller' AND status<>'REJECTED'",
+      `SELECT bool_or(kind='selfie') AS selfie,bool_or(kind='government_id') AS id_card
+       FROM seller_documents WHERE seller_id=$1 AND subject='seller' AND status<>'REJECTED'`,
       [user.id],
     );
+    ensure(docs.selfie, 400, 'SELFIE_REQUIRED', 'Take a selfie first.');
     ensure(
-      docs.n > 0,
+      d.id_method === 'BVN' || docs.id_card,
       400,
-      'DOCUMENTS_REQUIRED',
-      'Upload at least one document first: CAC certificate, owner ID or a recent utility bill.',
+      'ID_REQUIRED',
+      'Upload a photo of your NIN card or slip, or give your BVN instead.',
     );
+    const [owner] = await q.query('SELECT phone FROM users WHERE id=$1', [user.id]);
+    const details = {
+      ...d,
+      ...(d.id_method === 'NIN' ? { bvn: undefined } : { nin: undefined }),
+      legal_name: d.legal_name || s.business_name,
+      contact_person: d.full_name,
+      contact_phone: d.contact_phone || owner?.phone || '',
+      business_address: s.address,
+      submitted_at: new Date().toISOString(),
+    };
     await q.query(
       "UPDATE sellers SET verification_status='PENDING',verification_details=$1 WHERE user_id=$2",
-      [JSON.stringify({ ...d, submitted_at: new Date().toISOString() }), user.id],
+      [JSON.stringify(details), user.id],
     );
     await q.query(
       "INSERT INTO verification_events(id,seller_id,status,note,actor_id) VALUES($1,$2,'PENDING','Application submitted.',$2)",
       [randomUUID(), user.id],
     );
-    await audit(q, user.id, 'verification.apply', user.id, { legal_name: d.legal_name });
+    await audit(q, user.id, 'verification.apply', user.id, { id_method: d.id_method });
     return { status: 'PENDING' as const };
   }
 

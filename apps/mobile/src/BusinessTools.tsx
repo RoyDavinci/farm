@@ -1,6 +1,10 @@
 import { money, type Listing } from '@ahia/shared';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadSellerDocument } from './api';
+import { currentPosition } from './location';
 import { useApp } from './AppContext';
 import { request } from './request';
 import { Button, Chip, Field, s } from './ui';
@@ -27,33 +31,100 @@ export function VerifiedBadge({ small = false }: { small?: boolean }) {
   );
 }
 
-/** Seller: apply for business verification and see its history. */
-export function VerificationPanel() {
+/** Photographs a document or selfie with the camera (the file picker on web). */
+async function snap(front: boolean) {
+  if (Platform.OS !== 'web') {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) throw new Error('Allow camera access to take the photo.');
+  }
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ['images'],
+    quality: 0.8,
+    cameraType: front ? ImagePicker.CameraType.front : ImagePicker.CameraType.back,
+  });
+  if (result.canceled) return null;
+  const a = result.assets[0];
+  return { uri: a.uri, mimeType: a.mimeType, name: a.fileName, file: (a as any).file };
+}
+
+function Check({ done, label }: { done: boolean; label: string }) {
+  return (
+    <Text style={[s.small, done && styles.good]}>
+      {done ? '✓' : '○'} {label}
+    </Text>
+  );
+}
+
+/**
+ * Seller: apply for business verification and see its history. Asks for the owner's full name,
+ * home address, current location, a selfie, and a NIN card photo or BVN.
+ */
+export function VerificationPanel({
+  version = 0,
+  onDocuments,
+}: {
+  version?: number;
+  onDocuments?: () => void;
+}) {
   const { run, busy } = useApp();
   const [data, setData] = useState<any>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
+    full_name: '',
+    home_address: '',
+    id_method: 'NIN' as 'NIN' | 'BVN',
+    nin: '',
+    bvn: '',
     legal_name: '',
     registration_number: '',
-    contact_person: '',
-    contact_phone: '',
-    business_address: '',
   });
+  const [point, setPoint] = useState<{ latitude: number; longitude: number } | null>(null);
   const load = () =>
     request('get', '/sellers/me/verification')
       .then((d) => {
         setData(d);
         const det: any = d.details || {};
+        // Identity numbers come back masked, so they're never prefilled.
         setForm((f) => ({
           ...f,
-          ...Object.fromEntries(Object.entries(det).filter(([k]) => k in f)),
+          ...Object.fromEntries(
+            Object.entries(det).filter(([k]) => k in f && k !== 'nin' && k !== 'bvn'),
+          ),
         }));
       })
       .catch(() => {});
-  useEffect(() => void load(), []);
+  useEffect(() => void load(), [version]);
   if (!data) return null;
   const [title, text] = statusCopy[data.status];
   const canApply = ['NONE', 'REJECTED', 'INFO_REQUESTED', 'EXPIRED'].includes(data.status);
+  const upload = (kind: 'selfie' | 'government_id', front: boolean, fromFiles = false) =>
+    void run(
+      async () => {
+        let asset: any = null;
+        if (fromFiles) {
+          const picked = await DocumentPicker.getDocumentAsync({
+            type: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'],
+            copyToCacheDirectory: true,
+          });
+          asset = picked.canceled ? null : picked.assets[0];
+        } else asset = await snap(front);
+        if (!asset) return;
+        await uploadSellerDocument(kind, asset);
+        await load();
+        onDocuments?.();
+      },
+      kind === 'selfie' ? 'Selfie saved.' : 'NIN card saved.',
+    );
+  const idReady =
+    form.id_method === 'BVN'
+      ? /^\d{11}$/.test(form.bvn)
+      : data.has_id_card && (!form.nin || /^\d{11}$/.test(form.nin));
+  const ready =
+    form.full_name.trim().length >= 3 &&
+    form.home_address.trim().length >= 8 &&
+    !!point &&
+    data.has_selfie &&
+    idReady;
   return (
     <View style={s.locationBox}>
       <View style={styles.row}>
@@ -76,16 +147,110 @@ export function VerificationPanel() {
       )}
       {open && (
         <View style={{ gap: 10 }}>
+          <Text style={s.small}>You’ll need:</Text>
           {data.requirements.map((r: string) => (
             <Text key={r} style={s.small}>
               • {r}
             </Text>
           ))}
-          {data.documents === 0 && (
-            <Text style={styles.warn}>Upload at least one document above before applying.</Text>
-          )}
+
+          <Text style={styles.step}>1. About you</Text>
           <Field
-            label="Registered or trading name"
+            label="Full name (as on your ID)"
+            value={form.full_name}
+            autoComplete="name"
+            onChangeText={(v: string) => setForm({ ...form, full_name: v })}
+          />
+          <Field
+            label="Home address (kept private)"
+            value={form.home_address}
+            onChangeText={(v: string) => setForm({ ...form, home_address: v })}
+          />
+
+          <Text style={styles.step}>2. Your location</Text>
+          {point ? (
+            <Text style={[s.small, styles.good]}>
+              ✓ Location captured ({point.latitude.toFixed(4)}, {point.longitude.toFixed(4)})
+            </Text>
+          ) : (
+            <Button
+              secondary
+              title="📍 Share my current location"
+              disabled={busy}
+              onPress={() => void run(async () => setPoint(await currentPosition()))}
+            />
+          )}
+
+          <Text style={styles.step}>3. A selfie</Text>
+          {data.has_selfie ? (
+            <Check done label="Selfie received" />
+          ) : (
+            <Button
+              secondary
+              title="🤳 Take a selfie"
+              disabled={busy}
+              onPress={() => upload('selfie', true)}
+            />
+          )}
+
+          <Text style={styles.step}>4. Your ID</Text>
+          <View style={s.chipWrap}>
+            <Chip
+              title="NIN card or slip"
+              active={form.id_method === 'NIN'}
+              onPress={() => setForm({ ...form, id_method: 'NIN' })}
+            />
+            <Chip
+              title="BVN"
+              active={form.id_method === 'BVN'}
+              onPress={() => setForm({ ...form, id_method: 'BVN' })}
+            />
+          </View>
+          {form.id_method === 'NIN' ? (
+            <>
+              {data.has_id_card ? (
+                <Check done label="NIN card received" />
+              ) : (
+                <View style={s.inlineActions}>
+                  <Button
+                    secondary
+                    title="📷 Photograph card"
+                    disabled={busy}
+                    onPress={() => upload('government_id', false)}
+                  />
+                  <Button
+                    secondary
+                    title="Choose file"
+                    disabled={busy}
+                    onPress={() => upload('government_id', false, true)}
+                  />
+                </View>
+              )}
+              <Field
+                label="NIN (optional, 11 digits)"
+                value={form.nin}
+                keyboardType="number-pad"
+                maxLength={11}
+                onChangeText={(v: string) => setForm({ ...form, nin: v.replace(/\D/g, '') })}
+              />
+            </>
+          ) : (
+            <Field
+              label="BVN (11 digits)"
+              value={form.bvn}
+              keyboardType="number-pad"
+              maxLength={11}
+              onChangeText={(v: string) => setForm({ ...form, bvn: v.replace(/\D/g, '') })}
+            />
+          )}
+          <Text style={s.fine}>
+            Only our verification team sees your ID number. We never ask for your BVN PIN or bank
+            password.
+          </Text>
+
+          <Text style={styles.step}>5. Your business (optional)</Text>
+          <Field
+            label="Registered business name"
             value={form.legal_name}
             onChangeText={(v: string) => setForm({ ...form, legal_name: v })}
           />
@@ -94,28 +259,33 @@ export function VerificationPanel() {
             value={form.registration_number}
             onChangeText={(v: string) => setForm({ ...form, registration_number: v })}
           />
-          <Field
-            label="Person responsible"
-            value={form.contact_person}
-            onChangeText={(v: string) => setForm({ ...form, contact_person: v })}
-          />
-          <Field
-            label="Phone we can call"
-            value={form.contact_phone}
-            keyboardType="phone-pad"
-            onChangeText={(v: string) => setForm({ ...form, contact_phone: v })}
-          />
-          <Field
-            label="Business address (kept private)"
-            value={form.business_address}
-            onChangeText={(v: string) => setForm({ ...form, business_address: v })}
-          />
+
+          <Check done={form.full_name.trim().length >= 3} label="Full name" />
+          <Check done={form.home_address.trim().length >= 8} label="Home address" />
+          <Check done={!!point} label="Location" />
+          <Check done={data.has_selfie} label="Selfie" />
+          <Check done={!!idReady} label={form.id_method === 'BVN' ? 'BVN' : 'NIN card'} />
           <Button
             title={busy ? 'Sending…' : 'Send for review'}
-            disabled={busy || data.documents === 0}
+            disabled={busy || !ready}
             onPress={() =>
               void run(async () => {
-                await request('post', '/sellers/me/verification', { body: form });
+                await request('post', '/sellers/me/verification', {
+                  body: {
+                    full_name: form.full_name,
+                    home_address: form.home_address,
+                    latitude: point!.latitude,
+                    longitude: point!.longitude,
+                    id_method: form.id_method,
+                    ...(form.id_method === 'NIN'
+                      ? form.nin
+                        ? { nin: form.nin }
+                        : {}
+                      : { bvn: form.bvn }),
+                    legal_name: form.legal_name,
+                    registration_number: form.registration_number,
+                  },
+                });
                 setOpen(false);
                 await load();
               }, 'Application sent. We’ll review it and let you know.')
@@ -259,4 +429,5 @@ const styles = StyleSheet.create({
   status: { fontSize: 12, fontWeight: '800', color: '#8a5a00' },
   warn: { fontSize: 12, fontWeight: '700', color: '#a33e32' },
   good: { fontSize: 13, fontWeight: '700', color: '#1f7a45' },
+  step: { fontSize: 14, fontWeight: '800', color: '#0c3a25', marginTop: 6 },
 });

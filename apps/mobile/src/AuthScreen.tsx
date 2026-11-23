@@ -11,7 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { saveSession } from './api';
+import { deviceToken, rememberDevice, saveSession } from './api';
 import { request } from './request';
 export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => Promise<void> }) {
   const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login'),
@@ -139,6 +139,7 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
                       setNotice('Password reset. Sign in with your new password.');
                       return;
                     }
+                    if (d.device_token) await rememberDevice(challenge.email, d.device_token);
                     await saveSession(d);
                     await onSignedIn(d.user);
                   })
@@ -233,8 +234,19 @@ export default function AuthScreen({ onSignedIn }: { onSignedIn: (user: any) => 
                               body: { email: form.email },
                             })
                           : await request('post', '/auth/login', {
-                              body: { email: form.email, password: form.password },
+                              body: {
+                                email: form.email,
+                                password: form.password,
+                                device_token: await deviceToken(form.email),
+                              },
                             });
+                    // A device that already confirmed a code signs straight in.
+                    if (d.trusted_device === true) {
+                      const signedIn = d as Extract<typeof d, { trusted_device: true }>;
+                      await saveSession(signedIn);
+                      await onSignedIn(signedIn.user);
+                      return;
+                    }
                     setChallenge(d);
                     setResendAt(Date.now() + 60000);
                     setCode('');

@@ -290,13 +290,31 @@ export const operationResponses: Record<string, z.ZodType> = {
     expires_in: z.number(),
     resend_after: z.number(),
   }),
-  'auth.login': z.looseObject({
-    challenge_id: z.string(),
-    delivery: z.string(),
-    email: z.string(),
-    expires_in: z.number(),
-    resend_after: z.number(),
-  }),
+  // A code was emailed (202), or a trusted device signed straight in (200, with a session).
+  'auth.login': z.union([
+    z.looseObject({
+      challenge_id: z.string(),
+      delivery: z.string(),
+      email: z.string(),
+      expires_in: z.number(),
+      resend_after: z.number(),
+    }),
+    z.looseObject({
+      trusted_device: z.literal(true),
+      expires_in: z.number(),
+      refresh_token: z.string(),
+      token: z.string(),
+      user: z.looseObject({
+        admin: z.boolean(),
+        email: z.string(),
+        email_verified_at: z.string(),
+        id: z.string(),
+        name: z.string(),
+        phone: z.string(),
+        staff_role: z.string().nullable(),
+      }),
+    }),
+  ]),
   'auth.refreshSession': z.looseObject({
     expires_in: z.number(),
     refresh_token: z.string(),
@@ -320,6 +338,7 @@ export const operationResponses: Record<string, z.ZodType> = {
       expires_in: z.number(),
       refresh_token: z.string(),
       token: z.string(),
+      device_token: z.string(),
       user: z.looseObject({
         admin: z.boolean(),
         email: z.string(),

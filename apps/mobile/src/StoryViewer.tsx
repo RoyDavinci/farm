@@ -2,9 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Image,
+  Keyboard,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -25,7 +28,8 @@ function ago(iso: string) {
 /**
  * Full-screen stories: progress bars per seller, auto-advance (photos after 5 s, videos after
  * their length), tap the left side to go back and the right side to go forward. The product sits
- * at the bottom; mute and report are under the ⋯ menu.
+ * at the bottom with a reply box that opens a chat with the seller; mute and report are under
+ * the ⋯ menu.
  */
 export default function StoryViewer({
   stories,
@@ -42,15 +46,34 @@ export default function StoryViewer({
   onClose: () => void;
   onMuted: () => void;
 }) {
-  const { openListing } = useApp();
+  const { openListing, openConversation, me } = useApp();
   const [index, setIndex] = useState(-1),
     [menu, setMenu] = useState(false),
     [reporting, setReporting] = useState(false),
     [reason, setReason] = useState(''),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(''),
+    [reply, setReply] = useState(''),
+    [typing, setTyping] = useState(false),
     [likes, setLikes] = useState<Record<string, { liked: boolean; count: number }>>({});
   const progress = useRef(new Animated.Value(0)).current;
+  // Lift the reply bar above the keyboard (the bottom panel is absolutely positioned).
+  const [keyboard, setKeyboard] = useState(0);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboard(e.endCoordinates.height),
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboard(0),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   useEffect(() => {
     setIndex(startId ? stories.findIndex((s) => s.id === startId) : -1);
@@ -59,7 +82,8 @@ export default function StoryViewer({
   const story = index >= 0 ? stories[index] : undefined;
   const group = story ? stories.filter((s) => s.seller_id === story.seller_id) : [];
   const position = story ? group.findIndex((s) => s.id === story.id) : 0;
-  const paused = menu || reporting || busy;
+  const paused = menu || reporting || busy || typing;
+  const mine = story?.seller_id === me?.id;
 
   const close = () => {
     setMenu(false);
@@ -125,6 +149,32 @@ export default function StoryViewer({
       const listing = await request('get', '/listings/{id}', { params: { id: story.listing_id } });
       close();
       openListing(listing, { attributionToken: click.attribution_token || undefined });
+    } catch (e: any) {
+      setNotice(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  /** Replies to the story in a chat with the seller, like replying to a WhatsApp status. */
+  const sendReply = async (text: string) => {
+    if (!story || !text.trim()) return;
+    setBusy(true);
+    try {
+      // The click links the chat to this story for the seller's enquiry numbers.
+      await request('post', '/local-status/{id}/events', {
+        params: { id: story.id },
+        query: scope as any,
+        body: { kind: 'click' },
+      }).catch(() => {});
+      const c = await request('post', '/conversations', { body: { listing_id: story.listing_id } });
+      await request('post', '/conversations/{id}/messages', {
+        params: { id: c.id },
+        body: { body: `↩ Replying to your status about ${story.title}:\n${text.trim()}` },
+      });
+      setReply('');
+      setTyping(false);
+      close();
+      openConversation(c.id);
     } catch (e: any) {
       setNotice(e.message);
     } finally {
@@ -263,7 +313,7 @@ export default function StoryViewer({
               </View>
             </SafeAreaView>
 
-            <SafeAreaView style={styles.bottomWrap}>
+            <SafeAreaView style={[styles.bottomWrap, { bottom: keyboard }]}>
               <View style={styles.bottom}>
                 {!!story.caption && <Text style={styles.caption}>{story.caption}</Text>}
                 {!!notice && <Text style={styles.notice}>{notice}</Text>}
@@ -336,6 +386,54 @@ export default function StoryViewer({
                     </View>
                   </Pressable>
                 )}
+                {!reporting && !mine && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.replyRow}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {!typing &&
+                      ['Is this available? 🙋', 'How much last price?', 'I want this 👍'].map(
+                        (q) => (
+                          <Pressable
+                            key={q}
+                            accessibilityRole="button"
+                            style={styles.quick}
+                            disabled={busy}
+                            onPress={() => void sendReply(q)}
+                          >
+                            <Text style={styles.quickText}>{q}</Text>
+                          </Pressable>
+                        ),
+                      )}
+                  </ScrollView>
+                )}
+                {!reporting && !mine && (
+                  <View style={styles.replyBar}>
+                    <TextInput
+                      value={reply}
+                      onChangeText={setReply}
+                      onFocus={() => setTyping(true)}
+                      onBlur={() => !reply && setTyping(false)}
+                      placeholder={`Reply to ${story.business_name}…`}
+                      placeholderTextColor="#b9cbc2"
+                      maxLength={1500}
+                      style={styles.replyInput}
+                      returnKeyType="send"
+                      onSubmitEditing={() => void sendReply(reply)}
+                    />
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Send reply"
+                      style={[styles.send, (!reply.trim() || busy) && { opacity: 0.5 }]}
+                      disabled={!reply.trim() || busy}
+                      onPress={() => void sendReply(reply)}
+                    >
+                      <Text style={styles.sendText}>➤</Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
             </SafeAreaView>
           </>
@@ -346,6 +444,35 @@ export default function StoryViewer({
 }
 
 const styles = StyleSheet.create({
+  replyRow: { flexDirection: 'row', gap: 6 },
+  quick: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.45)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  quickText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  replyBar: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  replyInput: {
+    flex: 1,
+    color: '#fff',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 15,
+  },
+  send: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#1f754a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendText: { color: '#fff', fontSize: 18 },
   likeButton: { alignItems: 'center', paddingHorizontal: 10 },
   likeText: { color: '#f5537a', fontSize: 16, fontWeight: '900' },
   viewText: { color: '#587667', fontSize: 10, fontWeight: '700' },
