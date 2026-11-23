@@ -1,13 +1,13 @@
 import { money, statusLabel } from '@ahia/shared';
 import { useState } from 'react';
-import { Linking, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
 import { describeFunding, startCheckout, type FundingRow, type PaymentProvider } from '../funding';
 import { featureOn } from '../features';
 import { useI18n } from '../i18n';
 import PayoutPanel from '../PayoutPanel';
 import { request } from '../request';
-import { Badge, Button, Field, s } from '../ui';
+import { Badge, Button, Chip, Field, s } from '../ui';
 
 export interface WalletData {
   balance_kobo: number;
@@ -23,8 +23,16 @@ export interface WalletData {
   }[];
 }
 export default function WalletScreen({ wallet }: { wallet: WalletData }) {
-  const { seller, settings, busy, run } = useApp();
+  const { seller, settings, busy, run, refresh } = useApp();
   const [fund, setFund] = useState('5000');
+  const [panel, setPanel] = useState<'deposit' | 'withdraw' | null>(null);
+  const [withdrawFrom, setWithdrawFrom] = useState<'wallet' | 'earnings'>('wallet');
+  /** Opens the provider's checkout; the wallet is credited when the payment is confirmed. */
+  const deposit = (provider: PaymentProvider, method: 'card' | 'any') =>
+    run(async () => {
+      const d = await startCheckout(provider, Math.round(Number(fund) * 100), method);
+      await Linking.openURL(d.checkout_url);
+    }, 'Finish paying on the secure page. Your balance updates once it’s confirmed.');
   const { t } = useI18n();
   const field = (label: string, value: string, onChange: (v: string) => void, extra: any = {}) => (
     <Field label={label} value={value} onChangeText={onChange} {...extra} />
@@ -40,45 +48,113 @@ export default function WalletScreen({ wallet }: { wallet: WalletData }) {
         </Text>
         <Text style={s.balance}>{money(wallet.balance_kobo)}</Text>
         <Text style={s.heroText}>NGN · Pay for accepted bookings</Text>
+        {!!seller && (
+          <Text style={s.heroText}>Sales earnings: {money(wallet.seller_payable_kobo)}</Text>
+        )}
       </View>
-      <PayoutPanel />
-      {field('Amount to add (₦)', fund, setFund, {
-        keyboardType: 'decimal-pad',
-      })}
-      {settings?.payment_mode === 'demo' && (
-        <Button
-          title="Add simulated funds (development)"
-          disabled={busy}
-          onPress={() =>
-            void run(
-              () =>
-                request('post', '/wallet/demo-fund', {
-                  body: {
-                    amount_kobo: Math.round(Number(fund) * 100),
-                  },
-                }),
-              'Simulated funds added. This is not real money.',
-            )
-          }
-        />
-      )}{' '}
-      {settings?.providers.map((provider) => (
-        <Button
-          key={provider}
-          secondary
-          title={`Add money with ${provider === 'paystack' ? 'Paystack' : 'Flutterwave'} ↗`}
-          disabled={busy}
-          onPress={() =>
-            void run(async () => {
-              const d = await startCheckout(
-                provider as PaymentProvider,
-                Math.round(Number(fund) * 100),
-              );
-              await Linking.openURL(d.checkout_url);
-            }, 'Complete payment in the provider’s checkout, then verify it below.')
-          }
-        />
-      ))}
+      <View style={styles.actions}>
+        <Pressable
+          accessibilityRole="button"
+          style={[styles.action, panel === 'deposit' && styles.actionOn]}
+          onPress={() => setPanel(panel === 'deposit' ? null : 'deposit')}
+        >
+          <Text style={[styles.actionIcon, panel === 'deposit' && styles.actionTextOn]}>＋</Text>
+          <Text style={[styles.actionText, panel === 'deposit' && styles.actionTextOn]}>
+            Deposit
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          style={[styles.action, panel === 'withdraw' && styles.actionOn]}
+          onPress={() => setPanel(panel === 'withdraw' ? null : 'withdraw')}
+        >
+          <Text style={[styles.actionIcon, panel === 'withdraw' && styles.actionTextOn]}>↗</Text>
+          <Text style={[styles.actionText, panel === 'withdraw' && styles.actionTextOn]}>
+            Withdraw
+          </Text>
+        </Pressable>
+      </View>
+      {panel === 'deposit' && (
+        <View style={s.orderCard}>
+          <Text style={s.cardTitle}>Add money to your wallet</Text>
+          {field('Amount (₦)', fund, (v: string) => setFund(v.replace(/[^0-9]/g, '')), {
+            keyboardType: 'number-pad',
+          })}
+          <View style={s.chipWrap}>
+            {[1000, 5000, 10000, 20000].map((n) => (
+              <Chip
+                key={n}
+                title={money(n * 100)}
+                active={Number(fund) === n}
+                onPress={() => setFund(String(n))}
+              />
+            ))}
+          </View>
+          {Number(fund) > 0 && Number(fund) < 100 && (
+            <Text style={s.fine}>The smallest deposit is ₦100.</Text>
+          )}
+          {settings?.providers.includes('paystack') && (
+            <Button
+              title={`💳 Pay ${money(Math.round(Number(fund) * 100))} with card`}
+              disabled={busy || !(Number(fund) >= 100)}
+              onPress={() => void deposit('paystack', 'card')}
+            />
+          )}
+          {settings?.providers.includes('flutterwave') && (
+            <Button
+              secondary
+              title="Other ways to pay (Flutterwave) ↗"
+              disabled={busy || !(Number(fund) >= 100)}
+              onPress={() => void deposit('flutterwave', 'any')}
+            />
+          )}
+          {settings?.payment_mode === 'demo' && (
+            <Button
+              secondary
+              title="Add simulated funds (development)"
+              disabled={busy}
+              onPress={() =>
+                void run(
+                  () =>
+                    request('post', '/wallet/demo-fund', {
+                      body: {
+                        amount_kobo: Math.round(Number(fund) * 100),
+                      },
+                    }),
+                  'Simulated funds added. This is not real money.',
+                )
+              }
+            />
+          )}
+          <Text style={s.fine}>
+            You pay on Paystack’s secure page; Ahia never sees your card number. Your wallet is
+            credited as soon as the payment is confirmed.
+          </Text>
+        </View>
+      )}
+      {panel === 'withdraw' && (
+        <>
+          {!!seller && (
+            <View style={s.chipWrap}>
+              <Chip
+                title="From wallet balance"
+                active={withdrawFrom === 'wallet'}
+                onPress={() => setWithdrawFrom('wallet')}
+              />
+              <Chip
+                title="From sales earnings"
+                active={withdrawFrom === 'earnings'}
+                onPress={() => setWithdrawFrom('earnings')}
+              />
+            </View>
+          )}
+          <PayoutPanel
+            key={withdrawFrom}
+            source={seller ? withdrawFrom : 'wallet'}
+            onDone={() => void refresh()}
+          />
+        </>
+      )}
       {settings?.payment_mode === 'disabled' && (
         <Text style={s.body}>Wallet funding is not enabled on this server.</Text>
       )}
@@ -223,3 +299,21 @@ function PaymentsView({ wallet }: { wallet: WalletData }) {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  actions: { flexDirection: 'row', gap: 12, marginVertical: 4 },
+  action: {
+    flex: 1,
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#cfe3d6',
+  },
+  actionOn: { backgroundColor: '#1f754a', borderColor: '#1f754a' },
+  actionIcon: { fontSize: 22, fontWeight: '800', color: '#1f754a' },
+  actionText: { fontSize: 15, fontWeight: '800', color: '#0c3a25' },
+  actionTextOn: { color: '#fff' },
+});

@@ -287,6 +287,7 @@ export async function startFunding(
         input.amount_kobo,
         actor.email,
         actor.name,
+        { cardOnly: input.method === 'card' },
       );
     } catch (error) {
       if (
@@ -329,6 +330,7 @@ export async function startFunding(
         input.amount_kobo,
         actor.email,
         actor.name,
+        { cardOnly: input.method === 'card' },
       );
     }
     const response: FundingCheckout = {

@@ -261,6 +261,15 @@ export function createPayoutsService(deps: AppDeps) {
     );
     return s;
   };
+  /** Anyone with an active account may keep a bank account for withdrawing their wallet. */
+  const accountHolder = async (q: Query, uid: string) => {
+    const [s] = await q.query(
+      "SELECT COALESCE(s.business_name,'') AS business_name FROM users u LEFT JOIN sellers s ON s.user_id=u.id WHERE u.id=$1 AND u.status='ACTIVE'",
+      [uid],
+    );
+    ensure(s, 403, 'ACCOUNT_UNAVAILABLE', 'This account is unavailable.');
+    return s;
+  };
   const accountInput = z.object({
     bank_code: z.string().trim().min(3).max(10),
     account_number: z.string().regex(/^\d{10}$/, 'Enter the 10-digit NUBAN account number.'),
@@ -284,7 +293,7 @@ export function createPayoutsService(deps: AppDeps) {
   }
   async function resolveAccount(user: any, input: RequestInput) {
     const u = user;
-    await approvedSeller(db, u.id);
+    await accountHolder(db, u.id);
     const d = accountInput.parse(input.body);
     const s = await db.query('SELECT business_name FROM sellers WHERE user_id=$1', [u.id]);
     const resolved = await resolve(u, d);
@@ -295,11 +304,11 @@ export function createPayoutsService(deps: AppDeps) {
   }
   async function getPayoutSummary(user: any, input: RequestInput) {
     const u = user;
-    const [seller] = await db.query(
-      'SELECT u.id FROM users u WHERE u.id=$1 AND (EXISTS(SELECT 1 FROM sellers WHERE user_id=u.id) OR EXISTS(SELECT 1 FROM drivers WHERE user_id=u.id))',
+    // Sellers and drivers withdraw earnings; everyone can withdraw their wallet balance.
+    const [earner] = await db.query(
+      'SELECT (EXISTS(SELECT 1 FROM sellers WHERE user_id=$1) OR EXISTS(SELECT 1 FROM drivers WHERE user_id=$1)) AS yes',
       [u.id],
     );
-    ensure(seller, 403, 'SELLER_REQUIRED', 'Payouts are available to sellers and drivers.');
     const [account] = await db.query(
       'SELECT id,provider,bank_code,bank_name,account_last4,account_name,name_match,created_at FROM payout_accounts WHERE user_id=$1 AND active',
       [u.id],
@@ -310,6 +319,8 @@ export function createPayoutsService(deps: AppDeps) {
     return {
       account: account || null,
       available_kobo: await balance(db, u.id, 'seller_payable'),
+      wallet_kobo: await balance(db, u.id, 'wallet'),
+      earner: !!earner?.yes,
       min_kobo: settings.payout_min_kobo,
       fee_kobo: settings.payout_fee_kobo,
       mode: c.payments ? 'provider' : c.demo ? 'simulated' : 'disabled',
@@ -320,14 +331,20 @@ export function createPayoutsService(deps: AppDeps) {
     };
   }
   async function requestPayout(q: Query, u: any, input: RequestInput) {
-    await approvedSeller(q, u.id);
     const d = z
       .object({
         amount_kobo: z.number().int().min(1).max(1000000000),
         shopping_request_id: z.uuid().optional(),
+        /** earnings: a seller's or driver's proceeds; wallet: money added to the wallet. */
+        source: z.enum(['earnings', 'wallet']).default('earnings'),
       })
       .parse(input.body);
-    let source = { account: 'seller_payable', owner: u.id };
+    if (d.source === 'wallet') await accountHolder(q, u.id);
+    else await approvedSeller(q, u.id);
+    let source = {
+      account: d.source === 'wallet' ? 'wallet' : 'seller_payable',
+      owner: u.id,
+    };
     if (d.shopping_request_id) {
       const [r] = await q.query(
         "SELECT r.* FROM shopping_requests r WHERE r.id=$1 AND EXISTS(SELECT 1 FROM drivers d JOIN users u ON u.id=d.user_id WHERE d.user_id=r.rider_id AND d.status='APPROVED' AND u.status='ACTIVE') FOR UPDATE",
@@ -369,7 +386,9 @@ export function createPayoutsService(deps: AppDeps) {
       (await lockedBalance(q, source.owner, source.account)) >= d.amount_kobo,
       409,
       'INSUFFICIENT_PROCEEDS',
-      'This is more than your available proceeds.',
+      source.account === 'wallet'
+        ? 'This is more than your wallet balance.'
+        : 'This is more than your available proceeds.',
     );
     const pid = randomUUID();
     const [payout] = await q.query(
@@ -389,7 +408,10 @@ export function createPayoutsService(deps: AppDeps) {
       { ...source, amount: -d.amount_kobo },
       { account: 'payout_pending', owner: pid, amount: d.amount_kobo },
     ]);
-    await audit(q, u.id, 'payout.request', pid, { amount_kobo: d.amount_kobo });
+    await audit(q, u.id, 'payout.request', pid, {
+      amount_kobo: d.amount_kobo,
+      source: source.account,
+    });
     return payout;
   }
   async function cancelPayout(q: Query, u: any, input: RequestInput) {
@@ -415,7 +437,7 @@ export function createPayoutsService(deps: AppDeps) {
   /** Checks the bank account with the provider (outside any transaction). */
   async function prepareAccount(u: any, input: RequestInput) {
     const d = accountInput.parse(input.body);
-    const s = await approvedSeller(db, u.id);
+    const s = await accountHolder(db, u.id);
     // Provider calls happen outside the DB transaction; the result is stored atomically below.
     const resolved = await resolve(u, d);
     const recipient =

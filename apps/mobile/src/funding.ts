@@ -17,9 +17,13 @@ export interface FundingRow {
  * is still preparing it (FUNDING_IN_PROGRESS) we wait and ask again.
  */
 export type PaymentProvider = 'paystack' | 'flutterwave';
-export function startCheckout(provider: PaymentProvider, amount_kobo: number) {
+export function startCheckout(
+  provider: PaymentProvider,
+  amount_kobo: number,
+  method: 'card' | 'any' = 'any',
+) {
   return withRetries((idempotencyKey) =>
-    request('post', '/wallet/fund', { body: { provider, amount_kobo }, idempotencyKey }),
+    request('post', '/wallet/fund', { body: { provider, amount_kobo, method }, idempotencyKey }),
   );
 }
 

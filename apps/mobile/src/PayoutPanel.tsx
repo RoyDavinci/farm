@@ -7,7 +7,17 @@ import { Badge, Button, Field, s } from './ui';
 
 type PayoutData = PayoutSummary;
 
-export default function PayoutPanel() {
+/**
+ * Withdraw to a bank account. source="earnings": a seller's or driver's proceeds;
+ * source="wallet": money the user added to their wallet.
+ */
+export default function PayoutPanel({
+  source = 'earnings',
+  onDone,
+}: {
+  source?: 'earnings' | 'wallet';
+  onDone?: () => void;
+}) {
   const { busy, run, seller } = useApp();
   const [data, setData] = useState<PayoutData | null>(null),
     [banks, setBanks] = useState<{ code: string; name: string }[]>([]),
@@ -45,6 +55,8 @@ export default function PayoutPanel() {
         <Text style={s.fine}>{loadError || 'Loading your proceeds…'}</Text>
       </View>
     );
+  const fromWallet = source === 'wallet';
+  const available = fromWallet ? (data.wallet_kobo ?? 0) : data.available_kobo;
   const pending = data.payouts.some((p) => ['REQUESTED', 'PROCESSING'].includes(p.status));
   const kobo = Math.round(Number(amount) * 100);
   const visibleBanks = banks
@@ -52,11 +64,15 @@ export default function PayoutPanel() {
     .slice(0, 8);
   return (
     <View style={s.orderCard}>
-      <Text style={s.label}>Earnings available to withdraw</Text>
-      <Text style={s.price}>{money(data.available_kobo)}</Text>
+      <Text style={s.label}>
+        {fromWallet ? 'Wallet balance you can withdraw' : 'Earnings available to withdraw'}
+      </Text>
+      <Text style={s.price}>{money(available)}</Text>
       <Text style={s.fine}>
-        Recorded after confirmed pickups, minus commission. Minimum payout {money(data.min_kobo)} ·
-        transfer fee {money(data.fee_kobo)}.
+        {fromWallet
+          ? 'Withdrawals go to your bank after a quick review.'
+          : 'Recorded after confirmed pickups, minus commission.'}{' '}
+        Minimum {money(data.min_kobo)} · transfer fee {money(data.fee_kobo)}.
         {data.mode === 'simulated' ? ' Development mode: payouts are simulated.' : ''}
       </Text>
       {data.mode === 'disabled' ? (
@@ -191,27 +207,37 @@ export default function PayoutPanel() {
             value={amount}
             keyboardType="decimal-pad"
             onChangeText={setAmount}
-            placeholder={(data.available_kobo / 100).toString()}
+            placeholder={(available / 100).toString()}
           />
           {kobo > data.fee_kobo && (
             <Text style={s.fine}>
               You will receive {money(kobo - data.fee_kobo)} after the transfer fee.
             </Text>
           )}
+          {!!kobo && (kobo < data.min_kobo || kobo > available) && (
+            <Text style={s.fine}>
+              {kobo > available
+                ? `That’s more than the ${money(available)} you have.`
+                : `The minimum withdrawal is ${money(data.min_kobo)}.`}
+            </Text>
+          )}
           <Button
-            title="Request payout"
-            disabled={busy || !kobo || kobo < data.min_kobo || kobo > data.available_kobo}
+            title="Withdraw to bank"
+            disabled={busy || !kobo || kobo < data.min_kobo || kobo > available}
             onPress={() =>
               void run(async () => {
-                await request('post', '/payouts', { body: { amount_kobo: kobo } });
+                await request('post', '/payouts', {
+                  body: { amount_kobo: kobo, source },
+                });
                 setAmount('');
                 await load();
-              }, 'Payout requested. We review payouts before sending them to your bank.')
+                onDone?.();
+              }, 'Withdrawal requested. We review it, then send it to your bank.')
             }
           />
         </>
       )}
-      {!!data.payouts.length && <Text style={s.sectionTitle}>Payout history</Text>}
+      {!!data.payouts.length && <Text style={s.sectionTitle}>Withdrawals</Text>}
       {data.payouts.map((p) => (
         <View key={p.id} style={s.walletEntry}>
           <View style={s.flex}>
@@ -230,7 +256,7 @@ export default function PayoutPanel() {
                   void run(async () => {
                     await request('post', '/payouts/{id}/cancel', { params: { id: p.id } });
                     await load();
-                  }, 'Payout cancelled. The amount is back in your proceeds.')
+                  }, 'Withdrawal cancelled. The money is back where it came from.')
                 }
               >
                 <Text style={s.link}>Cancel</Text>

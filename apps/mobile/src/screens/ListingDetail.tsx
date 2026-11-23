@@ -1,13 +1,13 @@
 import PublicSellerInfo from '../PublicSellerInfo';
 import { money, type Listing } from '@ahia/shared';
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useApp } from '../AppContext';
 import { useI18n } from '../i18n';
 import { request } from '../request';
 import { SellerTrust } from '../TrustPanels';
 import AllergenReport, { isFood } from '../AllergenReport';
-import { Back, Button, Chip, Field, produceIcon, s } from '../ui';
+import { Back, Button, Chip, produceIcon, s } from '../ui';
 
 export default function ListingDetail({
   listing: selected,
@@ -49,6 +49,32 @@ export default function ListingDetail({
     : (selectedVariant?.stock ?? selected.stock);
   const available = limit >= (selectedVariant?.min_quantity || 1);
   const own = selected.seller_id === me.id;
+  const minimum = selectedVariant?.min_quantity || 1;
+  const unit = selectedVariant?.unit || selected.unit;
+  const qty = Number(quantity);
+  // Why ordering is blocked, shown under the buttons instead of a silently greyed-out button.
+  const blocked = own
+    ? 'This is your own product. Buyers order it from their accounts.'
+    : !available
+      ? 'This is out of stock right now.'
+      : !quantity || !Number.isInteger(qty) || qty < 1
+        ? 'Enter how many you want.'
+        : qty < minimum
+          ? `The minimum order is ${minimum} ${unit}.`
+          : qty > limit
+            ? `Only ${limit} ${unit} available. Lower the quantity.`
+            : '';
+  const [orderError, setOrderError] = useState('');
+  const order = (fn: () => Promise<unknown>, message: string) =>
+    void run(async () => {
+      setOrderError('');
+      try {
+        await fn();
+      } catch (e: any) {
+        setOrderError(e.message || 'That didn’t go through. Please try again.');
+        throw e;
+      }
+    }, message);
   return (
     <>
       <Back onPress={onBack} />
@@ -176,27 +202,45 @@ export default function ListingDetail({
           />
         </View>
       )}
-      <Field
-        label={t('listing.quantity', { unit: selectedVariant?.unit || selected.unit })}
-        value={quantity}
-        onChangeText={setQuantity}
-        keyboardType="number-pad"
-      />
+      <Text style={s.label}>
+        {t('listing.quantity', { unit: selectedVariant?.unit || selected.unit })}
+      </Text>
+      <View style={styles.qtyRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Fewer"
+          style={styles.qtyButton}
+          onPress={() => setQuantity(String(Math.max(minimum, (Math.floor(qty) || minimum) - 1)))}
+        >
+          <Text style={styles.qtySign}>−</Text>
+        </Pressable>
+        <TextInput
+          accessibilityLabel="Quantity"
+          value={quantity}
+          onChangeText={(v) => setQuantity(v.replace(/[^0-9]/g, ''))}
+          keyboardType="number-pad"
+          style={styles.qtyInput}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="More"
+          style={styles.qtyButton}
+          onPress={() =>
+            setQuantity(String(Math.min(Math.max(limit, minimum), (Math.floor(qty) || 0) + 1)))
+          }
+        >
+          <Text style={styles.qtySign}>+</Text>
+        </Pressable>
+      </View>
       <View style={s.rowBetween}>
         <Text style={s.muted}>{t('listing.total')}</Text>
         <Text style={s.price}>{money(selectedPrice * (Number(quantity) || 0))}</Text>
       </View>
       <Button
         title={busy ? 'Requesting…' : t('listing.request')}
-        disabled={
-          busy ||
-          selected.seller_id === me.id ||
-          !Number.isInteger(Number(quantity)) ||
-          Number(quantity) < (selectedVariant?.min_quantity || 1) ||
-          Number(quantity) > limit
-        }
+        disabled={busy || !!blocked}
         onPress={() =>
-          void run(async () => {
+          order(async () => {
             await request('post', '/bookings', {
               body: {
                 listing_id: selected.id,
@@ -213,14 +257,9 @@ export default function ListingDetail({
         <Button
           secondary
           title="Add to cart"
-          disabled={
-            busy ||
-            !Number.isInteger(Number(quantity)) ||
-            Number(quantity) < (selectedVariant?.min_quantity || 1) ||
-            Number(quantity) > limit
-          }
+          disabled={busy || !!blocked}
           onPress={() =>
-            void run(async () => {
+            order(async () => {
               await request('post', '/cart', {
                 body: {
                   listing_id: selected.id,
@@ -231,6 +270,11 @@ export default function ListingDetail({
             }, 'Added to your cart. Open the cart at the top to send all your requests at once.')
           }
         />
+      )}
+      {!!(blocked || orderError) && (
+        <Text accessibilityRole="alert" style={styles.blocked}>
+          {orderError || blocked}
+        </Text>
       )}
       <Text style={s.fine}>{t('listing.noCharge')}</Text>
       {!own && isFood(selected.category) && (
@@ -260,3 +304,37 @@ export default function ListingDetail({
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
+  qtyButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: '#e3f0e8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtySign: { fontSize: 26, fontWeight: '700', color: '#1f754a' },
+  qtyInput: {
+    flex: 1,
+    minWidth: 0,
+    width: 0,
+    height: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#d5e5db',
+    backgroundColor: '#fff',
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0c3a25',
+  },
+  blocked: {
+    color: '#9b553c',
+    backgroundColor: '#f9eade',
+    borderRadius: 12,
+    padding: 10,
+    fontWeight: '600',
+  },
+});

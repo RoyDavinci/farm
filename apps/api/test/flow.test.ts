@@ -448,8 +448,11 @@ describe('seller registration to pickup confirmation', () => {
     const start = await call('buyer', 'post', '/wallet/fund', {
       provider: 'paystack',
       amount_kobo: 100000,
+      method: 'card',
     });
     expect(start.status).toBe(200);
+    // A card deposit opens Paystack's checkout with only the card option.
+    expect(JSON.parse(fake.mock.calls[0][1].body).channels).toEqual(['card']);
     const ref = start.body.reference;
     const payload = { event: 'charge.success', data: { reference: ref } };
     const body = JSON.stringify(payload);
@@ -593,7 +596,10 @@ describe('seller payouts', () => {
   it('holds proceeds on request, pays out once on approval and records the fee', async () => {
     await completedSale();
     const sim = simulated();
-    expect((await as(sim, 'buyer', 'get', '/payouts')).status).toBe(403);
+    expect((await as(sim, 'buyer', 'get', '/payouts')).body).toMatchObject({
+      earner: false,
+      wallet_kobo: expect.any(Number),
+    });
     const account = await as(sim, 'seller', 'post', '/payouts/accounts', {
       bank_code: '058',
       account_number: '0123456789',
@@ -632,6 +638,41 @@ describe('seller payouts', () => {
       [payout.body.id],
     );
     expect(fee.n).toBe(5000);
+    expect(await ledgerBalances()).toBe(0);
+  });
+  it('lets anyone withdraw their wallet balance through the same review', async () => {
+    const sim = simulated();
+    await db.query(
+      "INSERT INTO ledger(id,txn_id,account,owner_id,amount_kobo,reference) VALUES($1,$3,'wallet','buyer',300000,'test-deposit'),($2,$3,'provider_clearing',NULL,-300000,'test-deposit')",
+      [randomUUID(), randomUUID(), randomUUID()],
+    );
+    expect(
+      (await as(sim, 'buyer', 'post', '/payouts', { amount_kobo: 150000 })).body.error.code,
+    ).toBe('SELLER_NOT_APPROVED');
+    await as(sim, 'buyer', 'post', '/payouts/accounts', {
+      bank_code: '058',
+      account_number: '0123456789',
+    });
+    expect(
+      (await as(sim, 'buyer', 'post', '/payouts', { amount_kobo: 300001, source: 'wallet' })).body
+        .error.code,
+    ).toBe('INSUFFICIENT_PROCEEDS');
+    const payout = await as(sim, 'buyer', 'post', '/payouts', {
+      amount_kobo: 200000,
+      source: 'wallet',
+    });
+    expect(payout.body).toMatchObject({ status: 'REQUESTED', source_account: 'wallet' });
+    expect((await as(sim, 'buyer', 'get', '/payouts')).body.wallet_kobo).toBe(100000);
+    await as(sim, 'buyer', 'post', `/payouts/${payout.body.id}/cancel`);
+    expect((await as(sim, 'buyer', 'get', '/payouts')).body.wallet_kobo).toBe(300000);
+    const again = await as(sim, 'buyer', 'post', '/payouts', {
+      amount_kobo: 200000,
+      source: 'wallet',
+    });
+    expect(
+      (await as(sim, 'admin', 'post', `/admin/payouts/${again.body.id}/approve`)).body.status,
+    ).toBe('PAID');
+    expect((await as(sim, 'buyer', 'get', '/payouts')).body.wallet_kobo).toBe(100000);
     expect(await ledgerBalances()).toBe(0);
   });
   it('returns funds to proceeds when a payout is rejected or cancelled', async () => {

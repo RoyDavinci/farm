@@ -58,7 +58,14 @@ export function paymentService(c: Config) {
     enabled(provider: Provider) {
       return c.payments && !!(provider === 'paystack' ? c.paystack : c.flutterwave);
     },
-    async initialize(provider: Provider, ref: string, amount: number, email: string, name: string) {
+    async initialize(
+      provider: Provider,
+      ref: string,
+      amount: number,
+      email: string,
+      name: string,
+      options: { cardOnly?: boolean } = {},
+    ) {
       const d =
         provider === 'paystack'
           ? await request('https://api.paystack.co/transaction/initialize', c.paystack, {
@@ -67,12 +74,14 @@ export function paymentService(c: Config) {
               amount,
               currency: 'NGN',
               callback_url: c.returnUrl,
+              ...(options.cardOnly ? { channels: ['card'] } : {}),
             })
           : await request('https://api.flutterwave.com/v3/payments', c.flutterwave, {
               tx_ref: ref,
               amount: amount / 100,
               currency: 'NGN',
               redirect_url: c.flutterwaveReturnUrl,
+              ...(options.cardOnly ? { payment_options: 'card' } : {}),
               customer: { email, name },
               customizations: { title: 'Ahia payment' },
             });

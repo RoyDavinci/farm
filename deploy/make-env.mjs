@@ -58,6 +58,8 @@ const env = {
   LOG_LEVEL: 'http',
   // Voice calls through the coturn relay on this server (deploy/turnserver.conf.template).
   FEATURE_VOICE: 'true',
+  // Stored-value wallet: Deposit (Paystack card) and Withdraw on the Wallet screen.
+  FEATURE_WALLET: 'true',
   VOICE_CALLS_ENABLED: 'true',
   VOICE_TURN_URL: `turn:${ip}:3478?transport=udp,turn:${ip}:3478?transport=tcp`,
   VOICE_TURN_SECRET: secret(),

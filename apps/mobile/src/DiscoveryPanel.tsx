@@ -1,3 +1,4 @@
+import PlannerHomeCard from './PlannerHomeCard';
 import LocalStatusFeed from './LocalStatusFeed';
 import { FadeIn, PressScale, produceIcon } from './ui';
 import { VerifiedBadge } from './BusinessTools';
@@ -309,6 +310,8 @@ export default function DiscoveryPanel({
           </PressScale>
         ))}
       </View>
+
+      <PlannerHomeCard refreshVersion={refreshVersion} />
 
       {featureOn(settings, 'local_status') ? (
         <LocalStatusFeed

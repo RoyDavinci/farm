@@ -274,6 +274,10 @@ export const PayoutSummary = z
       })
       .nullable(),
     available_kobo: kobo,
+    /** Money added to the wallet, which anyone can withdraw. */
+    wallet_kobo: kobo,
+    /** Has seller or driver earnings (available_kobo) to withdraw. */
+    earner: z.boolean(),
     min_kobo: kobo,
     fee_kobo: kobo,
     mode: z.enum(['provider', 'simulated', 'disabled']),

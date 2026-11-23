@@ -4898,6 +4898,8 @@ export interface components {
           })
         | null;
       available_kobo: number;
+      wallet_kobo: number;
+      earner: boolean;
       min_kobo: number;
       fee_kobo: number;
       /** @enum {string} */
@@ -17530,6 +17532,11 @@ export interface operations {
           /** @enum {string} */
           provider: 'paystack' | 'flutterwave';
           amount_kobo: number;
+          /**
+           * @default any
+           * @enum {string}
+           */
+          method?: 'card' | 'any';
         };
       };
     };
