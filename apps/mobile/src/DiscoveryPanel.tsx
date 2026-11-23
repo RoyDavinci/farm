@@ -600,22 +600,33 @@ export default function DiscoveryPanel({
         </>
       )}
 
-      <PressScale
-        accessibilityRole="button"
-        accessibilityLabel="Open My Planner"
-        onPress={() => setTab('Planner')}
-        style={s.plannerPromo}
-      >
-        <Text style={s.riderEmoji}>📝</Text>
-        <View style={{ flex: 1, gap: 3 }}>
-          <Text style={s.plannerTitle}>Plan your shopping</Text>
-          <Text style={s.plannerText}>
-            Furnishing a flat, a party or this week’s meals? Get a list with a budget and the
-            sellers who have it.
-          </Text>
-        </View>
-        <Text style={s.plannerArrow}>›</Text>
-      </PressScale>
+      <View style={s.sectionHead}>
+        <Text style={s.sectionTitle}>Your tools</Text>
+      </View>
+      <View style={s.quickRow}>
+        {(
+          [
+            ['💼', 'Business hub', '#eef3fb', 'Business'],
+            ['👛', 'Wallet', '#fdf3dc', 'Wallet'],
+            ['🏪', 'Sell', '#e9f6ef', 'Sell'],
+            ['🛵', 'Drive', '#fde9d9', 'Drive'],
+          ] as const
+        ).map(([icon, label, bg, tab]) => (
+          <PressScale
+            key={label}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            onPress={() => setTab(tab)}
+            wrapStyle={{ flex: 1 }}
+            style={[s.quick, { backgroundColor: bg }]}
+          >
+            <Text style={s.quickIcon}>{icon}</Text>
+            <Text style={s.quickText} numberOfLines={2}>
+              {label}
+            </Text>
+          </PressScale>
+        ))}
+      </View>
 
       {featureOn(settings, 'shopping') && (
         <PressScale onPress={() => setTab('Riders')} style={s.riderPromo}>
@@ -986,17 +997,6 @@ const s = StyleSheet.create({
   featuredTagText: { fontSize: 10, fontWeight: '900', color: '#3b2600' },
   adTitle: { fontSize: 15, fontWeight: '800', color: INK },
   adBody: { fontSize: 12, color: '#4c6c5c', lineHeight: 17 },
-  plannerPromo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: BRAND,
-  },
-  plannerTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  plannerText: { fontSize: 12, color: '#d6f5e6', lineHeight: 17 },
-  plannerArrow: { fontSize: 26, color: ACCENT },
   riderTitle: { fontSize: 14, fontWeight: '800', color: '#3b2a07' },
   riderText: { fontSize: 12, color: '#7a5a1c' },
   riderArrow: { fontSize: 26, color: '#b57a10' },
