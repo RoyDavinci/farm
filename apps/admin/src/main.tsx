@@ -82,6 +82,7 @@ import ListingsPage from './pages/ListingsPage';
 import { SellerReviewModal, TimelineModal } from './pages/Modals';
 import OverviewPage from './pages/OverviewPage';
 import PayoutsPage from './pages/PayoutsPage';
+import RiskPage from './pages/RiskPage';
 import RefundsPage from './pages/RefundsPage';
 import { AllergenReportsPage, PlannerUsagePage } from './pages/PlannerPages';
 import {
@@ -133,6 +134,7 @@ const pageArea: Record<Page, string> = {
   Disputes: 'disputes',
   Reconciliation: 'reconciliation',
   Payouts: 'payouts',
+  Risk: 'risk',
   Refunds: 'refunds',
   Planner: 'planner',
   'Allergen reports': 'allergen-reports',
@@ -205,6 +207,7 @@ const navGroups: { label: string; items: (readonly [Page, LucideIcon])[] }[] = [
   {
     label: 'Trust & community',
     items: [
+      ['Risk', ShieldAlert],
       ['Users', Users],
       ['Verifications', BadgeCheck],
       ['Reports', Flag],
@@ -490,6 +493,7 @@ function App() {
                       Disputes: 'Review evidence, returns and wallet refunds.',
                       Reconciliation: 'Verify provider funding and review exceptions.',
                       Payouts: 'Review seller withdrawals and send bank transfers.',
+                      Risk: 'Fraud signals to check: linked accounts, odd money patterns and identity problems.',
                       Refunds: 'Refunds sent back to buyers’ cards, and any that need a check.',
                       Planner: 'How customers plan: types, products matched, orders and budgets.',
                       Verifications: 'Check businesses before they get the Verified badge.',
@@ -560,6 +564,7 @@ function App() {
             {page === 'Audit log' && <AuditPage audit={audit} />}
             {page === 'Ledger' && <LedgerPage ledger={ledger} />}
             {page === 'Payouts' && <PayoutsPage />}
+            {page === 'Risk' && <RiskPage />}
             {page === 'Refunds' && <RefundsPage />}
             {page === 'Planner' && <PlannerUsagePage />}
             {page === 'Verifications' && <VerificationsPage />}

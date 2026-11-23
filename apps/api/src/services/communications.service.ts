@@ -1,5 +1,6 @@
 import { discoveryEvent } from './discovery-operations.service.js';
 import { randomUUID } from 'node:crypto';
+import { looksOffPlatform, OFF_PLATFORM_WARNING } from './risk.service.js';
 import { z } from 'zod';
 import type { Config } from '../config/index.js';
 import { events } from '../lib/events.js';
@@ -63,7 +64,8 @@ export async function deliverNotifications(db: Database, c: Config) {
     if (!job) break;
     try {
       if (
-        job.email_enabled !== false &&
+        // Security notices always go out, whatever the email preference.
+        (job.email_enabled !== false || job.kind === 'security') &&
         job.email_verified_at &&
         (!['marketing', 'local_digest'].includes(job.kind) || job.marketing_enabled === true)
       )
@@ -177,7 +179,7 @@ export function createCommunicationsService(deps: AppDeps) {
     const c = await conversation(db, input.params.id as string, user.id);
     const cursor = z.object({ before: z.iso.datetime().optional() }).parse(input.query);
     const rows = await db.query(
-      `SELECT id,sender_id,body,created_at FROM messages WHERE conversation_id=$1${cursor.before ? ' AND created_at<$2' : ''} ORDER BY created_at DESC,id DESC LIMIT 50`,
+      `SELECT id,sender_id,body,warning,created_at FROM messages WHERE conversation_id=$1${cursor.before ? ' AND created_at<$2' : ''} ORDER BY created_at DESC,id DESC LIMIT 50`,
       cursor.before ? [c.id, cursor.before] : [c.id],
     );
     return {
@@ -217,9 +219,10 @@ export function createCommunicationsService(deps: AppDeps) {
       'USER_BLOCKED',
       'Messaging is unavailable because one participant has blocked the other.',
     );
+    // A message that looks like "pay me outside the app" carries a warning both sides see.
     const [message] = await q.query(
-      'INSERT INTO messages(id,conversation_id,sender_id,body) VALUES($1,$2,$3,$4) RETURNING *',
-      [randomUUID(), c.id, u.id, d.body],
+      'INSERT INTO messages(id,conversation_id,sender_id,body,warning) VALUES($1,$2,$3,$4,$5) RETURNING *',
+      [randomUUID(), c.id, u.id, d.body, looksOffPlatform(d.body) ? OFF_PLATFORM_WARNING : null],
     );
     await notify(
       q,

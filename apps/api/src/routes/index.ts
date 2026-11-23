@@ -33,6 +33,7 @@ import { disabledFeatureFor } from '../config/features.js';
 import { AppError } from '../lib/errors.js';
 import { accountRoutes } from './account.routes.js';
 import { adminRoutes } from './admin.routes.js';
+import { adminRiskRoutes, riskRoutes } from './risk.routes.js';
 import { authRoutes } from './auth.routes.js';
 import { bookingsRoutes } from './bookings.routes.js';
 import { communicationRoutes } from './communications.routes.js';
@@ -115,6 +116,7 @@ export function apiRoutes(
   r.use(growthRoutes(deps));
   r.use(partnerRoutes(deps));
   r.use(walletRoutes(deps));
+  r.use(riskRoutes(deps));
 
   r.use('/admin', adminMarketOperationsRoutes(deps));
   r.use('/admin', adminDiscoveryOperationsRoutes(deps));
@@ -130,6 +132,7 @@ export function apiRoutes(
   r.use('/admin', adminStatusBoostRoutes(deps));
   r.use('/admin', adminPayoutRoutes(deps));
   r.use('/admin', adminRefundRoutes(deps));
+  r.use('/admin', adminRiskRoutes(deps));
   r.use(adminRoutes(deps));
   return r;
 }

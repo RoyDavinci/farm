@@ -174,6 +174,7 @@ export default function CommunityScreen({
             {messages.map((m) => (
               <View key={m.id} style={[s.message, m.sender_id === user.id ? s.sent : s.received]}>
                 <Text style={s.messageText}>{m.body}</Text>
+                {!!(m as any).warning && <Text style={s.warning}>⚠️ {(m as any).warning}</Text>}
                 <Text style={s.small}>
                   {new Date(m.created_at).toLocaleTimeString([], {
                     hour: '2-digit',
@@ -316,6 +317,15 @@ export default function CommunityScreen({
   );
 }
 const s = StyleSheet.create({
+  warning: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#9b3d22',
+    backgroundColor: '#fdeee6',
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 4,
+  },
   container: { gap: 16 },
   eyebrow: { fontSize: 9, color: '#598871', letterSpacing: 1.5 },
   heading: { fontSize: 30, fontWeight: '700', color: '#1e4d36' },

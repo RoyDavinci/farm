@@ -836,6 +836,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/admin/payout-accounts/{id}/allow': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['risk.allowPayoutAccount'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/admin/payouts': {
     parameters: {
       query?: never;
@@ -1204,6 +1220,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/admin/risk': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['risk.listRisk'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/risk/{id}/clear': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['risk.clearRisk'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/admin/seller-documents': {
     parameters: {
       query?: never;
@@ -1476,6 +1524,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/admin/users/{id}/freeze': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['risk.freezeUser'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/admin/users/{id}/status': {
     parameters: {
       query?: never;
@@ -1486,6 +1550,22 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['communications.setUserStatus'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/users/{id}/unfreeze': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['risk.unfreezeUser'];
     delete?: never;
     options?: never;
     head?: never;
@@ -2879,6 +2959,54 @@ export interface paths {
     put: operations['communications.blockUser'];
     post?: never;
     delete: operations['communications.unblockUser'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/me/kyc': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['risk.getKyc'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/me/kyc/bvn': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['risk.startBvn'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/me/kyc/bvn/{id}/refresh': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['risk.refreshBvn'];
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -5011,6 +5139,22 @@ export interface components {
           })
         | null;
       available_kobo: number;
+      limits?: {
+        /** @enum {string} */
+        level: 'BASIC' | 'VERIFIED' | 'TRUSTED';
+        daily_limit_kobo: number;
+        monthly_limit_kobo: number;
+        daily_used_kobo: number;
+        monthly_used_kobo: number;
+        locked_until: string | null;
+        lock_reason: string | null;
+        frozen: boolean;
+        new_earner: boolean;
+      } & {
+        [key: string]: unknown;
+      };
+      held_wallet_kobo?: number;
+      held_earnings_kobo?: number;
       wallet_kobo: number;
       earner: boolean;
       min_kobo: number;
@@ -7277,6 +7421,40 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'risk.allowPayoutAccount': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'payouts.listPayouts': {
     parameters: {
       query?: never;
@@ -7350,13 +7528,15 @@ export interface operations {
             failure_reason: string | null;
             fee_kobo: number;
             id: string;
-            provider: string;
+            provider: string | null;
             provider_id: string | null;
-            reviewed_at: string;
-            reviewed_by: string;
+            reviewed_at: string | null;
+            reviewed_by: string | null;
             status: string;
             updated_at: string;
             user_id: string;
+            needs_second_approval?: boolean;
+            first_approved_by?: string | null;
           } & {
             [key: string]: unknown;
           };
@@ -8465,6 +8645,94 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'risk.listRisk': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            kind: string;
+            /** @enum {string} */
+            severity: 'LOW' | 'MEDIUM' | 'HIGH';
+            detail: string;
+            /** @enum {string} */
+            status: 'OPEN' | 'CLEARED';
+            created_at: string;
+            user: {
+              id: string;
+              name: string;
+              email: string;
+              phone: string | null;
+              frozen: boolean;
+              bvn_verified: boolean;
+              joined_at: string;
+              open_flags: number;
+            };
+            related: {
+              id: string;
+              name: string | null;
+            } | null;
+            payout_account: {
+              id: string;
+              account_name: string;
+              bank_name: string;
+              last4: string;
+              allowed: boolean;
+            } | null;
+            cleared_by: string | null;
+            cleared_at: string | null;
+            note: string | null;
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'risk.clearRisk': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'verification.listDocuments': {
     parameters: {
       query?: never;
@@ -9205,6 +9473,40 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'risk.freezeUser': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'communications.setUserStatus': {
     parameters: {
       query?: never;
@@ -9234,6 +9536,40 @@ export interface operations {
             ok: boolean;
           } & {
             [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'risk.unfreezeUser': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
           };
         };
       };
@@ -10756,6 +11092,7 @@ export interface operations {
               created_at: string;
               id: string;
               sender_id: string;
+              warning?: string | null;
             } & {
               [key: string]: unknown;
             })[];
@@ -10794,6 +11131,7 @@ export interface operations {
         };
         content: {
           'application/json': {
+            warning?: string | null;
             body: string;
             conversation_id: string;
             created_at: string;
@@ -13242,6 +13580,119 @@ export interface operations {
             ok: boolean;
           } & {
             [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'risk.getKyc': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            available: boolean;
+            bvn_verified: boolean;
+            verified_name: string | null;
+            check: {
+              id: string;
+              /** @enum {string} */
+              status: 'PENDING' | 'VERIFIED' | 'MISMATCH' | 'FAILED';
+              consent_url: string | null;
+              bvn_last4: string;
+              name: string | null;
+              reason: string | null;
+              created_at: string;
+            } | null;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'risk.startBvn': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            /** @enum {string} */
+            status: 'PENDING' | 'VERIFIED' | 'MISMATCH' | 'FAILED';
+            consent_url: string | null;
+            bvn_last4: string;
+            name: string | null;
+            reason: string | null;
+            created_at: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'risk.refreshBvn': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            /** @enum {string} */
+            status: 'PENDING' | 'VERIFIED' | 'MISMATCH' | 'FAILED';
+            consent_url: string | null;
+            bvn_last4: string;
+            name: string | null;
+            reason: string | null;
+            created_at: string;
           };
         };
       };

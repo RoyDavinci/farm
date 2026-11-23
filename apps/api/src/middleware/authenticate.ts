@@ -4,6 +4,7 @@ import type { Database } from '../database/client.js';
 import { ensure } from '../lib/errors.js';
 import { publicUser, tokenHash } from '../services/auth.service.js';
 import { teamMayAccess, type TeamRole } from '../services/team-access.js';
+import { recordDevice } from '../services/risk.service.js';
 
 /** Paths under /v1 that work without signing in. */
 const PUBLIC = [
@@ -35,6 +36,10 @@ export function authenticate(db: Database): RequestHandler {
     });
     ensure(session, 401, 'SESSION_EXPIRED', 'Your session has expired. Please sign in.');
     const member = publicUser(session.user);
+    // The app sends a per-install id; it links accounts that share a phone (fraud checks).
+    const deviceId = String(req.headers['x-device-id'] || '');
+    if (/^[A-Za-z0-9-]{8,64}$/.test(deviceId))
+      void recordDevice(db, member.id, deviceId, req.ip, req.headers['user-agent']).catch(() => {});
     const shopId = String(req.headers['x-act-as-seller'] || '');
     if (!shopId || shopId === member.id) {
       res.locals.user = member;

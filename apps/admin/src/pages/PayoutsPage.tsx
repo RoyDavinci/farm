@@ -21,6 +21,8 @@ interface Payout {
   account_last4: string;
   account_name: string;
   name_match: boolean;
+  first_approved_by?: string | null;
+  first_approver_name?: string | null;
   created_at: string;
 }
 
@@ -95,6 +97,11 @@ export default function PayoutsPage() {
                 </td>
                 <td>
                   <Badge status={p.status} />
+                  {p.status === 'REQUESTED' && p.first_approved_by && (
+                    <small>
+                      1 of 2 approvals · {p.first_approver_name}. Needs a second staff member.
+                    </small>
+                  )}
                   {p.source_account === 'shopping_advance' && (
                     <small>Shopping goods advance · {p.shopping_request_id?.slice(0, 8)}</small>
                   )}
@@ -122,11 +129,13 @@ export default function PayoutsPage() {
                                 request('post', '/admin/payouts/{id}/approve', {
                                   params: { id: p.id },
                                 }),
-                              'Payout approved; dispatch and verification are tracked automatically.',
+                              p.first_approved_by
+                                ? 'Payout approved; dispatch and verification are tracked automatically.'
+                                : 'Approved. Large payouts also need a second staff member.',
                             );
                         }}
                       >
-                        <Check size={14} /> Approve
+                        <Check size={14} /> {p.first_approved_by ? 'Second approval' : 'Approve'}
                       </button>
                       <button
                         className="secondary compact"

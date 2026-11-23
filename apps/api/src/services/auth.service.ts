@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { hashPin, transactionPin } from './transaction-pin.service.js';
+import { lockMoney } from './risk.service.js';
 import {
   createHash,
   createHmac,
@@ -303,6 +304,7 @@ export function createAuthService(deps: AppDeps) {
           );
           await q.query('DELETE FROM sessions WHERE user_id=$1', [otp.user_id]);
           await q.query('DELETE FROM trusted_devices WHERE user_id=$1', [otp.user_id]);
+          await lockMoney(q, otp.user_id, 24, 'password reset');
         }
         await q.query('UPDATE otp_challenges SET consumed_at=now() WHERE id=$1', [otp.id]);
         return { ok: true, password_reset: true };
@@ -325,6 +327,15 @@ export function createAuthService(deps: AppDeps) {
           "UPDATE users SET email_verified_at=COALESCE(email_verified_at,now()) WHERE id=$1 AND status='ACTIVE' RETURNING *",
           [otp.user_id],
         );
+        // A code is only asked for on a device we don't know: tell the owner and pause withdrawals
+        // for a day, the window in which a stolen account is usually emptied.
+        if (u)
+          await lockMoney(
+            q,
+            u.id,
+            24,
+            `sign-in from a new device (${(input.header('User-Agent') || 'unknown device').slice(0, 60)})`,
+          );
       }
       ensure(u, 401, 'ACCOUNT_UNAVAILABLE', 'This account is unavailable.');
       await q.query('UPDATE otp_challenges SET consumed_at=now() WHERE id=$1', [otp.id]);

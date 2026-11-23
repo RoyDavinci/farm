@@ -18,6 +18,7 @@ export type Page =
   | 'Audit log'
   | 'Settings'
   | 'Users'
+  | 'Risk'
   | 'Reports'
   | 'Email queue'
   | 'Markets'

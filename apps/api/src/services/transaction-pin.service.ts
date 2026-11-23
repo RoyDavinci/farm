@@ -5,6 +5,7 @@ import { ensure } from '../lib/errors.js';
 import type { RequestInput } from '../lib/http.js';
 import type { AppDeps } from '../types/deps.js';
 import { audit } from './audit.service.js';
+import { lockMoney, securityAlert } from './risk.service.js';
 
 /** A 4-digit transaction PIN. Obvious PINs (1234, 0000…) are refused. */
 export const transactionPin = z
@@ -131,6 +132,16 @@ export function createTransactionPinService(deps: AppDeps) {
       u.transaction_pin_hash ? 'transaction_pin.change' : 'transaction_pin.set',
       user.id,
     );
+    // Resetting a PIN with the password is what someone with a stolen password would do.
+    if (u.transaction_pin_hash && d.password)
+      await lockMoney(q, user.id, 24, 'transaction PIN reset');
+    else if (u.transaction_pin_hash)
+      await securityAlert(
+        q,
+        user.id,
+        'Transaction PIN changed',
+        'Your transaction PIN was changed. If this wasn’t you, contact support now.',
+      );
     return { set: true, locked_until: null };
   }
   return { getTransactionPin, setTransactionPin };

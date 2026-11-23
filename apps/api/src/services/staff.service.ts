@@ -38,6 +38,8 @@ export const permissions: Record<string, StaffRole[]> = {
   'email-queue': ['support'],
   disputes: ['finance', 'support'],
   payouts: ['finance'],
+  risk: ['operations', 'finance', 'support'],
+  'payout-accounts': ['finance'],
   refunds: ['finance'],
   reconciliation: ['finance'],
   funding: ['finance'],

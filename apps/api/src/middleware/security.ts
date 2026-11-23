@@ -51,6 +51,7 @@ export function corsPolicy(c: Config): RequestHandler {
       'X-Request-Id',
       // Team members working on a shop account (middleware/authenticate.ts).
       'X-Act-As-Seller',
+      'X-Device-Id',
     ],
     exposedHeaders: ['X-Request-Id', 'RateLimit', 'RateLimit-Policy', 'Retry-After'],
     credentials: false,

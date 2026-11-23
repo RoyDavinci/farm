@@ -9,6 +9,7 @@ import type { RequestInput } from '../lib/http.js';
 import type { AppDeps } from '../types/deps.js';
 import { audit } from './audit.service.js';
 import { syncPrimary, unitPrice } from './catalog.service.js';
+import { ensureNotFrozen, flag, linkedAccounts } from './risk.service.js';
 import { notify } from './communications.service.js';
 import { cancelDelivery } from './deliveries.service.js';
 import { ledger, lockedBalance } from './ledger.service.js';
@@ -177,6 +178,18 @@ export function createBookingsService(deps: AppDeps) {
       'Listing is unavailable or needs stock reconfirmation.',
     );
     ensure(l.seller_id !== u.id, 400, 'OWN_LISTING', 'You cannot book your own listing.');
+    await ensureNotFrozen(q, u.id);
+    // Buying from an account on the same phone, device or bank account: possible fake orders.
+    const link = await linkedAccounts(q, u.id, l.seller_id);
+    if (link)
+      await flag(
+        q,
+        u.id,
+        'SELF_DEALING',
+        `Ordered from a seller sharing their ${link}.`,
+        'MEDIUM',
+        l.seller_id,
+      );
     const [variant] = await q.query(
       `SELECT * FROM listing_variants WHERE listing_id=$1 AND active AND ${d.variant_id ? 'id=$2' : 'is_primary'}`,
       d.variant_id ? [l.id, d.variant_id] : [l.id],

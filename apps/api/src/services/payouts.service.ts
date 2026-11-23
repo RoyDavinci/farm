@@ -1,3 +1,13 @@
+import {
+  accountHash,
+  ensureNotFrozen,
+  flag,
+  guardWithdrawal,
+  heldKobo,
+  lockMoney,
+  namesAgree,
+  payoutLimits,
+} from './risk.service.js';
 import { checkTransactionPin } from './transaction-pin.service.js';
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -265,7 +275,7 @@ export function createPayoutsService(deps: AppDeps) {
   /** Anyone with an active account may keep a bank account for withdrawing their wallet. */
   const accountHolder = async (q: Query, uid: string) => {
     const [s] = await q.query(
-      "SELECT COALESCE(s.business_name,'') AS business_name FROM users u LEFT JOIN sellers s ON s.user_id=u.id WHERE u.id=$1 AND u.status='ACTIVE'",
+      "SELECT COALESCE(s.business_name,'') AS business_name,u.verified_name FROM users u LEFT JOIN sellers s ON s.user_id=u.id WHERE u.id=$1 AND u.status='ACTIVE'",
       [uid],
     );
     ensure(s, 403, 'ACCOUNT_UNAVAILABLE', 'This account is unavailable.');
@@ -311,14 +321,18 @@ export function createPayoutsService(deps: AppDeps) {
       [u.id],
     );
     const [account] = await db.query(
-      'SELECT id,provider,bank_code,bank_name,account_last4,account_name,name_match,created_at FROM payout_accounts WHERE user_id=$1 AND active',
+      'SELECT id,provider,bank_code,bank_name,account_last4,account_name,name_match,staff_allowed_at IS NOT NULL AS staff_allowed,created_at FROM payout_accounts WHERE user_id=$1 AND active',
       [u.id],
     );
     const [settings] = await db.query(
       'SELECT payout_min_kobo,payout_fee_kobo FROM settings WHERE id=1',
     );
+    const limits = await payoutLimits(db, u.id);
     return {
       account: account || null,
+      limits,
+      held_wallet_kobo: await heldKobo(db, u.id, 'wallet'),
+      held_earnings_kobo: await heldKobo(db, u.id, 'seller_payable'),
       available_kobo: await balance(db, u.id, 'seller_payable'),
       wallet_kobo: await balance(db, u.id, 'wallet'),
       earner: !!earner?.yes,
@@ -393,6 +407,7 @@ export function createPayoutsService(deps: AppDeps) {
         ? 'This is more than your wallet balance.'
         : 'This is more than your available proceeds.',
     );
+    await guardWithdrawal(q, u.id, account, source.account, d.amount_kobo);
     const pid = randomUUID();
     const [payout] = await q.query(
       'INSERT INTO payouts(id,user_id,account_id,amount_kobo,fee_kobo,source_account,source_owner,shopping_request_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
@@ -468,9 +483,14 @@ export function createPayoutsService(deps: AppDeps) {
       'PAYOUT_IN_PROGRESS',
       'Wait for your current payout to finish before changing bank details.',
     );
-    await q.query('UPDATE payout_accounts SET active=FALSE WHERE user_id=$1 AND active', [u.id]);
+    await ensureNotFrozen(q, u.id);
+    const [previous] = await q.query(
+      'UPDATE payout_accounts SET active=FALSE WHERE user_id=$1 AND active RETURNING id',
+      [u.id],
+    );
+    const hash = accountHash(d.bank_code, d.account_number);
     const [account] = await q.query(
-      'INSERT INTO payout_accounts(id,user_id,provider,bank_code,bank_name,account_last4,account_cipher,account_name,recipient_code,name_match) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id,provider,bank_code,bank_name,account_last4,account_name,name_match,created_at',
+      'INSERT INTO payout_accounts(id,user_id,provider,bank_code,bank_name,account_last4,account_cipher,account_name,recipient_code,name_match,account_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id,provider,bank_code,bank_name,account_last4,account_name,name_match,created_at',
       [
         randomUUID(),
         u.id,
@@ -481,9 +501,44 @@ export function createPayoutsService(deps: AppDeps) {
         encryptAccount(c, d.account_number),
         resolved.account_name,
         recipient,
-        namesMatch(resolved.account_name, u.name, s.business_name || ''),
+        namesMatch(resolved.account_name, u.name, s.business_name || '') ||
+          namesAgree(resolved.account_name, s.verified_name),
+        hash,
       ],
     );
+    // One bank account on several people is a classic sign of a fraud ring.
+    const others = await q.query(
+      'SELECT DISTINCT user_id FROM payout_accounts WHERE account_hash=$1 AND user_id<>$2 LIMIT 10',
+      [hash, u.id],
+    );
+    for (const o of others) {
+      await flag(
+        q,
+        u.id,
+        'SHARED_BANK_ACCOUNT',
+        'Added a bank account another user already uses.',
+        'HIGH',
+        o.user_id,
+      );
+      await flag(
+        q,
+        o.user_id,
+        'SHARED_BANK_ACCOUNT',
+        'Their bank account was added by another user.',
+        'HIGH',
+        u.id,
+      );
+    }
+    if (!account.name_match)
+      await flag(
+        q,
+        u.id,
+        'BANK_NAME_MISMATCH',
+        `Bank account name “${resolved.account_name}” doesn’t match the account holder. Withdrawals are blocked until staff allow it.`,
+        'MEDIUM',
+      );
+    // Changing where money goes pauses withdrawals for a day (a common account-takeover move).
+    if (previous) await lockMoney(q, u.id, 24, 'bank account change');
     await audit(q, u.id, 'payout_account.save', account.id, {
       bank: resolved.bank_name,
       last4: account.account_last4,
@@ -515,7 +570,7 @@ export function createAdminPayoutsService(deps: AppDeps) {
   const service = payoutService(db, c);
   async function listPayouts(user: any, input: RequestInput) {
     return await db.query(
-      "SELECT p.*,a.bank_name,a.account_last4,a.account_name,a.name_match,u.name AS seller_name,s.business_name FROM payouts p JOIN payout_accounts a ON a.id=p.account_id JOIN users u ON u.id=p.user_id LEFT JOIN sellers s ON s.user_id=p.user_id ORDER BY (p.status IN ('REQUESTED','PROCESSING')) DESC,p.created_at DESC LIMIT 200",
+      "SELECT p.*,a.bank_name,a.account_last4,a.account_name,a.name_match,u.name AS seller_name,s.business_name,(SELECT f.name FROM users f WHERE f.id=p.first_approved_by) AS first_approver_name FROM payouts p JOIN payout_accounts a ON a.id=p.account_id JOIN users u ON u.id=p.user_id LEFT JOIN sellers s ON s.user_id=p.user_id ORDER BY (p.status IN ('REQUESTED','PROCESSING')) DESC,p.created_at DESC LIMIT 200",
     );
   }
   async function approvePayout(user: any, input: RequestInput) {
@@ -529,6 +584,27 @@ export function createAdminPayoutsService(deps: AppDeps) {
         'INVALID_TRANSITION',
         `This payout is already ${p.status.toLowerCase()}.`,
       );
+      ensure(p.user_id !== user.id, 403, 'OWN_PAYOUT', 'Staff can’t approve their own payouts.');
+      const [frozen] = await q.query('SELECT frozen_at FROM users WHERE id=$1', [p.user_id]);
+      ensure(!frozen?.frozen_at, 423, 'ACCOUNT_FROZEN', 'This account is frozen for review.');
+      // Large payouts need a second, different staff member.
+      const [rule] = await q.query('SELECT payout_dual_approval_kobo FROM settings WHERE id=1');
+      if (Number(p.amount_kobo) >= Number(rule.payout_dual_approval_kobo)) {
+        if (!p.first_approved_by) {
+          const [first] = await q.query(
+            'UPDATE payouts SET first_approved_by=$1,first_approved_at=now(),updated_at=now() WHERE id=$2 RETURNING *',
+            [user.id, p.id],
+          );
+          await audit(q, user.id, 'payout.first_approval', p.id, {});
+          return { ...first, needs_second_approval: true };
+        }
+        ensure(
+          p.first_approved_by !== user.id,
+          409,
+          'SECOND_APPROVER_REQUIRED',
+          'A different staff member must give the second approval for this payout.',
+        );
+      }
       if (p.shopping_request_id) {
         const [r] = await q.query(
           "SELECT 1 FROM shopping_requests r WHERE id=$1 AND rider_id=$2 AND status='SHOPPING' AND NOT review_open AND EXISTS(SELECT 1 FROM drivers d JOIN users u ON u.id=d.user_id WHERE d.user_id=r.rider_id AND d.status='APPROVED' AND u.status='ACTIVE')",
@@ -554,6 +630,7 @@ export function createAdminPayoutsService(deps: AppDeps) {
       await audit(q, user.id, 'payout.approve', p.id, { provider });
       return updated;
     });
+    if (payout.needs_second_approval) return payout;
     return service.recover(payout.id, true);
   }
   async function rejectPayout(q: Query, u: any, input: RequestInput) {

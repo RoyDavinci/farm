@@ -11,6 +11,8 @@ import { useApp } from '../AppContext';
 import { featureOn } from '../features';
 import { currentPosition, directions } from '../DeliveryPanel';
 import { request } from '../request';
+import { snap } from '../camera';
+import { uploadPhoto } from '../api';
 import { VerificationDocuments } from '../SellerTools';
 import { Badge, Button, Chip, Empty, Field, s } from '../ui';
 import { PinQr, PinScanner } from '../PinCode';
@@ -18,6 +20,18 @@ import { PinQr, PinScanner } from '../PinCode';
 const earnings = (d: any) => Math.round((Number(d.fare_kobo) * (10000 - d.commission_bps)) / 10000);
 
 /** Driver mode: apply, go online, take nearby jobs and confirm deliveries with PINs. */
+/**
+ * Proof for a delivery step: a photo taken now with the camera, uploaded, and where the rider is.
+ * Protects riders, sellers and buyers if anything is disputed later.
+ */
+async function evidence() {
+  const shot = await snap(false);
+  if (!shot) throw new Error('Take a photo of the goods to continue.');
+  const photo = await uploadPhoto(shot);
+  const here = await currentPosition();
+  return { photo_url: photo.url, latitude: here.latitude, longitude: here.longitude };
+}
+
 export default function DriveScreen() {
   const { busy, run, setTab, settings } = useApp();
   const [driver, setDriver] = useState<any>(undefined),
@@ -221,8 +235,8 @@ export default function DriveScreen() {
                   <Button
                     title={
                       d.booking_paid
-                        ? 'Goods check out'
-                        : `Goods check out · pay ${money(Number(d.total_kobo))} to escrow`
+                        ? '📸 Photograph goods · they check out'
+                        : `📸 Photograph goods · pay ${money(Number(d.total_kobo))} to escrow`
                     }
                     disabled={busy}
                     onPress={() =>
@@ -230,7 +244,10 @@ export default function DriveScreen() {
                         async () => {
                           await request('post', '/deliveries/{id}/{action}', {
                             params: { id: d.id, action: 'check' },
-                            body: notes[d.id] ? { note: notes[d.id] } : {},
+                            body: {
+                              ...(notes[d.id] ? { note: notes[d.id] } : {}),
+                              ...(await evidence()),
+                            },
                           });
                           await load();
                         },
@@ -312,14 +329,14 @@ export default function DriveScreen() {
                 onPin={(pin) => setPins({ ...pins, [d.id]: pin })}
               />
               <Button
-                title="Confirm delivery"
+                title="📸 Photo & confirm delivery"
                 disabled={busy || !/^\d{6}$/.test(pins[d.id] || '')}
                 onPress={() =>
                   void run(
                     async () => {
                       await request('post', '/deliveries/{id}/{action}', {
                         params: { id: d.id, action: 'deliver' },
-                        body: { pin: pins[d.id] },
+                        body: { pin: pins[d.id], ...(await evidence()) },
                       });
                       await load();
                     },
@@ -327,6 +344,27 @@ export default function DriveScreen() {
                   )
                 }
               />
+              {(!d.fare_paid || !d.booking_paid) && !d.refused_at && (
+                <Pressable
+                  disabled={busy}
+                  onPress={() =>
+                    void run(async () => {
+                      await request('post', '/deliveries/{id}/{action}', {
+                        params: { id: d.id, action: 'refused' },
+                        body: {},
+                      });
+                      await load();
+                    }, 'Reported. Keep the goods safe; support will contact you.')
+                  }
+                >
+                  <Text style={s.link}>The buyer won’t pay</Text>
+                </Pressable>
+              )}
+              {!!d.refused_at && (
+                <Text style={s.fine}>
+                  Reported to support. Keep the goods safe until they call.
+                </Text>
+              )}
             </>
           )}
         </View>

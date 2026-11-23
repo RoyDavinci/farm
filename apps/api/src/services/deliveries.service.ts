@@ -9,7 +9,16 @@ import {
 import { randomInt, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Query } from '../database/client.js';
-import { ensure } from '../lib/errors.js';
+import { AppError, ensure } from '../lib/errors.js';
+import {
+  ensureNotFrozen,
+  flag,
+  linkedAccounts,
+  NEW_BUYER_POD_LIMIT_KOBO,
+  NEW_RIDER_LIMIT_KOBO,
+  POD_REFUSAL_LIMIT,
+  TRUSTED_AFTER_JOBS,
+} from './risk.service.js';
 import type { RequestInput } from '../lib/http.js';
 import type { AppDeps } from '../types/deps.js';
 import { audit } from './audit.service.js';
@@ -75,6 +84,52 @@ export async function cancelDelivery(q: Query, d: any, reason: string, actor: st
 }
 
 /** Business logic for deliveries requests. HTTP-free: callers pass plain input. */
+/** A photo the rider just took (uploaded to /media) and where they were. */
+const evidenceInput = z.object({
+  photo_url: z.string().url().max(500),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+});
+async function ownPhoto(q: Query, userId: string, url: string) {
+  const [m] = await q.query(
+    "SELECT 1 FROM media WHERE url=$1 AND owner_id=$2 AND created_at>now()-interval '2 hours'",
+    [url, userId],
+  );
+  ensure(m, 400, 'PHOTO_REQUIRED', 'Take a photo of the goods first.');
+}
+/** New riders can only carry orders up to a set value until they have a track record. */
+async function riderCanCarry(q: Query, riderId: string, totalKobo: number) {
+  const [r] = await q.query(
+    "SELECT COUNT(*)::int AS n FROM deliveries WHERE driver_id=$1 AND status='DELIVERED'",
+    [riderId],
+  );
+  ensure(
+    r.n >= TRUSTED_AFTER_JOBS || totalKobo <= NEW_RIDER_LIMIT_KOBO,
+    403,
+    'RIDER_LIMIT',
+    `New riders can carry orders up to ₦${(NEW_RIDER_LIMIT_KOBO / 100).toLocaleString('en-NG')} until they complete ${TRUSTED_AFTER_JOBS} deliveries. Choose another rider.`,
+  );
+}
+/** Pay on delivery: blocked after repeated refusals, capped for buyers without a track record. */
+async function payOnDeliveryAllowed(q: Query, buyerId: string, dueKobo: number) {
+  const [b] = await q.query(
+    "SELECT pod_refusals,(SELECT COUNT(*)::int FROM bookings WHERE buyer_id=$1 AND status='COMPLETED') AS done FROM users WHERE id=$1",
+    [buyerId],
+  );
+  ensure(
+    b.pod_refusals < POD_REFUSAL_LIMIT,
+    403,
+    'POD_BLOCKED',
+    'Pay on delivery isn’t available on this account. Pay for the order first.',
+  );
+  ensure(
+    b.done >= 2 || dueKobo <= NEW_BUYER_POD_LIMIT_KOBO,
+    403,
+    'POD_LIMIT',
+    `Until you’ve completed two orders, pay on delivery is for orders up to ₦${(NEW_BUYER_POD_LIMIT_KOBO / 100).toLocaleString('en-NG')}. Pay first for bigger orders.`,
+  );
+}
+
 /** Moves a booking's escrow to the seller's earnings, less the platform commission. */
 async function releaseToSeller(q: Query, b: any) {
   await ledger(q, b.id, [
@@ -236,6 +291,7 @@ export function createDeliveriesService(deps: AppDeps) {
       'PAYMENT_REQUIRED',
       'Pay for the booking first, or choose Pay on Delivery.',
     );
+    await ensureNotFrozen(q, u.id);
     const qd = await quote(q, b, d.vehicle_type, d.dropoff, d);
     ensure(
       qd.fare_kobo === d.expected_fare_kobo,
@@ -243,7 +299,10 @@ export function createDeliveriesService(deps: AppDeps) {
       'FARE_CHANGED',
       'The delivery fare changed. Please review the new quote.',
     );
+    if (d.pay_on_delivery && !b.paid)
+      await payOnDeliveryAllowed(q, u.id, Number(b.total_kobo) + qd.fare_kobo);
     if (d.requested_driver_id) {
+      await riderCanCarry(q, d.requested_driver_id, Number(b.total_kobo));
       const rider = await checkRider(q, d.requested_driver_id, u.id, d.vehicle_type);
       ensure(
         rider.user_id !== b.seller_id,
@@ -468,7 +527,7 @@ export function createDeliveriesService(deps: AppDeps) {
   }
   async function performDeliveryAction(q: Query, u: any, input: RequestInput) {
     const action = z
-      .enum(['cancel', 'pay', 'claim', 'release', 'check', 'handover', 'deliver'])
+      .enum(['cancel', 'pay', 'claim', 'release', 'check', 'handover', 'deliver', 'refused'])
       .parse(input.params.action);
 
     // Lock order matches booking cancel/expiry (booking → delivery) so the two can't deadlock.
@@ -527,6 +586,26 @@ export function createDeliveriesService(deps: AppDeps) {
         'LOCATION_STALE',
         'Go online and refresh your location before accepting a job.',
       );
+      await ensureNotFrozen(q, u.id);
+      await riderCanCarry(q, u.id, Number(b.total_kobo));
+      for (const party of [d.buyer_id, d.seller_id]) {
+        const link = await linkedAccounts(q, u.id, party);
+        if (link) {
+          await flag(
+            q,
+            u.id,
+            'COLLUSION_RISK',
+            `Tried to take a delivery for an account sharing their ${link}.`,
+            'HIGH',
+            party,
+          );
+          throw new AppError(
+            403,
+            'CONFLICT',
+            'You can’t deliver an order for an account linked to yours.',
+          );
+        }
+      }
       await riderFree(q, u.id);
       await q.query(
         "UPDATE deliveries SET status='ASSIGNED',driver_id=$1,assigned_at=now() WHERE id=$2",
@@ -589,8 +668,18 @@ export function createDeliveriesService(deps: AppDeps) {
         'Goods can be checked once, at the seller, before collection.',
       );
       const body = z
-        .object({ note: z.string().trim().max(500).optional() })
+        .object({ note: z.string().trim().max(500).optional(), ...evidenceInput.shape })
         .parse(input.body ?? {});
+      await ownPhoto(q, u.id, body.photo_url);
+      if (haversineKm(body.latitude, body.longitude, d.pickup_latitude, d.pickup_longitude) > 1)
+        await flag(
+          q,
+          u.id,
+          'EVIDENCE_LOCATION',
+          'Checked goods more than 1 km from the seller.',
+          'LOW',
+          d.seller_id,
+        );
       let fronted = 0;
       if (!b.paid) {
         fronted = Number(b.total_kobo);
@@ -606,8 +695,8 @@ export function createDeliveriesService(deps: AppDeps) {
         ]);
       }
       await q.query(
-        'UPDATE deliveries SET rider_checked_at=now(),rider_check_note=$1,rider_fronted_kobo=$2 WHERE id=$3',
-        [body.note || null, fronted, d.id],
+        'UPDATE deliveries SET rider_checked_at=now(),rider_check_note=$1,rider_fronted_kobo=$2,check_photo_url=$3,check_latitude=$4,check_longitude=$5 WHERE id=$6',
+        [body.note || null, fronted, body.photo_url, body.latitude, body.longitude, d.id],
       );
       await notify(
         q,
@@ -615,6 +704,44 @@ export function createDeliveriesService(deps: AppDeps) {
         'delivery',
         'Rider checked the goods',
         `${u.name} confirmed ${b.title} is in order. Payment is held in escrow; confirm handover with the rider's code to receive it.`,
+        b.id,
+      );
+    } else if (action === 'refused') {
+      // At the door the buyer won't pay. The rider keeps the goods safe; support sorts it out.
+      ensure(d.driver_id === u.id, 403, 'FORBIDDEN', 'Only the assigned rider can report this.');
+      ensure(
+        d.status === 'PICKED_UP' && !d.refused_at && !(b.paid && d.fare_paid),
+        409,
+        'INVALID_TRANSITION',
+        'Only an unpaid order you are carrying can be reported as refused.',
+      );
+      await q.query('UPDATE deliveries SET refused_at=now() WHERE id=$1', [d.id]);
+      const [buyer] = await q.query(
+        'UPDATE users SET pod_refusals=pod_refusals+1 WHERE id=$1 RETURNING pod_refusals',
+        [d.buyer_id],
+      );
+      await flag(
+        q,
+        d.buyer_id,
+        'POD_REFUSED',
+        `Refused to pay for ${b.title} at the door (${buyer.pod_refusals} refusal${buyer.pod_refusals === 1 ? '' : 's'}). The rider${Number(d.rider_fronted_kobo) ? ' paid the seller and' : ''} still has the goods.`,
+        buyer.pod_refusals >= POD_REFUSAL_LIMIT ? 'HIGH' : 'MEDIUM',
+        u.id,
+      );
+      await notify(
+        q,
+        d.buyer_id,
+        'delivery',
+        'Your rider is waiting',
+        `${b.title} is at your door. Pay in the app to receive it, or support will contact you.`,
+        b.id,
+      );
+      await notify(
+        q,
+        u.id,
+        'delivery',
+        'Reported to support',
+        'Keep the goods safe. Our team will contact you about returning them and your money.',
         b.id,
       );
     } else if (action === 'cancel') {
@@ -729,7 +856,17 @@ export function createDeliveriesService(deps: AppDeps) {
         'PIN_LOCKED',
         'Too many incorrect PINs. Try again in 15 minutes.',
       );
-      const body = z.object({ pin: z.string().regex(/^\d{6}$/) }).parse(input.body);
+      const body = (
+        handover
+          ? z.object({ pin: z.string().regex(/^\d{6}$/) })
+          : z.object({ pin: z.string().regex(/^\d{6}$/), ...evidenceInput.shape })
+      ).parse(input.body) as {
+        pin: string;
+        photo_url?: string;
+        latitude?: number;
+        longitude?: number;
+      };
+      if (!handover) await ownPhoto(q, u.id, body.photo_url!);
       if (body.pin !== (handover ? d.pickup_pin : d.delivery_pin)) {
         const failures = d.pin_failures + 1;
         await q.query('UPDATE deliveries SET pin_failures=$1,pin_locked_until=$2 WHERE id=$3', [
@@ -764,9 +901,21 @@ export function createDeliveriesService(deps: AppDeps) {
           b.id,
         );
       } else {
-        await q.query("UPDATE deliveries SET status='DELIVERED',delivered_at=now() WHERE id=$1", [
-          d.id,
-        ]);
+        await q.query(
+          "UPDATE deliveries SET status='DELIVERED',delivered_at=now(),delivered_photo_url=$1,delivered_latitude=$2,delivered_longitude=$3 WHERE id=$4",
+          [body.photo_url, body.latitude, body.longitude, d.id],
+        );
+        if (
+          haversineKm(body.latitude!, body.longitude!, d.dropoff_latitude, d.dropoff_longitude) > 1
+        )
+          await flag(
+            q,
+            u.id,
+            'EVIDENCE_LOCATION',
+            'Confirmed a delivery more than 1 km from the drop-off.',
+            'MEDIUM',
+            d.buyer_id,
+          );
         // A delivery partner company's agreed rate applies to its riders; the owner can switch
         // delivery commission off entirely.
         const [partner] = await q.query(

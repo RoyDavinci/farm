@@ -5,6 +5,7 @@ import { useApp } from './AppContext';
 import { request } from './request';
 import { Badge, Button, Field, s } from './ui';
 import TransactionPinPanel, { PinField, useTransactionPin } from './TransactionPin';
+import BvnVerify from './BvnVerify';
 
 type PayoutData = PayoutSummary;
 
@@ -79,6 +80,7 @@ export default function PayoutPanel({
         Minimum {money(data.min_kobo)} · transfer fee {money(data.fee_kobo)}.
         {data.mode === 'simulated' ? ' Development mode: payouts are simulated.' : ''}
       </Text>
+      <SafetyNotes data={data} fromWallet={fromWallet} onVerified={() => void load()} />
       {pinStatus.state?.set === false ? (
         // No PIN yet: money can't leave the account until one is set.
         <TransactionPinPanel
@@ -281,6 +283,57 @@ export default function PayoutPanel({
           </View>
         </View>
       ))}
+    </View>
+  );
+}
+
+/** Holds, limits, pauses and identity: why a withdrawal might be smaller or later than expected. */
+function SafetyNotes({
+  data,
+  fromWallet,
+  onVerified,
+}: {
+  data: PayoutData;
+  fromWallet: boolean;
+  onVerified: () => void;
+}) {
+  const l: any = (data as any).limits;
+  const held = fromWallet ? (data as any).held_wallet_kobo : (data as any).held_earnings_kobo;
+  const account: any = data.account;
+  if (!l) return null;
+  return (
+    <View style={{ gap: 8 }}>
+      {l.frozen && (
+        <Text style={s.fine}>
+          ⛔ Your account is on hold while our team reviews it. Contact support.
+        </Text>
+      )}
+      {l.locked_until && (
+        <Text style={s.fine}>
+          ⏸️ For your safety, withdrawals are paused until{' '}
+          {new Date(l.locked_until).toLocaleString()} after a {l.lock_reason}.
+        </Text>
+      )}
+      {held > 0 && (
+        <Text style={s.small}>
+          ⏳ {money(held)}{' '}
+          {fromWallet
+            ? 'from recent card top-ups can be withdrawn 48 hours after payment (you can still spend it now).'
+            : 'of new earnings is held for 5 days in case a buyer disputes. This stops after 10 completed jobs.'}
+        </Text>
+      )}
+      {account && !account.name_match && !account.staff_allowed && (
+        <Text style={s.fine}>
+          ⚠️ This bank account isn’t in your name, so withdrawals to it are blocked. Add your own
+          account, or ask support to check it.
+        </Text>
+      )}
+      <Text style={s.small}>
+        Limits ({l.level.toLowerCase()}): {money(l.daily_limit_kobo - l.daily_used_kobo)} left today
+        of {money(l.daily_limit_kobo)} · {money(l.monthly_limit_kobo - l.monthly_used_kobo)} left
+        this month.
+      </Text>
+      {l.level === 'BASIC' && <BvnVerify onVerified={onVerified} />}
     </View>
   );
 }

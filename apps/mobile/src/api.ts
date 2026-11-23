@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
@@ -172,12 +173,30 @@ async function renew(expectedEpoch: number) {
   await persistCredentials(expectedEpoch);
   if (expectedEpoch !== sessionEpoch) throw new SessionChangedError();
 }
+/**
+ * A random id for this install, sent with every signed-in request so the server can spot several
+ * accounts on one phone (fraud checks). It identifies the install, nothing about the person.
+ */
+let installId: Promise<string> | null = null;
+function deviceId() {
+  installId ??= AsyncStorage.getItem('fm-install-id')
+    .then(async (v) => {
+      if (v) return v;
+      const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}-${Math.random().toString(36).slice(2, 12)}`;
+      await AsyncStorage.setItem('fm-install-id', id);
+      return id;
+    })
+    .catch(() => '');
+  return installId;
+}
 async function authenticatedFetch(path: string, options: RequestInit, allowRefresh = true) {
   const expected = sessionEpoch;
+  const device = await deviceId();
   options.headers = {
     ...options.headers,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(actingSeller ? { 'X-Act-As-Seller': actingSeller } : {}),
+    ...(device ? { 'X-Device-Id': device } : {}),
   };
   let res = await fetch(`${API_URL}${path}`, options);
   if (expected !== sessionEpoch) throw new SessionChangedError();

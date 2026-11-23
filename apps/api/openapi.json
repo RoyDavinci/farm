@@ -4821,6 +4821,64 @@
         }
       }
     },
+    "/v1/admin/payout-accounts/{id}/allow": {
+      "post": {
+        "operationId": "risk.allowPayoutAccount",
+        "tags": [
+          "risk"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/payouts": {
       "get": {
         "operationId": "payouts.listPayouts",
@@ -4991,7 +5049,10 @@
                       "type": "string"
                     },
                     "provider": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "provider_id": {
                       "type": [
@@ -5000,10 +5061,16 @@
                       ]
                     },
                     "reviewed_at": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "reviewed_by": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "status": {
                       "type": "string"
@@ -5013,6 +5080,15 @@
                     },
                     "user_id": {
                       "type": "string"
+                    },
+                    "needs_second_approval": {
+                      "type": "boolean"
+                    },
+                    "first_approved_by": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -7808,6 +7884,259 @@
         }
       }
     },
+    "/v1/admin/risk": {
+      "get": {
+        "operationId": "risk.listRisk",
+        "tags": [
+          "risk"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "severity": {
+                        "type": "string",
+                        "enum": [
+                          "LOW",
+                          "MEDIUM",
+                          "HIGH"
+                        ]
+                      },
+                      "detail": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "OPEN",
+                          "CLEARED"
+                        ]
+                      },
+                      "created_at": {
+                        "type": "string"
+                      },
+                      "user": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "phone": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "frozen": {
+                            "type": "boolean"
+                          },
+                          "bvn_verified": {
+                            "type": "boolean"
+                          },
+                          "joined_at": {
+                            "type": "string"
+                          },
+                          "open_flags": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "email",
+                          "phone",
+                          "frozen",
+                          "bvn_verified",
+                          "joined_at",
+                          "open_flags"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "related": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "payout_account": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "account_name": {
+                                "type": "string"
+                              },
+                              "bank_name": {
+                                "type": "string"
+                              },
+                              "last4": {
+                                "type": "string"
+                              },
+                              "allowed": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "account_name",
+                              "bank_name",
+                              "last4",
+                              "allowed"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "cleared_by": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "cleared_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "note": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "severity",
+                      "detail",
+                      "status",
+                      "created_at",
+                      "user",
+                      "related",
+                      "payout_account",
+                      "cleared_by",
+                      "cleared_at",
+                      "note"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/admin/risk/{id}/clear": {
+      "post": {
+        "operationId": "risk.clearRisk",
+        "tags": [
+          "risk"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/seller-documents": {
       "get": {
         "operationId": "verification.listDocuments",
@@ -9475,6 +9804,64 @@
         }
       }
     },
+    "/v1/admin/users/{id}/freeze": {
+      "post": {
+        "operationId": "risk.freezeUser",
+        "tags": [
+          "risk"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/users/{id}/status": {
       "post": {
         "operationId": "communications.setUserStatus",
@@ -9511,6 +9898,64 @@
                     "ok"
                   ],
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/users/{id}/unfreeze": {
+      "post": {
+        "operationId": "risk.unfreezeUser",
+        "tags": [
+          "risk"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -12885,6 +13330,12 @@
                           },
                           "sender_id": {
                             "type": "string"
+                          },
+                          "warning": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -12942,6 +13393,12 @@
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
                   "type": "object",
                   "properties": {
+                    "warning": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "body": {
                       "type": "string"
                     },
@@ -18427,6 +18884,293 @@
                     "ok"
                   ],
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/kyc": {
+      "get": {
+        "operationId": "risk.getKyc",
+        "tags": [
+          "risk"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "bvn_verified": {
+                      "type": "boolean"
+                    },
+                    "verified_name": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "check": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "PENDING",
+                                "VERIFIED",
+                                "MISMATCH",
+                                "FAILED"
+                              ]
+                            },
+                            "consent_url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "bvn_last4": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "created_at": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "status",
+                            "consent_url",
+                            "bvn_last4",
+                            "name",
+                            "reason",
+                            "created_at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "available",
+                    "bvn_verified",
+                    "verified_name",
+                    "check"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/me/kyc/bvn": {
+      "post": {
+        "operationId": "risk.startBvn",
+        "tags": [
+          "risk"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "PENDING",
+                        "VERIFIED",
+                        "MISMATCH",
+                        "FAILED"
+                      ]
+                    },
+                    "consent_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "bvn_last4": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "created_at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "status",
+                    "consent_url",
+                    "bvn_last4",
+                    "name",
+                    "reason",
+                    "created_at"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/kyc/bvn/{id}/refresh": {
+      "post": {
+        "operationId": "risk.refreshBvn",
+        "tags": [
+          "risk"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "PENDING",
+                        "VERIFIED",
+                        "MISMATCH",
+                        "FAILED"
+                      ]
+                    },
+                    "consent_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "bvn_last4": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "created_at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "status",
+                    "consent_url",
+                    "bvn_last4",
+                    "name",
+                    "reason",
+                    "created_at"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -31697,6 +32441,79 @@
             ]
           },
           "available_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "level": {
+                "type": "string",
+                "enum": [
+                  "BASIC",
+                  "VERIFIED",
+                  "TRUSTED"
+                ]
+              },
+              "daily_limit_kobo": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "monthly_limit_kobo": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "daily_used_kobo": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "monthly_used_kobo": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "locked_until": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "lock_reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "frozen": {
+                "type": "boolean"
+              },
+              "new_earner": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "level",
+              "daily_limit_kobo",
+              "monthly_limit_kobo",
+              "daily_used_kobo",
+              "monthly_used_kobo",
+              "locked_until",
+              "lock_reason",
+              "frozen",
+              "new_earner"
+            ],
+            "additionalProperties": {}
+          },
+          "held_wallet_kobo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "held_earnings_kobo": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991

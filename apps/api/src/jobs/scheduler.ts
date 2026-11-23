@@ -6,6 +6,7 @@ import { recoverStatusBoosts } from '../services/status-boost.service.js';
 import { expireLocalStatuses } from '../services/local-status.service.js';
 import { expireShoppingRequests } from '../services/shopping.service.js';
 import { plannerReminders } from '../services/planner-wizard.service.js';
+import { riskSweep } from '../services/risk.service.js';
 import type { Config } from '../config/index.js';
 import type { Database } from '../database/client.js';
 import { logger } from '../lib/logger.js';
@@ -32,6 +33,7 @@ export function startWorkers(db: Database, c: Config) {
     { name: 'discovery-maintenance', every: 60000, run: () => discoveryMaintenance(db) },
     { name: 'stock-freshness', every: 3600000, run: () => stockFreshnessReminders(db) },
     { name: 'planner-reminders', every: 3600000, run: () => plannerReminders(db) },
+    { name: 'risk-sweep', every: 3600000, run: () => riskSweep(db) },
     { name: 'status-boost-recovery', every: 60000, run: () => recoverStatusBoosts(db) },
     { name: 'local-status-expiry', every: 60000, run: () => expireLocalStatuses(db) },
     { name: 'shopping-expiry', every: 60000, run: () => expireShoppingRequests(db) },

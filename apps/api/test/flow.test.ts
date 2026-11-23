@@ -608,13 +608,19 @@ async function ledgerBalances() {
 }
 describe('seller payouts', () => {
   const simulated = () => createApp(db, { ...c, payments: false, demo: true });
-  function as(
+  /** These tests are about the payout flow, so money is treated as past its fraud hold. */
+  async function pastHolds() {
+    await db.query("UPDATE ledger SET created_at=created_at-interval '10 days'");
+    await db.query("UPDATE funding SET credited_at=credited_at-interval '10 days'");
+  }
+  async function as(
     target: ReturnType<typeof createApp>,
     actor: string,
     method: 'get' | 'post',
     path: string,
     body?: any,
   ) {
+    if (method === 'post' && path === '/payouts') await pastHolds();
     const r = request(target)
       [method](`/v1${path}`)
       .set('Authorization', `Bearer token-${actor}`)
@@ -806,8 +812,14 @@ describe('seller payouts', () => {
       bank_code: '058',
       account_number: '0123456789',
     });
-    return (await call('seller', 'post', '/payouts', { transaction_pin: PIN, amount_kobo: 150000 }))
-      .body.id as string;
+    // Past the new-seller earnings hold; these tests are about the transfer itself.
+    await db.query("UPDATE ledger SET created_at=created_at-interval '10 days'");
+    const r = await call('seller', 'post', '/payouts', {
+      transaction_pin: PIN,
+      amount_kobo: 150000,
+    });
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
+    return r.body.id as string;
   }
   const payoutRow = async (id: string) =>
     (await db.query('SELECT * FROM payouts WHERE id=$1', [id]))[0];
@@ -1171,6 +1183,18 @@ describe('staff roles, verification documents, promotions and pre-orders', () =>
 });
 describe('delivery network', () => {
   const drop = { latitude: 6.6, longitude: 3.36 };
+  /** A photo the rider just took, and where they were (at the seller unless given). */
+  async function photo(
+    at: { latitude: number; longitude: number } = { latitude: 6.55, longitude: 3.35 },
+  ) {
+    const url = `https://example.com/evidence/${randomUUID()}.webp`;
+    await db.query('INSERT INTO media(id,owner_id,url,thumbnail_url) VALUES($1,$2,$3,$3)', [
+      randomUUID(),
+      'other',
+      url,
+    ]);
+    return { photo_url: url, ...at };
+  }
   async function readyForDelivery(pay = true) {
     const { b } = await accepted();
     await db.query('UPDATE sellers SET latitude=6.55,longitude=3.35 WHERE user_id=$1', ['seller']);
@@ -1260,6 +1284,7 @@ describe('delivery network', () => {
     ).toBe('RIDER_CHECK_REQUIRED');
     const checked = await call('other', 'post', `/deliveries/${delivery.body.id}/check`, {
       note: 'Tomatoes fresh, 2 kg',
+      ...(await photo()),
     });
     expect(checked.body.rider_checked_at).toBeTruthy();
     // Prepaid: the buyer's money is already in escrow, so the rider fronts nothing.
@@ -1288,6 +1313,7 @@ describe('delivery network', () => {
     expect((await call('buyer', 'post', `/bookings/${b}/cancel`)).status).toBe(409);
     const done = await call('other', 'post', `/deliveries/${delivery.body.id}/deliver`, {
       pin: tracking.body.delivery_pin,
+      ...(await photo(drop)),
     });
     expect(done.body.status).toBe('DELIVERED');
     const [booking] = await db.query('SELECT status FROM bookings WHERE id=$1', [b]);
@@ -1314,11 +1340,12 @@ describe('delivery network', () => {
     expect(d.body.fare_paid).toBe(false);
     const claim = await call('other', 'post', `/deliveries/${d.body.id}/claim`);
     // The rider needs the item price in their wallet to pay the seller.
-    expect((await call('other', 'post', `/deliveries/${d.body.id}/check`)).body.error.code).toBe(
-      'INSUFFICIENT_BALANCE',
-    );
+    expect(
+      (await call('other', 'post', `/deliveries/${d.body.id}/check`, await photo())).body.error
+        .code,
+    ).toBe('INSUFFICIENT_BALANCE');
     await call('other', 'post', '/wallet/demo-fund', { amount_kobo: 500000 });
-    const checked = await call('other', 'post', `/deliveries/${d.body.id}/check`);
+    const checked = await call('other', 'post', `/deliveries/${d.body.id}/check`, await photo());
     expect(Number(checked.body.rider_fronted_kobo)).toBe(200000);
     expect((await call('other', 'get', '/wallet')).body.balance_kobo).toBe(300000);
     expect(
@@ -1330,8 +1357,12 @@ describe('delivery network', () => {
     ).toBe('PICKED_UP');
     expect((await call('seller', 'get', '/payouts')).body.available_kobo).toBe(190000);
     expect(
-      (await call('other', 'post', `/deliveries/${d.body.id}/deliver`, { pin: '111111' })).body
-        .error.code,
+      (
+        await call('other', 'post', `/deliveries/${d.body.id}/deliver`, {
+          pin: '111111',
+          ...(await photo(drop)),
+        })
+      ).body.error.code,
     ).toBe('PAYMENT_REQUIRED');
     expect(
       (await call('buyer', 'get', `/bookings/${b}/delivery`)).body.delivery_pin,
@@ -1341,8 +1372,12 @@ describe('delivery network', () => {
     expect((await call('other', 'get', '/wallet')).body.balance_kobo).toBe(500000);
     const pinNow = (await call('buyer', 'get', `/bookings/${b}/delivery`)).body.delivery_pin;
     expect(
-      (await call('other', 'post', `/deliveries/${d.body.id}/deliver`, { pin: pinNow })).body
-        .status,
+      (
+        await call('other', 'post', `/deliveries/${d.body.id}/deliver`, {
+          pin: pinNow,
+          ...(await photo(drop)),
+        })
+      ).body.status,
     ).toBe('DELIVERED');
     // Seller was paid once, at handover.
     expect((await call('seller', 'get', '/payouts')).body.available_kobo).toBe(190000);
@@ -1359,7 +1394,7 @@ describe('delivery network', () => {
     });
     await call('other', 'post', `/deliveries/${d.body.id}/claim`);
     await call('other', 'post', '/wallet/demo-fund', { amount_kobo: 500000 });
-    await call('other', 'post', `/deliveries/${d.body.id}/check`);
+    await call('other', 'post', `/deliveries/${d.body.id}/check`, await photo());
     expect((await call('other', 'get', '/wallet')).body.balance_kobo).toBe(300000);
     expect((await call('buyer', 'post', `/bookings/${b}/cancel`)).status).toBe(200);
     expect((await call('other', 'get', '/wallet')).body.balance_kobo).toBe(500000);
@@ -2554,6 +2589,313 @@ describe('planner extras', () => {
     expect(plan.items.some((i: any) => i.name === 'Rice (jollof and fried)')).toBe(true);
     expect(plan.answers.guests).toBe(400);
     expect(plan.people).toBe(400);
+  });
+});
+async function readyForDeliveryFraud() {
+  const { b } = await accepted();
+  await db.query('UPDATE sellers SET latitude=6.55,longitude=3.35 WHERE user_id=$1', ['seller']);
+  await call('other', 'post', '/drivers', {
+    vehicle_type: 'motorcycle',
+    plate_number: 'lag-777-xy',
+    licence_number: 'ABC12345',
+    city: 'Lagos',
+  });
+  await call('admin', 'post', '/admin/drivers/other/review', {
+    status: 'APPROVED',
+    reason: 'Checked',
+  });
+  await call('other', 'put', '/drivers/me/status', {
+    online: true,
+    latitude: 6.551,
+    longitude: 3.351,
+  });
+  const quote = await call('buyer', 'post', `/bookings/${b}/delivery/quote`, {
+    vehicle_type: 'motorcycle',
+    dropoff: { latitude: 6.6, longitude: 3.36 },
+  });
+  return { b, quote: quote.body };
+}
+describe('fraud controls', () => {
+  const simulated = () => createApp(db, { ...c, payments: false, demo: true });
+  const as = (app_: any, actor: string, method: 'get' | 'post', path: string, body?: any) => {
+    const r = request(app_)
+      [method](`/v1${path}`)
+      .set('Authorization', `Bearer token-${actor}`)
+      .set('Idempotency-Key', randomUUID());
+    return body === undefined ? r : r.send(body);
+  };
+  /** A wallet top-up by card, credited `hoursAgo` hours ago. */
+  async function cardTopUp(user: string, kobo: number, hoursAgo = 0) {
+    const id = randomUUID();
+    await db.query(
+      "INSERT INTO funding(id,user_id,provider,amount_kobo,status,purpose,credited_at) VALUES($1,$2,'paystack',$3,'SUCCESSFUL','wallet',now()-make_interval(hours=>$4))",
+      [id, user, kobo, hoursAgo],
+    );
+    await db.query(
+      "INSERT INTO ledger(id,txn_id,account,owner_id,amount_kobo,reference) VALUES($1,$3,'wallet',$4,$5,$6),($2,$3,'provider_clearing',NULL,$7,$6)",
+      [randomUUID(), randomUUID(), randomUUID(), user, kobo, id, -kobo],
+    );
+  }
+  async function bankAccount(app_: any, user: string, number = '0123456789') {
+    return as(app_, user, 'post', '/payouts/accounts', {
+      transaction_pin: PIN,
+      bank_code: '058',
+      account_number: number,
+    });
+  }
+  it('holds card top-ups, checks the bank name, applies limits and cool-downs', async () => {
+    const sim = simulated();
+    await cardTopUp('buyer', 3000000);
+    await bankAccount(sim, 'buyer');
+    await db.query("UPDATE users SET created_at=now()-interval '30 days' WHERE id='buyer'");
+    // Simulated banks name the account after the user, so this one matches.
+    const withdraw = (kobo: number) =>
+      as(sim, 'buyer', 'post', '/payouts', {
+        transaction_pin: PIN,
+        amount_kobo: kobo,
+        source: 'wallet',
+      });
+    let r = await withdraw(200000);
+    expect(r.body.error.code).toBe('FUNDS_ON_HOLD');
+    const summary = (await as(sim, 'buyer', 'get', '/payouts')).body;
+    expect(summary.held_wallet_kobo).toBe(3000000);
+    expect(summary.limits).toMatchObject({ level: 'BASIC', daily_limit_kobo: 10000000 });
+    await db.query("UPDATE funding SET credited_at=now()-interval '3 days'");
+    r = await withdraw(200000);
+    expect(r.status).toBe(200);
+    // Over the basic daily limit (₦100,000 incl. what was already asked for today).
+    await cardTopUp('buyer', 20000000, 100);
+    await db.query("UPDATE payouts SET status='PAID'");
+    expect((await withdraw(9900000)).body.error.code).toBe('DAILY_LIMIT');
+    // A bank account in someone else's name is blocked until staff allow it.
+    await db.query(
+      "UPDATE payout_accounts SET name_match=FALSE,account_name='Somebody Else' WHERE user_id='buyer'",
+    );
+    expect((await withdraw(100000)).body.error.code).toBe('NAME_MISMATCH');
+    const [acct] = await db.query(
+      "SELECT id FROM payout_accounts WHERE user_id='buyer' AND active",
+    );
+    await call('admin', 'post', `/admin/payout-accounts/${acct.id}/allow`, {
+      reason: 'Joint account, checked',
+    });
+    expect((await withdraw(100000)).status).toBe(200);
+    // Changing the bank account pauses withdrawals for a day and alerts the owner.
+    await db.query("UPDATE payouts SET status='PAID'");
+    await bankAccount(sim, 'buyer', '0123456780');
+    expect((await withdraw(100000)).body.error.code).toBe('MONEY_LOCKED');
+    const [alert] = await db.query(
+      "SELECT title FROM notifications WHERE user_id='buyer' AND kind='security' AND title LIKE 'Withdrawals paused%'",
+    );
+    expect(alert).toBeTruthy();
+  });
+  it('needs two different staff for large payouts and stops frozen accounts', async () => {
+    const sim = simulated();
+    await cardTopUp('buyer', 3000000, 100);
+    await db.query(
+      "UPDATE users SET created_at=now()-interval '30 days',bvn_verified_at=now() WHERE id='buyer'",
+    );
+    await db.query('UPDATE settings SET payout_dual_approval_kobo=1000000');
+    await bankAccount(sim, 'buyer');
+    const p = (
+      await as(sim, 'buyer', 'post', '/payouts', {
+        transaction_pin: PIN,
+        amount_kobo: 2000000,
+        source: 'wallet',
+      })
+    ).body;
+    const first = await as(sim, 'admin', 'post', `/admin/payouts/${p.id}/approve`);
+    expect(first.body).toMatchObject({ status: 'REQUESTED', needs_second_approval: true });
+    expect((await as(sim, 'admin', 'post', `/admin/payouts/${p.id}/approve`)).body.error.code).toBe(
+      'SECOND_APPROVER_REQUIRED',
+    );
+    await db.query("UPDATE users SET admin=TRUE,staff_role='finance' WHERE id='other'");
+    expect((await as(sim, 'other', 'post', `/admin/payouts/${p.id}/approve`)).body.status).toBe(
+      'PAID',
+    );
+    await db.query('UPDATE settings SET payout_dual_approval_kobo=50000000');
+    // Frozen: no withdrawals and no new orders until staff unfreeze.
+    await call('admin', 'post', '/admin/users/buyer/freeze', {
+      reason: 'Chargeback investigation',
+    });
+    expect(
+      (
+        await as(sim, 'buyer', 'post', '/payouts', {
+          transaction_pin: PIN,
+          amount_kobo: 100000,
+          source: 'wallet',
+        })
+      ).body.error.code,
+    ).toBe('ACCOUNT_FROZEN');
+    const listing = await setup(10);
+    expect(
+      (await call('buyer', 'post', '/bookings', { listing_id: listing, quantity: 1 })).body.error
+        .code,
+    ).toBe('ACCOUNT_FROZEN');
+    await call('admin', 'post', '/admin/users/buyer/unfreeze', {
+      reason: 'Resolved with the bank',
+    });
+    expect(
+      (await call('buyer', 'post', '/bookings', { listing_id: listing, quantity: 1 })).status,
+    ).toBe(200);
+  });
+  it('flags linked devices and off-app payment requests for the risk queue', async () => {
+    const listing = await setup(10);
+    const device = 'device-1234567890';
+    for (const actor of ['buyer', 'seller'])
+      await request(app)
+        .get('/v1/me')
+        .set('Authorization', `Bearer token-${actor}`)
+        .set('X-Device-Id', device);
+    await new Promise((r) => setTimeout(r, 300));
+    const conv = (await call('buyer', 'post', '/conversations', { listing_id: listing })).body;
+    const m = await call('buyer', 'post', `/conversations/${conv.id}/messages`, {
+      body: 'Abeg send the money to my opay 8012345678 make we do am outside',
+    });
+    expect(m.body.warning).toMatch(/Only pay inside Ahia/);
+    const fine = await call('buyer', 'post', `/conversations/${conv.id}/messages`, {
+      body: 'Is it fresh?',
+    });
+    expect(fine.body.warning).toBeNull();
+    await call('buyer', 'post', '/bookings', { listing_id: listing, quantity: 1 });
+    const flags = (await call('admin', 'get', '/admin/risk')).body;
+    const kinds = flags.map((f: any) => f.kind);
+    expect(kinds).toEqual(expect.arrayContaining(['SHARED_DEVICE', 'SELF_DEALING']));
+    const selfDealing = flags.find((f: any) => f.kind === 'SELF_DEALING');
+    expect(selfDealing.related.id).toBe('seller');
+    expect(
+      (
+        await call('admin', 'post', `/admin/risk/${selfDealing.id}/clear`, {
+          note: 'Family business, fine',
+        })
+      ).status,
+    ).toBe(200);
+    expect((await call('admin', 'get', '/admin/risk?status=CLEARED')).body[0].note).toBe(
+      'Family business, fine',
+    );
+    expect((await call('buyer', 'get', '/admin/risk')).status).toBe(403);
+  });
+  it('verifies a BVN through Flutterwave and raises limits; flags a name mismatch', async () => {
+    await db.query("UPDATE users SET name='Ada Okafor' WHERE id='buyer'");
+    let calls = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: any) => {
+        calls++;
+        expect(init.headers.Authorization).toBe('Bearer FLWSECK_TEST');
+        if (init.method === 'POST')
+          return new Response(
+            JSON.stringify({
+              status: 'success',
+              data: { url: 'https://consent.example/abc', reference: 'REF1234567890123456789012' },
+            }),
+          );
+        return new Response(
+          JSON.stringify({
+            status: 'success',
+            data: {
+              status: 'COMPLETED',
+              reference: 'REF1234567890123456789012',
+              bvn_data: {
+                firstName: 'Ada',
+                middleName: 'Chioma',
+                surname: 'Okafor',
+                nin: '12345678901',
+                watchlisted: 'NO',
+                dateOfBirth: '1990-02-01',
+              },
+            },
+          }),
+        );
+      }),
+    );
+    const started = (
+      await call('buyer', 'post', '/me/kyc/bvn', {
+        bvn: '12345678901',
+        first_name: 'Ada',
+        last_name: 'Okafor',
+      })
+    ).body;
+    expect(started).toMatchObject({
+      status: 'PENDING',
+      consent_url: 'https://consent.example/abc',
+      bvn_last4: '8901',
+    });
+    const done = (await call('buyer', 'post', `/me/kyc/bvn/${started.id}/refresh`, {})).body;
+    expect(done).toMatchObject({ status: 'VERIFIED', name: 'Ada Chioma Okafor' });
+    expect(calls).toBe(2);
+    expect((await call('buyer', 'get', '/me/kyc')).body).toMatchObject({
+      bvn_verified: true,
+      verified_name: 'Ada Chioma Okafor',
+    });
+    expect((await call('buyer', 'get', '/payouts')).body.limits.level).toBe('VERIFIED');
+    // Someone else's BVN (Flutterwave's sandbox person) is a mismatch and a high-risk flag.
+    const sim = simulated();
+    const other = (
+      await as(sim, 'other', 'post', '/me/kyc/bvn', {
+        bvn: '22222223883',
+        first_name: 'Ada',
+        last_name: 'Okafor',
+      })
+    ).body;
+    expect(other.status).toBe('MISMATCH');
+    const flags = (await call('admin', 'get', '/admin/risk')).body;
+    expect(flags.find((f: any) => f.kind === 'BVN_NAME_MISMATCH')).toMatchObject({
+      severity: 'HIGH',
+    });
+  });
+  it('limits new riders and pay on delivery, blocks linked riders and records refusals', async () => {
+    const { b, quote } = await readyForDeliveryFraud();
+    // The rider shares a device with the seller: they can't take the job.
+    await db.query(
+      "INSERT INTO user_devices(user_id,device_id) VALUES('other','shared-dev-1'),('seller','shared-dev-1')",
+    );
+    const d = await call('buyer', 'post', `/bookings/${b}/delivery`, {
+      vehicle_type: 'motorcycle',
+      dropoff: { latitude: 6.6, longitude: 3.36 },
+      dropoff_address: '14 Allen Avenue, Ikeja',
+      expected_fare_kobo: quote.fare_kobo,
+      pay_on_delivery: true,
+    });
+    expect(d.status).toBe(200);
+    expect((await call('other', 'post', `/deliveries/${d.body.id}/claim`)).body.error.code).toBe(
+      'CONFLICT',
+    );
+    await db.query('DELETE FROM user_devices');
+    // A big order is beyond a new rider.
+    await db.query('UPDATE bookings SET total_kobo=6000000 WHERE id=$1', [b]);
+    expect((await call('other', 'post', `/deliveries/${d.body.id}/claim`)).body.error.code).toBe(
+      'RIDER_LIMIT',
+    );
+    await db.query('UPDATE bookings SET total_kobo=200000 WHERE id=$1', [b]);
+    await call('other', 'post', `/deliveries/${d.body.id}/claim`);
+    // Evidence is required to check the goods.
+    expect(
+      (await call('other', 'post', `/deliveries/${d.body.id}/check`, {})).body.error.code,
+    ).toBe('VALIDATION_ERROR');
+    await call('other', 'post', '/wallet/demo-fund', { amount_kobo: 500000 });
+    const url = `https://example.com/evidence/${randomUUID()}.webp`;
+    await db.query('INSERT INTO media(id,owner_id,url,thumbnail_url) VALUES($1,$2,$3,$3)', [
+      randomUUID(),
+      'other',
+      url,
+    ]);
+    const checked = await call('other', 'post', `/deliveries/${d.body.id}/check`, {
+      photo_url: url,
+      latitude: 6.55,
+      longitude: 3.35,
+    });
+    expect(checked.body.check_photo_url).toBe(url);
+    const [{ pickup_pin }] = await db.query('SELECT pickup_pin FROM deliveries WHERE id=$1', [
+      d.body.id,
+    ]);
+    await call('seller', 'post', `/deliveries/${d.body.id}/handover`, { pin: pickup_pin });
+    // At the door the buyer won't pay: refusals are counted and flagged.
+    expect((await call('other', 'post', `/deliveries/${d.body.id}/refused`, {})).status).toBe(200);
+    const [buyer] = await db.query("SELECT pod_refusals FROM users WHERE id='buyer'");
+    expect(buyer.pod_refusals).toBe(1);
+    await db.query("UPDATE users SET pod_refusals=2 WHERE id='buyer'");
+    const flags = (await call('admin', 'get', '/admin/risk')).body;
+    expect(flags.some((f: any) => f.kind === 'POD_REFUSED')).toBe(true);
   });
 });
 describe('transaction PIN and photo checks', () => {

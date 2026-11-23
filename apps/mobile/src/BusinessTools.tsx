@@ -6,6 +6,7 @@ import { uploadSellerDocument } from './api';
 import { currentPosition } from './location';
 import { useApp } from './AppContext';
 import { snap } from './camera';
+import BvnVerify from './BvnVerify';
 import { request } from './request';
 import { Button, Chip, Field, s } from './ui';
 
@@ -231,6 +232,8 @@ export function VerificationPanel({
             Only our verification team sees your ID number. We never ask for your BVN PIN or bank
             password.
           </Text>
+          {/* Instant check with Flutterwave: a confirmed BVN also raises withdrawal limits. */}
+          <BvnVerify />
 
           <Text style={styles.step}>5. Your business (optional)</Text>
           <Field

@@ -275,6 +275,23 @@ export const PayoutSummary = z
       })
       .nullable(),
     available_kobo: kobo,
+    /** Withdrawal limits, cool-down and freeze. */
+    limits: z
+      .looseObject({
+        level: z.enum(['BASIC', 'VERIFIED', 'TRUSTED']),
+        daily_limit_kobo: kobo,
+        monthly_limit_kobo: kobo,
+        daily_used_kobo: kobo,
+        monthly_used_kobo: kobo,
+        locked_until: z.string().nullable(),
+        lock_reason: z.string().nullable(),
+        frozen: z.boolean(),
+        new_earner: z.boolean(),
+      })
+      .optional(),
+    /** Recent card top-ups and new earners' proceeds that can't be withdrawn yet. */
+    held_wallet_kobo: kobo.optional(),
+    held_earnings_kobo: kobo.optional(),
     /** Money added to the wallet, which anyone can withdraw. */
     wallet_kobo: kobo,
     /** Has seller or driver earnings (available_kobo) to withdraw. */

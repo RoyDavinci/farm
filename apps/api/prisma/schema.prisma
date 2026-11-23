@@ -155,6 +155,13 @@ model Delivery {
   users_deliveries_seller_idTousers User                  @relation("deliveries_seller_idTousers", fields: [seller_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vehicle_types                     VehicleType           @relation(fields: [vehicle_type], references: [code], onDelete: NoAction, onUpdate: NoAction)
   partner_id                        String?
+  check_photo_url                   String?
+  check_latitude                    Float?
+  check_longitude                   Float?
+  delivered_photo_url               String?
+  delivered_latitude                Float?
+  delivered_longitude               Float?
+  refused_at                        DateTime?             @db.Timestamptz(6)
 
   @@index([driver_id, created_at], map: "deliveries_driver_idx")
   @@index([status], map: "deliveries_open_idx", where: raw("(status = 'OPEN'::text)"))
@@ -444,6 +451,7 @@ model Message {
   created_at      DateTime     @default(now()) @db.Timestamptz(6)
   conversations   Conversation @relation(fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users           User         @relation(fields: [sender_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warning         String?
 
   @@index([conversation_id, created_at], map: "messages_conversation_idx")
   @@map("messages")
@@ -522,20 +530,23 @@ model PaymentAttempt {
 }
 
 model PayoutAccount {
-  id             String   @id
-  user_id        String   @unique(map: "payout_accounts_active_idx", where: raw("active"))
-  provider       String
-  bank_code      String
-  bank_name      String
-  account_last4  String
-  account_cipher String
-  account_name   String
-  recipient_code String?
-  name_match     Boolean  @default(false)
-  active         Boolean  @default(true)
-  created_at     DateTime @default(now()) @db.Timestamptz(6)
-  users          User     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  payouts        Payout[]
+  id               String    @id
+  user_id          String    @unique(map: "payout_accounts_active_idx", where: raw("active"))
+  provider         String
+  bank_code        String
+  bank_name        String
+  account_last4    String
+  account_cipher   String
+  account_name     String
+  recipient_code   String?
+  name_match       Boolean   @default(false)
+  active           Boolean   @default(true)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  users            User      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payouts          Payout[]
+  account_hash     String?
+  staff_allowed_by String?
+  staff_allowed_at DateTime? @db.Timestamptz(6)
 
   @@map("payout_accounts")
 }
@@ -566,6 +577,8 @@ model Payout {
   payout_accounts                  PayoutAccount    @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users_payouts_reviewed_byTousers User?            @relation("payouts_reviewed_byTousers", fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users_payouts_user_idTousers     User             @relation("payouts_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  first_approved_by                String?
+  first_approved_at                DateTime?        @db.Timestamptz(6)
 
   @@index([status])
   @@index([user_id, created_at], map: "payouts_user_idx")
@@ -744,21 +757,22 @@ model Session {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model Setting {
-  status_boost_hourly_kobo Int     @default(2500)
-  status_lifetime_hours    Int     @default(24)
-  status_radius_km         Int     @default(25)
-  status_max_active        Int     @default(10)
-  id                       Int     @id
-  reservation_hours        Int
-  commission_bps           Int
-  payout_min_kobo          Int     @default(100000)
-  payout_fee_kobo          Int     @default(5000)
-  promotion_daily_kobo     Int     @default(50000)
-  delivery_commission_bps  Int     @default(1000)
-  delivery_radius_km       Int     @default(15)
-  pay_on_delivery_enabled  Boolean @default(true)
+  status_boost_hourly_kobo  Int     @default(2500)
+  status_lifetime_hours     Int     @default(24)
+  status_radius_km          Int     @default(25)
+  status_max_active         Int     @default(10)
+  id                        Int     @id
+  reservation_hours         Int
+  commission_bps            Int
+  payout_min_kobo           Int     @default(100000)
+  payout_fee_kobo           Int     @default(5000)
+  promotion_daily_kobo      Int     @default(50000)
+  delivery_commission_bps   Int     @default(1000)
+  delivery_radius_km        Int     @default(15)
+  pay_on_delivery_enabled   Boolean @default(true)
   /// Owner switches for commissions and paid features.
-  monetisation             Json    @default("{\"transaction_commission\":true,\"delivery_commission\":true,\"sponsored_products\":true,\"featured_sellers\":true,\"local_ads\":true}")
+  monetisation              Json    @default("{\"transaction_commission\":true,\"delivery_commission\":true,\"sponsored_products\":true,\"featured_sellers\":true,\"local_ads\":true}")
+  payout_dual_approval_kobo Int     @default(50000000)
 
   @@map("settings")
 }
@@ -863,6 +877,13 @@ model User {
   transaction_pin_hash                                 String?
   transaction_pin_failures                             Int                     @default(0)
   transaction_pin_locked_until                         DateTime?               @db.Timestamptz(6)
+  money_locked_until                                   DateTime?               @db.Timestamptz(6)
+  money_lock_reason                                    String?
+  frozen_at                                            DateTime?               @db.Timestamptz(6)
+  frozen_reason                                        String?
+  bvn_verified_at                                      DateTime?               @db.Timestamptz(6)
+  verified_name                                        String?
+  pod_refusals                                         Int                     @default(0)
 
   @@map("users")
 }
@@ -1799,4 +1820,57 @@ model TrustedDevice {
 
   @@index([user_id], map: "trusted_devices_user_idx")
   @@map("trusted_devices")
+}
+
+model UserDevice {
+  user_id    String
+  device_id  String
+  ip         String?
+  user_agent String?
+  first_seen DateTime @default(now()) @db.Timestamptz(6)
+  last_seen  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([user_id, device_id])
+  @@index([device_id], map: "user_devices_device_idx")
+  @@map("user_devices")
+}
+
+model RiskFlag {
+  id              String    @id
+  user_id         String
+  related_user_id String?
+  kind            String
+  severity        String    @default("MEDIUM")
+  detail          String
+  status          String    @default("OPEN")
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  cleared_by      String?
+  cleared_at      DateTime? @db.Timestamptz(6)
+  note            String?
+
+  @@index([status, created_at(sort: Desc)], map: "risk_flags_status_idx")
+  @@map("risk_flags")
+}
+
+model KycCheck {
+  id            String   @id
+  user_id       String
+  provider      String
+  kind          String   @default("BVN")
+  reference     String?  @unique
+  consent_url   String?
+  status        String   @default("PENDING")
+  bvn_last4     String
+  first_name    String?
+  last_name     String?
+  middle_name   String?
+  date_of_birth String?
+  nin_match     Boolean?
+  watchlisted   Boolean?
+  reason        String?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, created_at(sort: Desc)], map: "kyc_checks_user_idx")
+  @@map("kyc_checks")
 }

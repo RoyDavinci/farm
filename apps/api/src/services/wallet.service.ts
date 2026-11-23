@@ -13,6 +13,7 @@ import {
 import { balance, ledger } from './ledger.service.js';
 import { paymentService, type Provider } from './payment-provider.service.js';
 import { handleTransferWebhook } from './payouts.service.js';
+import { handleBvnWebhook } from './kyc.service.js';
 
 /** Business logic for wallet requests. HTTP-free: callers pass plain input. */
 export function createWalletService(deps: AppDeps) {
@@ -103,6 +104,8 @@ export function createWalletService(deps: AppDeps) {
       'Invalid webhook signature.',
     );
     if (await handleTransferWebhook(db, c, provider, input.body)) return { received: true };
+    if (provider === 'flutterwave' && (await handleBvnWebhook(db, c, input.body)))
+      return { received: true };
     const reference =
       provider === 'paystack' ? input.body.data?.reference : input.body.data?.tx_ref;
     const eventName = input.body.event || input.body.type;
