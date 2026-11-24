@@ -72,6 +72,14 @@ export default function CatalogueAdd({ onDone }: { onDone: () => void }) {
     });
   const chosen = Object.values(picked);
   const ready = chosen.length > 0 && chosen.every((c) => Number(c.price) >= 1);
+  const noPrice = chosen.filter((c) => !(Number(c.price) >= 1));
+  // What other sellers charge (the middle of their range), for filling many prices at once.
+  const usual = (p: Product) =>
+    p.min_price_kobo != null
+      ? String(Math.round((p.min_price_kobo + (p.max_price_kobo ?? p.min_price_kobo)) / 2 / 100))
+      : '';
+  const open = (items || []).filter((p) => !p.listed);
+  const allTicked = open.length > 0 && open.every((p) => picked[p.id]);
   return (
     <View style={{ gap: 14 }}>
       <Text style={s.sectionTitle}>Add from the catalogue</Text>
@@ -93,6 +101,38 @@ export default function CatalogueAdd({ onDone }: { onDone: () => void }) {
           <Chip key={c} title={c} active={category === c} onPress={() => setCategory(c)} />
         ))}
       </View>
+      {!!open.length && (
+        <View style={s.chipWrap}>
+          <Chip
+            title={allTicked ? `Untick all ${open.length}` : `Tick all ${open.length} shown`}
+            active={allTicked}
+            onPress={() =>
+              setPicked((m) => {
+                const next = { ...m };
+                for (const p of open)
+                  if (allTicked) delete next[p.id];
+                  else next[p.id] ??= { product: p, price: '', always: true, used: false };
+                return next;
+              })
+            }
+          />
+          {noPrice.some((c) => usual(c.product)) && (
+            <Chip
+              title="Use the usual price for the blanks"
+              active={false}
+              onPress={() =>
+                setPicked((m) => {
+                  const next = { ...m };
+                  for (const c of Object.values(next))
+                    if (!(Number(c.price) >= 1) && usual(c.product))
+                      next[c.product.id] = { ...c, price: usual(c.product) };
+                  return next;
+                })
+              }
+            />
+          )}
+        </View>
+      )}
       {!items ? (
         <ActivityIndicator />
       ) : (
@@ -218,6 +258,16 @@ export default function CatalogueAdd({ onDone }: { onDone: () => void }) {
           <Text style={s.link}>Can’t find it? Add a product</Text>
         </Pressable>
       )}
+      {!!noPrice.length && (
+        <Text style={styles.missing}>
+          Type a price for {noPrice.length} product{noPrice.length === 1 ? '' : 's'}:{' '}
+          {noPrice
+            .slice(0, 4)
+            .map((c) => c.product.name)
+            .join(', ')}
+          {noPrice.length > 4 ? ` and ${noPrice.length - 4} more` : ''}.
+        </Text>
+      )}
       <Button
         title={
           chosen.length
@@ -253,6 +303,7 @@ export default function CatalogueAdd({ onDone }: { onDone: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  missing: { fontSize: 13, color: '#b3261e', fontWeight: '600' },
   search: {
     padding: 12,
     borderWidth: 1,

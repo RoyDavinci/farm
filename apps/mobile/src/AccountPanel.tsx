@@ -59,8 +59,9 @@ export default function AccountPanel({
       <View style={s.card}>
         <Text style={s.title}>Your details</Text>
         <Text style={s.small}>
-          {user.email} ·{' '}
-          {user.email_verified_at ? 'Email verified' : 'Verify email at your next sign-in'}
+          {user.email
+            ? `${user.email} · ${user.email_verified_at ? 'Email verified' : 'Verify email at your next sign-in'}`
+            : `${user.phone} · ${user.phone_verified_at ? 'Phone verified' : 'Signed up with phone number'}`}
         </Text>
         <Text style={s.label}>Name</Text>
         <TextInput

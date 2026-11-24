@@ -29,7 +29,7 @@ export function readFeatures(env: Record<string, string | undefined>): Features 
 
 /** API paths owned by each switchable feature (admin paths are under /admin). */
 export const featurePaths: Record<FeatureName, RegExp[]> = {
-  wallet: [/^\/wallet\/fund$/],
+  wallet: [/^\/wallet\/fund$/, /^\/wallet\/transfers/, /^\/promo-codes/],
   local_status: [/^\/(admin\/)?local-status(\/|$)/, /^\/(admin\/)?status-boosts(\/|$)/],
   promotions: [
     /^\/listings\/[^/]+\/promote$/,

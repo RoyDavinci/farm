@@ -39,6 +39,17 @@ export function fareFor(
   return Math.max(v.min_fare_kobo, Math.ceil(raw / 5000) * 5000);
 }
 
+/** A shop added to a rider's errand trip: a small stop fee plus the extra distance. */
+export const STOP_FEE_KOBO = 30000;
+export function stopFare(
+  v: { per_km_kobo: number },
+  kmFromLastPickup: number,
+  standaloneFare: number,
+) {
+  const raw = STOP_FEE_KOBO + Math.ceil(kmFromLastPickup * v.per_km_kobo);
+  return Math.min(standaloneFare, Math.ceil(raw / 5000) * 5000);
+}
+
 export const point = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
@@ -81,6 +92,43 @@ export async function cancelDelivery(q: Query, d: any, reason: string, actor: st
   await audit(q, actor, 'delivery.cancel', d.id, { reason });
   if (d.driver_id && d.driver_id !== actor)
     await notify(q, d.driver_id, 'delivery', 'Delivery cancelled', reason, d.booking_id);
+  if (!d.trip_lead_id) await promoteTripStop(q, d);
+}
+
+/**
+ * The lead delivery of an errand trip was cancelled: its next stop becomes the lead (at a normal
+ * fare, since it's now its own trip) and the other stops ride along on it.
+ */
+async function promoteTripStop(q: Query, lead: any) {
+  const stops = await q.query(
+    "SELECT * FROM deliveries WHERE trip_lead_id=$1 AND status IN ('OPEN','ASSIGNED','PICKED_UP') ORDER BY created_at FOR UPDATE",
+    [lead.id],
+  );
+  if (!stops.length) return;
+  const [next, ...rest] = stops;
+  const [v] = await q.query('SELECT * FROM vehicle_types WHERE code=$1', [next.vehicle_type]);
+  const fare =
+    v && next.pay_on_delivery && !next.fare_paid
+      ? fareFor(v as any, Number(next.distance_km))
+      : Number(next.fare_kobo);
+  await q.query('UPDATE deliveries SET trip_lead_id=NULL,fare_kobo=$1 WHERE id=$2', [
+    fare,
+    next.id,
+  ]);
+  if (rest.length)
+    await q.query('UPDATE deliveries SET trip_lead_id=$1 WHERE id = ANY($2::text[])', [
+      next.id,
+      rest.map((x: any) => x.id),
+    ]);
+  if (fare !== Number(next.fare_kobo))
+    await notify(
+      q,
+      next.buyer_id,
+      'delivery',
+      'Delivery fare updated',
+      `One shop’s part of your basket was cancelled, so the next shop is now its own rider trip: delivery ₦${Math.round(fare / 100).toLocaleString()}, paid on arrival.`,
+      next.booking_id,
+    );
 }
 
 /** Business logic for deliveries requests. HTTP-free: callers pass plain input. */
@@ -496,7 +544,7 @@ export function createDeliveriesService(deps: AppDeps) {
         ? []
         : (
             await db.query(
-              `${withParty} WHERE d.status='OPEN' AND (d.scheduled_at IS NULL OR d.scheduled_at<=now()+interval '15 minutes') AND (d.requested_driver_id IS NULL OR d.requested_driver_id=$2) AND d.vehicle_type=$1 AND d.buyer_id<>$2 AND d.seller_id<>$2 ORDER BY d.created_at LIMIT 100`,
+              `${withParty} WHERE d.status='OPEN' AND d.trip_lead_id IS NULL AND (d.scheduled_at IS NULL OR d.scheduled_at<=now()+interval '15 minutes') AND (d.requested_driver_id IS NULL OR d.requested_driver_id=$2) AND d.vehicle_type=$1 AND d.buyer_id<>$2 AND d.seller_id<>$2 ORDER BY d.created_at LIMIT 100`,
               [driver.vehicle_type, u.id],
             )
           )
@@ -580,6 +628,12 @@ export function createDeliveriesService(deps: AppDeps) {
         'Another driver already took this delivery.',
       );
       ensure(
+        !d.trip_lead_id,
+        409,
+        'PART_OF_TRIP',
+        'This pickup is part of another delivery’s trip. Take that delivery instead.',
+      );
+      ensure(
         !d.requested_driver_id || d.requested_driver_id === u.id,
         403,
         'RIDER_NOT_SELECTED',
@@ -618,6 +672,21 @@ export function createDeliveriesService(deps: AppDeps) {
         "UPDATE deliveries SET status='ASSIGNED',driver_id=$1,assigned_at=now() WHERE id=$2",
         [u.id, d.id],
       );
+      // An errand trip: the other shops' baskets come with this job.
+      const stops = await q.query(
+        `UPDATE deliveries SET status='ASSIGNED',driver_id=$1,assigned_at=now()
+         WHERE trip_lead_id=$2 AND status='OPEN' RETURNING booking_id,seller_id`,
+        [u.id, d.id],
+      );
+      for (const x of stops)
+        await notify(
+          q,
+          x.seller_id,
+          'delivery',
+          'Driver assigned',
+          `${u.name} will collect your basket on the same trip.`,
+          x.booking_id,
+        );
       for (const party of [d.buyer_id, d.seller_id])
         await notify(
           q,
@@ -628,6 +697,12 @@ export function createDeliveriesService(deps: AppDeps) {
           b.id,
         );
     } else if (action === 'release') {
+      ensure(
+        !d.trip_lead_id,
+        409,
+        'PART_OF_TRIP',
+        'This pickup is part of a longer trip. Release the trip’s first delivery instead.',
+      );
       ensure(
         d.driver_id === u.id && d.status === 'ASSIGNED',
         409,
@@ -653,6 +728,11 @@ export function createDeliveriesService(deps: AppDeps) {
         await returnRiderFront(q, d);
         await q.query(
           "UPDATE deliveries SET status='OPEN',driver_id=NULL,assigned_at=NULL WHERE id=$1",
+          [d.id],
+        );
+        // Stops not yet collected go back with it, for the next rider who takes the trip.
+        await q.query(
+          "UPDATE deliveries SET status='OPEN',driver_id=NULL,assigned_at=NULL WHERE trip_lead_id=$1 AND status='ASSIGNED' AND rider_checked_at IS NULL",
           [d.id],
         );
         await notify(

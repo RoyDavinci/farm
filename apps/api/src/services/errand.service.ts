@@ -4,12 +4,20 @@ import type { Query } from '../database/client.js';
 import { ensure } from '../lib/errors.js';
 import type { RequestInput } from '../lib/http.js';
 import type { AppDeps } from '../types/deps.js';
-import { shoppingQuantity, type Ingredient, type Recipe } from '../config/recipes.js';
+import {
+  allergenNames,
+  dietPatterns,
+  shoppingQuantity,
+  type Allergen,
+  type DietProfile,
+  type Ingredient,
+  type Recipe,
+} from '../config/recipes.js';
 import { event } from './booking.service.js';
 import { verifiedSql } from './business-verification.service.js';
 import { unitPrice } from './catalog.service.js';
 import { notify } from './communications.service.js';
-import { createDeliveriesService, fareFor } from './deliveries.service.js';
+import { createDeliveriesService, fareFor, stopFare } from './deliveries.service.js';
 import { plannerContent, type PlannerContent } from './planner-content.service.js';
 import { bookableSql } from './retention.service.js';
 import { ensureNotFrozen } from './risk.service.js';
@@ -179,36 +187,71 @@ const singular = (u: string) =>
     .replace(/(ch|x)es$/, '$1')
     .replace(/s$/, '');
 const sameUnit = (a: string, b: string) => singular(a) === singular(b);
+/** Units a market seller weighs or measures out, so a part of one can be bought. */
+const isLoose = (u: string) => ['kg', 'kilo', 'litre', 'liter'].includes(singular(u));
+/** Words many unrelated products share; never enough on their own to call it a match. */
+const WEAK = new Set([
+  'pepper',
+  'oil',
+  'fish',
+  'spice',
+  'meat',
+  'leaves',
+  'leaf',
+  'seeds',
+  'seed',
+  'soup',
+  'dried',
+  'cow',
+  'skin',
+  'ground',
+  'powder',
+  'fresh',
+  'cubes',
+]);
 
 /** Candidate products for one item near the address, best first. */
 async function candidates(q: Query, item: WantedItem, lat: number, lng: number, buyerId: string) {
-  const ws = item.keywords
+  const all = item.keywords
     .toLowerCase()
     .split(/\s+/)
     .filter((w) => w.length > 2)
     .slice(0, 5);
-  if (!ws.length) return [];
+  if (!all.length) return [];
+  // Shared words ("pepper", "oil", "fish") alone would match pepper soup spice for scotch
+  // bonnet, or vegetable oil for palm oil. Match on the item's own words; when it has none
+  // ("pepper soup spice"), every word must be in the product name.
+  const strong = all.filter((w) => !WEAK.has(w));
+  const ws = strong.length ? strong : all;
+  const need = strong.length ? 1 : all.length;
   const rows = await q.query(
-    `SELECT l.id,l.title,l.unit,l.category,l.image_url,l.seller_id,v.id AS variant_id,v.price_kobo,v.stock,v.min_quantity,v.wholesale_tiers,
+    `SELECT * FROM (SELECT l.id,l.title,v.unit,l.category,l.image_url,l.seller_id,v.id AS variant_id,v.name AS variant_name,v.is_primary,v.price_kobo,v.stock,v.min_quantity,v.wholesale_tiers,
        s.business_name,s.area,COALESCE(s.latitude,s.public_latitude) AS lat,COALESCE(s.longitude,s.public_longitude) AS lng,s.fulfilment_pct,
        ${verifiedSql('s')} AS verified,
        (SELECT AVG(r.score)::float8 FROM ratings r WHERE r.seller_id=s.user_id) AS rating,
        (SELECT COUNT(*)::int FROM unnest($1::text[]) x WHERE l.title ~* ('\\m'||x)) AS hits
      FROM listings l JOIN sellers s ON s.user_id=l.seller_id JOIN users u ON u.id=s.user_id
-     JOIN listing_variants v ON v.listing_id=l.id AND v.is_primary AND v.active
+     JOIN listing_variants v ON v.listing_id=l.id AND v.active
      WHERE l.status='ACTIVE' AND s.status='APPROVED' AND u.status='ACTIVE' AND u.frozen_at IS NULL
        AND l.delivery_available AND l.seller_id<>$2 AND s.latitude IS NOT NULL AND ${bookableSql('l')}
-       AND EXISTS(SELECT 1 FROM unnest($1::text[]) x WHERE l.title ~* ('\\m'||x))
-     LIMIT 60`,
-    [ws, buyerId],
+       AND EXISTS(SELECT 1 FROM unnest($1::text[]) x WHERE l.title ~* ('\\m'||x))) m
+     WHERE m.hits >= $3
+     LIMIT 200`,
+    [ws, buyerId, need],
   );
-  return rows
+  const picked = rows
     .map((r: any) => {
       const km = haversineKm(lat, lng, r.lat, r.lng);
       const quantity = Math.max(
         r.min_quantity,
         sameUnit(r.unit, item.unit) ? Math.ceil(item.amount - 1e-9) : 1,
       );
+      // Loose goods sold by the kg or litre: buy the portion needed (a cup of crayfish),
+      // not a whole kilo, like at the market.
+      const portion =
+        quantity === 1 && sameUnit(r.unit, item.unit) && isLoose(r.unit) && item.amount < 1
+          ? Math.round(item.amount * 100) / 100
+          : null;
       const score =
         r.hits * 3 +
         (item.category && r.category === item.category ? 2 : 0) +
@@ -218,18 +261,83 @@ async function candidates(q: Query, item: WantedItem, lat: number, lng: number, 
         km / 3;
       const unit_price = unitPrice(r, quantity);
       // A pack far bigger than needed (a 50 kg bag for 3 onions) drops down the list.
-      const ratio = item.est_kobo ? (unit_price * quantity) / item.est_kobo : 1;
+      const cost = portion ? Math.round(unit_price * portion) : unit_price * quantity;
+      const ratio = item.est_kobo ? cost / item.est_kobo : 1;
       const sized = ratio > 4 ? -8 - Math.min(6, ratio / 10) : 0;
-      return { ...r, km, quantity, score: score + sized, unit_price, oversized: ratio > 4 };
+      return {
+        ...r,
+        km,
+        quantity,
+        portion,
+        score: score + sized,
+        unit_price,
+        oversized: ratio > 4,
+      };
     })
     .filter((r: any) => r.km <= RADIUS_KM && r.stock >= r.quantity)
-    .sort((a: any, b: any) => b.score - a.score)
-    .slice(0, 6);
+    .reduce((best: Map<string, any>, r: any) => {
+      // Each product once, in its best size: the option in the unit needed (a single cube,
+      // a bunch, by the kg) before others, then the cheapest for this amount.
+      const cost = (x: any) =>
+        x.portion ? Math.round(x.unit_price * x.portion) : x.unit_price * x.quantity;
+      const fit = (x: any) => (sameUnit(x.unit, item.unit) ? 0 : 1);
+      const prev = best.get(r.id);
+      if (!prev || fit(r) < fit(prev) || (fit(r) === fit(prev) && cost(r) < cost(prev)))
+        best.set(r.id, r);
+      return best;
+    }, new Map<string, any>());
+  return [...picked.values()].sort((a: any, b: any) => b.score - a.score).slice(0, 6);
+}
+
+/**
+ * Checks one shopping item against the person's diet profile and anything they said to leave
+ * out. AVOID: contains a recorded allergen, an avoided food or something their diet rules out
+ * (left out of the basket). CAUTION: may contain an allergen, or an intolerance (kept, flagged).
+ * A planning aid only: brands differ, so it never claims an item is safe.
+ */
+export function dietFlag(
+  item: WantedItem,
+  x: Ingredient | undefined,
+  profile: DietProfile | null,
+  avoid: string[],
+): { status: 'AVOID' | 'CAUTION'; reason: string } | null {
+  const label = (a: string) => allergenNames[a as Allergen] || a;
+  const text = `${item.name} ${item.keywords}`.toLowerCase();
+  const words = [...avoid, ...(profile?.avoid ?? [])].map((w) => w.trim().toLowerCase());
+  const hit = words.find((w) => w.length > 2 && text.includes(w));
+  if (hit) return { status: 'AVOID', reason: `You said no ${hit}` };
+  if (!x || !profile) return null;
+  for (const a of profile.allergies)
+    if (x.allergens?.includes(a as Allergen))
+      return { status: 'AVOID', reason: `Contains ${label(a)} (your allergy)` };
+  for (const p of profile.patterns)
+    for (const tag of dietPatterns[p]?.excludes || [])
+      if (x.tags?.includes(tag))
+        return { status: 'AVOID', reason: `Not ${dietPatterns[p].label.toLowerCase()}` };
+  for (const a of profile.allergies)
+    if (x.may?.includes(a as Allergen))
+      return { status: 'CAUTION', reason: `May contain ${label(a)}: check the brand` };
+  for (const a of profile.intolerances)
+    if (x.allergens?.includes(a as Allergen) || x.may?.includes(a as Allergen))
+      return { status: 'CAUTION', reason: `Contains or may contain ${label(a)} (intolerance)` };
+  return null;
+}
+
+export interface BasketOptions {
+  servings?: number;
+  /** Most the person wants to spend, goods and delivery together. */
+  budgetKobo?: number;
+  /** Foods to leave out ("pepper", "crayfish"), on top of their saved diet profile. */
+  avoid?: string[];
+  profile?: DietProfile | null;
 }
 
 /**
  * The basket: for each item the best product near the address, choosing sellers so the whole
- * list comes from as few shops as possible (one rider per shop), better shops first.
+ * list comes from as few shops as possible (one rider per shop), better shops first. Items the
+ * person can't eat are left out. With a budget, cheaper products (preferably from shops already
+ * in the basket) replace pricier ones until it fits, and if it still doesn't, the reply says
+ * how many people it would feed within the budget.
  */
 export async function buildBasket(
   q: Query,
@@ -237,13 +345,23 @@ export async function buildBasket(
   text: string,
   lat: number,
   lng: number,
-  servings?: number,
+  opts: BasketOptions = {},
 ) {
   const content = await plannerContent(q);
-  const read = readErrand(text, content, servings);
+  const read = readErrand(text, content, opts.servings);
+  const ingredientOf = (key: string) => content.ingredients[key.replace(/^item-/, '')];
+  const diet = new Map(
+    read.items.map((i) => [
+      i.key,
+      dietFlag(i, ingredientOf(i.key), opts.profile ?? null, opts.avoid ?? []),
+    ]),
+  );
   const options = new Map<string, any[]>();
   for (const item of read.items)
-    options.set(item.key, await candidates(q, item, lat, lng, buyerId));
+    options.set(
+      item.key,
+      diet.get(item.key)?.status === 'AVOID' ? [] : await candidates(q, item, lat, lng, buyerId),
+    );
   // Greedy set cover: the shop that covers most remaining items (ties: better shop) goes first.
   const remaining = new Set(read.items.filter((i) => options.get(i.key)!.length).map((i) => i.key));
   const pick = new Map<string, any>();
@@ -268,7 +386,79 @@ export async function buildBasket(
     }
   }
   const [vehicle] = await q.query("SELECT * FROM vehicle_types WHERE code='motorcycle' AND active");
+  const fare = (c: any) => (vehicle ? fareFor(vehicle as any, c.km * ROAD_FACTOR) : 0);
+  const line = (c: any) =>
+    c.portion ? Math.round(c.unit_price * c.portion) : c.unit_price * c.quantity;
+  // One rider for the whole errand: the dearest trip at its normal fare, every other shop as an
+  // extra stop (stop fee + distance from the nearest shop already on the trip).
+  const tripFares = (p: Map<string, any> = pick) => {
+    const shops = new Map<string, any>();
+    for (const c of p.values()) shops.set(c.seller_id, c);
+    const order = [...shops.values()].sort((a, b) => fare(b) - fare(a));
+    const out = new Map<string, number>();
+    order.forEach((c, n) => {
+      if (!n || !vehicle) return out.set(c.seller_id, fare(c));
+      const near = Math.min(
+        ...order.slice(0, n).map((o) => haversineKm(o.lat, o.lng, c.lat, c.lng) * ROAD_FACTOR),
+      );
+      out.set(c.seller_id, stopFare(vehicle as any, near, fare(c)));
+    });
+    return out;
+  };
+  const totalOf = (p: Map<string, any> = pick) => {
+    let goods = 0;
+    for (const c of p.values()) goods += line(c);
+    return goods + [...tripFares(p).values()].reduce((s, f) => s + f, 0);
+  };
+  const budget = opts.budgetKobo ?? null;
+  let swapped = 0;
+  // Cheapest sensible basket, counting each shop's rider trip:
+  //  - a cheaper product from a shop already in the basket (a bottle of palm oil vs a cup),
+  //  - moving a shop's few items to shops already coming, to save its whole trip,
+  //  - and, only when over the budget, a cheaper shop not yet in the basket.
+  const improve = (allowNewShops: boolean) => {
+    for (let round = 0; round < 40; round++) {
+      const now = totalOf();
+      const inBasket = new Set([...pick.values()].map((c) => c.seller_id));
+      let best: Map<string, any> | null = null;
+      let bestTotal = now;
+      const consider = (trial: Map<string, any>) => {
+        const t = totalOf(trial);
+        if (t < bestTotal) {
+          best = trial;
+          bestTotal = t;
+        }
+      };
+      for (const [key, current] of pick)
+        for (const o of options.get(key)!) {
+          if (o.id === current.id || (!allowNewShops && !inBasket.has(o.seller_id))) continue;
+          consider(new Map(pick).set(key, o));
+        }
+      for (const shop of inBasket) {
+        const trial = new Map(pick);
+        let ok = true;
+        for (const [key, c] of pick) {
+          if (c.seller_id !== shop) continue;
+          const alt = options
+            .get(key)!
+            .filter((o) => o.seller_id !== shop && inBasket.has(o.seller_id))
+            .sort((x, y) => line(x) - line(y))[0];
+          if (!alt) ok = false;
+          else trial.set(key, alt);
+        }
+        if (ok) consider(trial);
+      }
+      if (!best) break;
+      for (const [key, c] of best as Map<string, any>) {
+        if (allowNewShops && pick.get(key)?.id !== c.id) swapped++;
+        pick.set(key, c);
+      }
+    }
+  };
+  improve(false);
+  if (budget && totalOf() > budget) improve(true);
   const sellers = new Map<string, any>();
+  const trip = tripFares();
   const items = read.items.map((i) => {
     const c = pick.get(i.key);
     if (c) {
@@ -280,11 +470,12 @@ export async function buildBasket(
         rating: c.rating ? Math.round(Number(c.rating) * 10) / 10 : null,
         distance_km: Math.round(c.km * 10) / 10,
         subtotal_kobo: 0,
-        delivery_kobo: vehicle ? fareFor(vehicle as any, c.km * ROAD_FACTOR) : 0,
+        delivery_kobo: trip.get(c.seller_id) ?? fare(c),
       };
-      s.subtotal_kobo += c.unit_price * c.quantity;
+      s.subtotal_kobo += line(c);
       sellers.set(c.seller_id, s);
     }
+    const flag = diet.get(i.key) ?? null;
     return {
       key: i.key,
       name: i.name,
@@ -294,7 +485,11 @@ export async function buildBasket(
       listing: c
         ? {
             id: c.id,
-            title: c.title,
+            variant_id: c.variant_id as string,
+            title:
+              c.variant_name && c.variant_name !== 'Standard' && !c.is_primary
+                ? `${c.title} · ${c.variant_name}`
+                : c.title,
             unit: c.unit,
             price_kobo: c.unit_price,
             image_url: c.image_url,
@@ -303,11 +498,14 @@ export async function buildBasket(
           }
         : null,
       quantity: c?.quantity ?? 0,
-      line_kobo: c ? c.unit_price * c.quantity : 0,
+      /** Part of one unit (0.1 = 100 g of a per-kg product), or null for whole units. */
+      portion: (c?.portion ?? null) as number | null,
+      line_kobo: c ? line(c) : 0,
       alternatives: Math.max(0, (options.get(i.key)?.length ?? 0) - 1),
       unit_differs: c ? !sameUnit(c.unit, i.unit) : false,
       oversized: !!c?.oversized,
       extra_trip_kobo: null as number | null,
+      diet: flag,
     };
   });
   // A shop supplying just one cheap item adds a whole rider trip: suggest leaving it out.
@@ -319,16 +517,29 @@ export async function buildBasket(
     }
   const goods = items.reduce((s, i) => s + i.line_kobo, 0);
   const delivery = [...sellers.values()].reduce((s, x) => s + x.delivery_kobo, 0);
+  const total = goods + delivery;
   return {
     text,
     servings: read.servings,
     recipes: read.recipes,
     items,
     sellers: [...sellers.values()],
-    missing: items.filter((i) => !i.listing).map((i) => i.name),
+    missing: items.filter((i) => !i.listing && i.diet?.status !== 'AVOID').map((i) => i.name),
     goods_kobo: goods,
     delivery_kobo: delivery,
-    total_kobo: goods + delivery,
+    total_kobo: total,
+    budget: budget
+      ? {
+          budget_kobo: budget,
+          over_by_kobo: Math.max(0, total - budget),
+          cheaper_swaps: swapped,
+          // Recipe quantities scale with people; delivery doesn't.
+          fits_servings:
+            total > budget && read.recipes.length && goods > 0
+              ? Math.max(0, Math.floor((read.servings * (budget - delivery)) / goods))
+              : null,
+        }
+      : null,
   };
 }
 
@@ -337,6 +548,54 @@ export async function buildBasket(
  * (pay on delivery, so the customer pays when it arrives). If that isn't possible, the customer
  * is told to arrange delivery from the order.
  */
+/**
+ * A second (third…) shop of the same errand rides along on the first shop's delivery: one rider,
+ * priced as an extra stop. Only pay-on-delivery fares are re-priced (nothing was charged yet).
+ */
+async function joinErrandTrip(q: Query, b: any) {
+  const [mine] = await q.query(
+    "SELECT * FROM deliveries WHERE booking_id=$1 AND status='OPEN' FOR UPDATE",
+    [b.id],
+  );
+  if (!mine || !mine.pay_on_delivery || mine.fare_paid) return;
+  const [lead] = await q.query(
+    `SELECT d.* FROM deliveries d JOIN bookings ob ON ob.id=d.booking_id
+     WHERE ob.errand_id=$1 AND d.id<>$2 AND d.trip_lead_id IS NULL AND d.status IN ('OPEN','ASSIGNED')
+       AND d.vehicle_type=$3
+     ORDER BY d.created_at LIMIT 1 FOR UPDATE`,
+    [b.errand_id, mine.id, mine.vehicle_type],
+  );
+  if (!lead) return;
+  const [v] = await q.query('SELECT * FROM vehicle_types WHERE code=$1', [mine.vehicle_type]);
+  const km =
+    haversineKm(
+      lead.pickup_latitude,
+      lead.pickup_longitude,
+      mine.pickup_latitude,
+      mine.pickup_longitude,
+    ) * ROAD_FACTOR;
+  const fare = stopFare(v as any, km, Number(mine.fare_kobo));
+  await q.query('UPDATE deliveries SET trip_lead_id=$1,fare_kobo=$2 WHERE id=$3', [
+    lead.id,
+    fare,
+    mine.id,
+  ]);
+  if (lead.status === 'ASSIGNED') {
+    await q.query(
+      "UPDATE deliveries SET status='ASSIGNED',driver_id=$1,assigned_at=now() WHERE id=$2",
+      [lead.driver_id, mine.id],
+    );
+    await notify(
+      q,
+      lead.driver_id,
+      'delivery',
+      'Extra pickup on your trip',
+      `${b.title}: one more shop for the same customer, on the same trip (+₦${Math.round(fare / 100).toLocaleString()}).`,
+      b.id,
+    );
+  }
+}
+
 export async function scheduleErrandDelivery(deps: AppDeps, q: Query, b: any) {
   const [e] = await q.query('SELECT * FROM errands WHERE id=$1', [b.errand_id]);
   if (!e) return;
@@ -359,6 +618,7 @@ export async function scheduleErrandDelivery(deps: AppDeps, q: Query, b: any) {
       } as unknown as RequestInput,
       { acceptFare: true },
     );
+    await joinErrandTrip(q, b);
     // Riders can take the job from 15 minutes before this; aim to arrive on time.
     await q.query(
       "UPDATE deliveries SET scheduled_at=GREATEST(now(),$1::timestamptz-interval '40 minutes') WHERE booking_id=$2 AND status='OPEN'",
@@ -394,7 +654,11 @@ export function createErrandService(deps: AppDeps) {
       .array(
         z.object({
           listing_id: z.uuid(),
+          /** The size option chosen (a single cube); the main option when left out. */
+          variant_id: z.uuid().optional(),
           quantity: z.number().int().min(1).max(10000),
+          /** Buy part of one kg/litre (0.1 = 100 g); quantity must then be 1. */
+          portion: z.number().min(0.05).max(0.99).optional(),
           needed: z.string().max(80).optional(),
         }),
       )
@@ -410,9 +674,20 @@ export function createErrandService(deps: AppDeps) {
         servings: z.number().int().min(1).max(500).optional(),
         latitude: z.number().min(-90).max(90),
         longitude: z.number().min(-180).max(180),
+        budget_kobo: z.number().int().min(10000).max(10000000000).optional(),
+        avoid: z.array(z.string().trim().min(2).max(40)).max(15).optional(),
       })
       .parse(input.body);
-    return await buildBasket(db, user.id, d.text, d.latitude, d.longitude, d.servings);
+    const [profile] = await db.query(
+      'SELECT allergies,intolerances,avoid,patterns FROM diet_profiles WHERE user_id=$1',
+      [user.id],
+    );
+    return await buildBasket(db, user.id, d.text, d.latitude, d.longitude, {
+      servings: d.servings,
+      budgetKobo: d.budget_kobo,
+      avoid: d.avoid,
+      profile: (profile as DietProfile) ?? null,
+    });
   }
   /** Ideas to start from (the recipe library). */
   async function errandIdeas(_user: any, _input: RequestInput) {
@@ -440,11 +715,12 @@ export function createErrandService(deps: AppDeps) {
     const lines: any[] = [];
     for (const item of d.items) {
       const [l] = await q.query(
-        `SELECT l.*,v.id AS variant_id,v.name AS variant_name,v.price_kobo AS v_price,v.wholesale_tiers,v.stock AS v_stock,v.min_quantity,
+        `SELECT l.*,v.id AS variant_id,v.name AS variant_name,v.is_primary,v.unit AS v_unit,v.price_kobo AS v_price,v.wholesale_tiers,v.stock AS v_stock,v.min_quantity,
            (SELECT commission_bps FROM catalogue_categories WHERE name=l.category) AS category_bps
-         FROM listings l JOIN sellers s ON s.user_id=l.seller_id JOIN listing_variants v ON v.listing_id=l.id AND v.is_primary AND v.active
+         FROM listings l JOIN sellers s ON s.user_id=l.seller_id JOIN listing_variants v ON v.listing_id=l.id AND v.active
+           AND (CASE WHEN $2::text IS NULL THEN v.is_primary ELSE v.id=$2 END)
          WHERE l.id=$1 AND l.status='ACTIVE' AND s.status='APPROVED' AND l.delivery_available AND ${bookableSql('l')}`,
-        [item.listing_id],
+        [item.listing_id, item.variant_id ?? null],
       );
       ensure(
         l,
@@ -453,6 +729,9 @@ export function createErrandService(deps: AppDeps) {
         'One of the products is no longer available. Build the basket again.',
       );
       ensure(l.seller_id !== user.id, 400, 'OWN_LISTING', 'You can’t order your own product.');
+      // The chosen size option's unit and name ("Seasoning cubes · 1 cube").
+      l.unit = l.v_unit;
+      if (!l.is_primary && l.variant_name) l.title = `${l.title} · ${l.variant_name}`.slice(0, 120);
       ensure(
         l.v_stock >= item.quantity && item.quantity >= l.min_quantity,
         409,
@@ -463,6 +742,25 @@ export function createErrandService(deps: AppDeps) {
         { price_kobo: l.v_price, wholesale_tiers: l.wholesale_tiers || [] },
         item.quantity,
       );
+      if (item.portion) {
+        ensure(
+          item.quantity === 1 && isLoose(l.unit),
+          400,
+          'PORTION_NOT_ALLOWED',
+          `${l.title} is sold per ${l.unit}, so it can’t be bought as a part.`,
+        );
+        // One unit is set aside; the line costs the portion. The seller weighs it out.
+        lines.push({
+          ...item,
+          l: { ...l, unit: `${Math.round(item.portion * 100) / 100} ${l.unit}` },
+          price: Math.max(100, Math.round(price * item.portion)),
+          bps:
+            settings.monetisation?.transaction_commission === false
+              ? 0
+              : Number(l.category_bps ?? settings.commission_bps),
+        });
+        continue;
+      }
       const bps =
         settings.monetisation?.transaction_commission === false
           ? 0

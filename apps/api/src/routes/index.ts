@@ -1,3 +1,4 @@
+import { adminRewardsRoutes, publicRewardsRoutes, rewardsRoutes } from './rewards.routes.js';
 import { regionRoutes, adminRegionRoutes } from './regions.routes.js';
 import { adminRefundRoutes } from './refunds.routes.js';
 import { voiceRoutes } from './voice.routes.js';
@@ -74,6 +75,7 @@ export function apiRoutes(
 ) {
   const r = Router();
   r.use('/auth', guards.authLimiter, authRoutes(deps));
+  r.use('/auth', guards.authLimiter, publicRewardsRoutes(deps));
   // Partner systems use an API key instead of a user session.
   r.use(partnerApiRoutes(deps));
   r.use(guards.authenticate);
@@ -123,7 +125,9 @@ export function apiRoutes(
   r.use(catalogueRoutes(deps));
   r.use(dealsRoutes(deps));
   r.use(errandRoutes(deps));
+  r.use(rewardsRoutes(deps));
 
+  r.use('/admin', adminRewardsRoutes(deps));
   r.use('/admin', adminMarketOperationsRoutes(deps));
   r.use('/admin', adminDiscoveryOperationsRoutes(deps));
   r.use('/admin', adminReturnsOperationsRoutes(deps));

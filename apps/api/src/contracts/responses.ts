@@ -15,7 +15,7 @@ export const User = z
   .looseObject({
     id: z.string(),
     name: z.string(),
-    email: z.string(),
+    email: z.string().nullable(),
     phone: z.string(),
     admin: z.boolean(),
     email_verified_at: timestamp.nullish(),

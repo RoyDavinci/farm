@@ -14,6 +14,7 @@ import { useDealStock } from './deals.service.js';
 import { fundGroupBooking, refundGroupBooking } from './group-buy.service.js';
 import { scheduleErrandDelivery } from './errand.service.js';
 import { notify } from './communications.service.js';
+import { rewardsOnCompletion } from './rewards.service.js';
 import { cancelDelivery } from './deliveries.service.js';
 import { ledger, lockedBalance } from './ledger.service.js';
 import { bookableSql, listingAvailable, notifyIfRestocked } from './retention.service.js';
@@ -59,6 +60,8 @@ export async function event(q: Query, b: any, to: string, actor: string | null, 
   const [booking] = await q.query('SELECT * FROM bookings WHERE id=$1', [b.id]);
   if (to === 'COMPLETED' && booking.group_buy_id)
     await q.query("UPDATE group_buys SET status='DONE' WHERE id=$1", [booking.group_buy_id]);
+  // Referral rewards and cashback promo codes are paid when a buyer's order completes.
+  if (to === 'COMPLETED') await rewardsOnCompletion(q, booking);
   for (const uid of new Set<string>([booking.buyer_id, booking.seller_id])) {
     if (uid === actor) continue;
     await notify(

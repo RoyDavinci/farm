@@ -116,7 +116,7 @@ export default function CatalogueProductsPage() {
                             if (file)
                               act(async () => {
                                 const media = await upload<{ url: string }>(
-                                  '/media',
+                                  '/media?clean=true',
                                   'image',
                                   file,
                                 );
@@ -124,7 +124,7 @@ export default function CatalogueProductsPage() {
                                   params: { id: p.id },
                                   body: { url: media.url },
                                 });
-                              }, 'Photo added; listings without a photo now show it.');
+                              }, 'Photo cleaned and added; listings without a photo now show it.');
                           }}
                         />
                       </label>

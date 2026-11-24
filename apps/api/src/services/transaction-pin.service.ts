@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Query } from '../database/client.js';
 import { ensure } from '../lib/errors.js';
@@ -20,6 +21,7 @@ export const transactionPin = z
 export const hashPin = (pin: string) => bcrypt.hash(pin, 10);
 
 const MAX_FAILURES = 5;
+export const hashSecret = (secret: string) => createHash('sha256').update(secret).digest('hex');
 const LOCK_MINUTES = 30;
 
 /**
@@ -28,6 +30,32 @@ const LOCK_MINUTES = 30;
  * attempt counter (return it from the handler); five wrong PINs lock money movement for 30 minutes.
  */
 export async function checkTransactionPin(q: Query, userId: string, pin: unknown) {
+  // A fingerprint confirmation: the device sends "bio:<key id>.<secret>", read from its secure
+  // storage only after the owner's fingerprint matched. Keys are made with the PIN.
+  if (typeof pin === 'string' && pin.startsWith('bio:')) {
+    const [keyId, secret] = pin.slice(4).split('.');
+    const [k] = await q.query(
+      "SELECT id,secret_hash FROM biometric_keys WHERE id=$1 AND user_id=$2 AND purpose='PAY' AND revoked_at IS NULL",
+      [keyId ?? '', userId],
+    );
+    ensure(
+      k && secret && k.secret_hash === hashSecret(secret),
+      400,
+      'BIOMETRIC_INVALID',
+      'Fingerprint confirmation isn’t set up on this phone any more. Use your PIN, then turn it on again.',
+    );
+    const [u] = await q.query('SELECT transaction_pin_locked_until FROM users WHERE id=$1', [
+      userId,
+    ]);
+    ensure(
+      !u.transaction_pin_locked_until || new Date(u.transaction_pin_locked_until) <= new Date(),
+      429,
+      'TRANSACTION_PIN_LOCKED',
+      `Too many wrong PINs. Try again in ${LOCK_MINUTES} minutes.`,
+    );
+    await q.query('UPDATE biometric_keys SET last_used_at=now() WHERE id=$1', [k.id]);
+    return null;
+  }
   const [u] = await q.query(
     'SELECT transaction_pin_hash,transaction_pin_failures,transaction_pin_locked_until FROM users WHERE id=$1',
     [userId],
@@ -142,7 +170,57 @@ export function createTransactionPinService(deps: AppDeps) {
         'Transaction PIN changed',
         'Your transaction PIN was changed. If this wasn’t you, contact support now.',
       );
+    // A new PIN signs every fingerprint-enabled phone out of fingerprint confirmation.
+    await q.query(
+      "UPDATE biometric_keys SET revoked_at=now() WHERE user_id=$1 AND purpose='PAY' AND revoked_at IS NULL",
+      [user.id],
+    );
     return { set: true, locked_until: null };
   }
-  return { getTransactionPin, setTransactionPin };
+  /** Turns on fingerprint confirmation for this phone; needs the PIN once. */
+  async function addBiometric(q: Query, user: any, input: RequestInput) {
+    const d = z.object({ device_name: z.string().trim().max(60).optional() }).parse(input.body);
+    const wrong = await checkTransactionPin(q, user.id, input.body?.transaction_pin);
+    if (wrong) return wrong;
+    ensure(
+      !String(input.body?.transaction_pin).startsWith('bio:'),
+      400,
+      'PIN_REQUIRED',
+      'Enter your transaction PIN to turn on fingerprint confirmation.',
+    );
+    const [n] = await q.query(
+      "SELECT COUNT(*)::int AS n FROM biometric_keys WHERE user_id=$1 AND purpose='PAY' AND revoked_at IS NULL",
+      [user.id],
+    );
+    ensure(n.n < 5, 409, 'TOO_MANY_DEVICES', 'Fingerprint is on for 5 phones. Turn one off first.');
+    const id = randomUUID();
+    const secret = randomBytes(32).toString('base64url');
+    await q.query(
+      'INSERT INTO biometric_keys(id,user_id,secret_hash,device_name) VALUES($1,$2,$3,$4)',
+      [id, user.id, hashSecret(secret), d.device_name ?? null],
+    );
+    await audit(q, user.id, 'biometric.add', id);
+    await securityAlert(
+      q,
+      user.id,
+      'Fingerprint confirmation turned on',
+      `Payments can now be confirmed with a fingerprint on ${d.device_name || 'a phone'}. If this wasn’t you, change your PIN now: that turns it off everywhere.`,
+    );
+    return { id, key: `bio:${id}.${secret}` };
+  }
+  async function listBiometrics(user: any, _input: RequestInput) {
+    return db.query(
+      "SELECT id,device_name,created_at,last_used_at FROM biometric_keys WHERE user_id=$1 AND purpose='PAY' AND revoked_at IS NULL ORDER BY created_at DESC",
+      [user.id],
+    );
+  }
+  async function removeBiometric(q: Query, user: any, input: RequestInput) {
+    await q.query(
+      "UPDATE biometric_keys SET revoked_at=now() WHERE id=$1 AND user_id=$2 AND purpose='PAY' AND revoked_at IS NULL",
+      [input.params.id, user.id],
+    );
+    await audit(q, user.id, 'biometric.remove', String(input.params.id));
+    return { ok: true as const };
+  }
+  return { getTransactionPin, setTransactionPin, addBiometric, listBiometrics, removeBiometric };
 }

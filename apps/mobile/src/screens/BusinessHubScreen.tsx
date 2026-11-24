@@ -910,10 +910,10 @@ export function MembershipCard() {
       {mine?.status === 'PENDING_PAYMENT' && mine.payment_method === 'card' ? (
         <PayPlanByCard sub={mine} onPaid={load} />
       ) : mine ? null : (
-        <Small
-          label={`Join for ${naira(plans[0].price_kobo)} / ${plans[0].period_days} days`}
-          primary
+        <Pressable
+          accessibilityRole="button"
           disabled={busy}
+          style={[styles.memberJoin, busy && { opacity: 0.6 }]}
           onPress={() =>
             void run(
               async () => {
@@ -926,7 +926,11 @@ export function MembershipCard() {
               card ? '' : 'Request received. Ahia will confirm your membership.',
             )
           }
-        />
+        >
+          <Text style={styles.memberJoinText}>
+            Join for {naira(plans[0].price_kobo)} / {plans[0].period_days} days
+          </Text>
+        </Pressable>
       )}
     </View>
   );
@@ -1105,7 +1109,16 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 15, color: INK, fontWeight: '800', marginTop: 2 },
   secret: { backgroundColor: '#fff4e0', borderRadius: 12, padding: 10, gap: 4 },
   code: { fontFamily: 'Courier', fontSize: 12, color: INK },
-  member: { backgroundColor: BRAND, borderRadius: 18, padding: 16, gap: 8 },
+  member: { backgroundColor: BRAND, borderRadius: 20, padding: 18, gap: 10 },
+  memberJoin: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    backgroundColor: '#fff',
+  },
+  memberJoinText: { color: BRAND, fontWeight: '800', fontSize: 15 },
   memberTitle: { fontSize: 17, fontWeight: '900', color: '#fff' },
   memberText: { fontSize: 13, color: '#d6f5e6', lineHeight: 19 },
 });

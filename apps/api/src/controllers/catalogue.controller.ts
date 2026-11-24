@@ -28,5 +28,8 @@ export function createCatalogueController(deps: AppDeps) {
     addStaffPhoto: write(service.addStaffPhoto),
     removePhoto: write(service.removePhoto),
     setProductActive: write(service.setProductActive),
+    bareListings: read(service.bareListings),
+    setListingPhoto: write(service.setListingPhoto),
+    fillBareListings: write(service.fillBareListings),
   };
 }

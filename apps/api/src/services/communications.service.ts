@@ -158,7 +158,26 @@ export function createCommunicationsService(deps: AppDeps) {
     );
   }
   async function startConversation(q: Query, u: any, input: RequestInput) {
-    const d = z.object({ listing_id: z.uuid() }).parse(input.body);
+    const d = z
+      .object({ listing_id: z.uuid().optional(), booking_id: z.uuid().optional() })
+      .refine((x) => x.listing_id || x.booking_id, 'Choose a listing or an order.')
+      .parse(input.body);
+    if (d.booking_id) {
+      // From an order: either side can message the other about it, even if the product has
+      // since been paused or sold out.
+      const [b] = await q.query('SELECT * FROM bookings WHERE id=$1', [d.booking_id]);
+      ensure(
+        b && [b.buyer_id, b.seller_id].includes(u.id) && b.buyer_id !== b.seller_id,
+        404,
+        'NOT_FOUND',
+        'Order not found.',
+      );
+      const [c] = await q.query(
+        'INSERT INTO conversations(id,buyer_id,seller_id,listing_id) VALUES($1,$2,$3,$4) ON CONFLICT(buyer_id,seller_id,listing_id) DO UPDATE SET listing_id=EXCLUDED.listing_id RETURNING *',
+        [randomUUID(), b.buyer_id, b.seller_id, b.listing_id],
+      );
+      return c;
+    }
     const [l] = await q.query(
       "SELECT l.* FROM listings l JOIN sellers s ON s.user_id=l.seller_id WHERE l.id=$1 AND s.status='APPROVED' AND l.status='ACTIVE'",
       [d.listing_id],

@@ -70,6 +70,7 @@ export default function DeliveryPanel({
     [quote, setQuote] = useState<any>(null),
     [rider, setRider] = useState<NearbyRider | null>(null),
     [pod, setPod] = useState(true),
+    [quoteError, setQuoteError] = useState(''),
     [pin, setPin] = useState('');
   const load = useCallback(
     () =>
@@ -99,6 +100,31 @@ export default function DeliveryPanel({
       message,
     );
 
+  // The price comes as soon as there's a pin (and again when the vehicle or load changes).
+  useEffect(() => {
+    if (!form || !drop) return;
+    let current = true;
+    const timer = setTimeout(
+      () =>
+        void request('post', '/bookings/{id}/delivery/quote', {
+          params: { id: b.id },
+          body: {
+            vehicle_type: vehicle,
+            weight_kg: Number(weight) || 1,
+            waiting_minutes: Number(waiting) || 0,
+            dropoff: drop,
+          },
+        })
+          .then((q) => current && setQuote(q))
+          .catch((e) => current && setQuoteError((e as Error).message)),
+      400,
+    );
+    setQuoteError('');
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [form, drop, vehicle, weight, waiting, b.id]);
   const payLater = !!options?.pay_on_delivery && pod && !b.paid;
   if (!b.delivery_available)
     return <Text style={s.fine}>This booking offers collection only.</Text>;
@@ -148,8 +174,19 @@ export default function DeliveryPanel({
           multiline
           placeholder="House number, street, landmark, area"
         />
+        <Button
+          secondary
+          title={drop ? '📍 Pin set · use my location again' : '📍 Use my location'}
+          disabled={busy}
+          onPress={() =>
+            void run(async () => {
+              setDrop(await currentPosition());
+              setQuote(null);
+            })
+          }
+        />
         <PointFields
-          title="Delivery map pin"
+          title="Or pick the delivery spot on the map"
           value={drop}
           onChange={(p) => {
             setDrop(p);
@@ -157,6 +194,9 @@ export default function DeliveryPanel({
             setRider(null);
           }}
         />
+        <Text style={s.small}>
+          Choosing a rider is optional. Leave it and the nearest free rider takes the job.
+        </Text>
         <RiderPicker
           point={drop}
           vehicle={vehicle}
@@ -219,7 +259,7 @@ export default function DeliveryPanel({
             {!wallet && !payLater ? (
               <DirectPay
                 amountKobo={quote.fare_kobo}
-                disabled={!rider || address.trim().length < 8 || !b.paid}
+                disabled={address.trim().length < 8 || !b.paid}
                 checkout={{
                   purpose: 'delivery',
                   booking_id: b.id,
@@ -241,33 +281,28 @@ export default function DeliveryPanel({
                     ? 'Request rider · pay on arrival'
                     : `Pay ${money(quote.fare_kobo)} and request`
                 }
-                disabled={busy || !rider || address.trim().length < 8 || (!b.paid && !payLater)}
+                disabled={busy || address.trim().length < 8 || (!b.paid && !payLater)}
                 onPress={() =>
-                  void run(submitDelivery, 'Delivery sent to your selected rider for acceptance.')
+                  void run(
+                    submitDelivery,
+                    rider
+                      ? 'Delivery sent to your selected rider for acceptance.'
+                      : 'Delivery requested. Nearby riders have been told.',
+                  )
                 }
               />
             )}
           </>
         ) : (
-          <Button
-            title="Get delivery price"
-            disabled={busy || !drop}
-            onPress={() =>
-              void run(async () =>
-                setQuote(
-                  await request('post', '/bookings/{id}/delivery/quote', {
-                    params: { id: b.id },
-                    body: {
-                      vehicle_type: vehicle,
-                      weight_kg: Number(weight),
-                      waiting_minutes: Number(waiting),
-                      dropoff: drop,
-                    },
-                  }),
-                ),
-              )
-            }
-          />
+          <Text style={quoteError ? errorText : s.fine}>
+            {quoteError ||
+              (drop
+                ? 'Getting the delivery price…'
+                : 'Set the delivery spot (use your location or the map) to see the price.')}
+          </Text>
+        )}
+        {!!quote && address.trim().length < 8 && (
+          <Text style={errorText}>Add the delivery address (house number, street, area).</Text>
         )}
         <Pressable onPress={() => setForm(false)}>
           <Text style={s.link}>Collect it myself instead (pay when you pick it up)</Text>
@@ -406,3 +441,5 @@ export default function DeliveryPanel({
     </View>
   );
 }
+
+const errorText = { fontSize: 12, color: '#b3261e', fontWeight: '600' as const };

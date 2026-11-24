@@ -1,9 +1,10 @@
+import { biometricKey, biometricOn } from '../biometric';
 import MarketNavigationPanel from '../MarketNavigationPanel';
 import { money, type Booking } from '@ahia/shared';
 import { useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 import { useApp } from '../AppContext';
-import BookingSupport from '../BookingSupport';
+import BookingSupport, { MessageButton } from '../BookingSupport';
 import CounterofferPanel from '../CounterofferPanel';
 import DeliveryPanel from '../DeliveryPanel';
 import DirectPay from '../DirectPay';
@@ -31,7 +32,7 @@ export default function BookingCard({
   booking: Booking;
   isSeller: boolean;
 }) {
-  const { busy, run, refresh, openHistory, openListing, settings } = useApp();
+  const { busy, run, refresh, openHistory, openListing, settings, me } = useApp();
   const wallet = featureOn(settings, 'wallet');
   const [code, setCode] = useState('');
   const { t } = useI18n();
@@ -148,13 +149,17 @@ export default function BookingCard({
       )}
       {!isSeller && b.status === 'COMPLETED' && <ReviewForm bookingId={b.id} />}
       {['REQUESTED', 'COUNTERED'].includes(b.status) && !b.dispute_status && (
-        <CounterofferPanel
-          booking={b}
-          isSeller={isSeller}
-          busy={busy}
-          onAction={(action, body) => void bookingAction(b, action, body)}
-        />
+        <MessageButton booking={b} isSeller={isSeller} />
       )}
+      {(isSeller ? ['REQUESTED', 'COUNTERED'] : ['COUNTERED']).includes(b.status) &&
+        !b.dispute_status && (
+          <CounterofferPanel
+            booking={b}
+            isSeller={isSeller}
+            busy={busy}
+            onAction={(action, body) => void bookingAction(b, action, body)}
+          />
+        )}
       {(['ACCEPTED', 'READY_FOR_PICKUP', 'COMPLETED'].includes(b.status) || !!b.dispute_status) && (
         <BookingSupport booking={b} isSeller={isSeller} onRefresh={refresh} />
       )}
@@ -200,7 +205,16 @@ export default function BookingCard({
               <Button
                 title={t('booking.pay', { amount: money(b.total_kobo) })}
                 disabled={busy}
-                onPress={() => void bookingAction(b, 'pay')}
+                onPress={() =>
+                  void (async () => {
+                    // With fingerprint payments on, paying from the wallet asks for it first.
+                    if (me?.id && (await biometricOn(me.id))) {
+                      const ok = await biometricKey(me.id, `Pay ${money(b.total_kobo)}`);
+                      if (!ok) return;
+                    }
+                    await bookingAction(b, 'pay');
+                  })()
+                }
               />
             ) : (
               <DirectPay

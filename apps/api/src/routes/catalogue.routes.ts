@@ -20,6 +20,9 @@ export function adminCatalogueRoutes(deps: AppDeps) {
   const r = Router();
   const c = createCatalogueController(deps);
   r.get('/catalogue-products', c.adminCatalogue);
+  r.get('/catalogue-products/bare-listings', c.bareListings);
+  r.post('/catalogue-products/bare-listings/fill', c.fillBareListings);
+  r.post('/catalogue-products/bare-listings/:id/photo', c.setListingPhoto);
   r.post('/catalogue-products', c.adminAddProduct);
   r.post('/catalogue-products/:id/photos', c.addStaffPhoto);
   r.post('/catalogue-products/:id/active', c.setProductActive);

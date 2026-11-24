@@ -4,7 +4,11 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useApp } from './AppContext';
 import { request } from './request';
 import { Badge, Button, Field, s } from './ui';
-import TransactionPinPanel, { PinField, useTransactionPin } from './TransactionPin';
+import TransactionPinPanel, {
+  PinField,
+  pinReady as pinOk,
+  useTransactionPin,
+} from './TransactionPin';
 import BvnVerify from './BvnVerify';
 
 type PayoutData = PayoutSummary;
@@ -32,7 +36,7 @@ export default function PayoutPanel({
     [loadError, setLoadError] = useState(''),
     [pin, setPin] = useState('');
   const pinStatus = useTransactionPin();
-  const pinReady = pin.length === 4;
+  const pinReady = pinOk(pin);
   const load = useCallback(async () => {
     try {
       setData(await request('get', '/payouts'));

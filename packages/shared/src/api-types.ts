@@ -372,6 +372,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/admin/catalogue-products/bare-listings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['catalogue.bareListings'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/catalogue-products/bare-listings/{id}/photo': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['catalogue.setListingPhoto'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/catalogue-products/bare-listings/fill': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['catalogue.fillBareListings'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/admin/deliveries': {
     parameters: {
       query?: never;
@@ -1076,6 +1124,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/admin/promo-codes': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['rewards.adminPromos'];
+    put?: never;
+    post: operations['rewards.createPromo'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/promo-codes/{id}/active': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['rewards.setPromoActive'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/admin/promotion-packages': {
     parameters: {
       query?: never;
@@ -1149,6 +1229,22 @@ export interface paths {
     };
     get: operations['admin.getReconciliation'];
     put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/referrals': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['rewards.adminReferrals'];
+    put: operations['rewards.saveReferralSettings'];
     post?: never;
     delete?: never;
     options?: never;
@@ -1438,6 +1534,38 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['shopping.review'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/sign-in-codes': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['risk.listSignInCodes'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/sign-in-codes/{id}/issue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['risk.issueSignInCode'];
     delete?: never;
     options?: never;
     head?: never;
@@ -1764,6 +1892,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/auth/biometric': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['auth.biometricSignIn'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/auth/login': {
     parameters: {
       query?: never;
@@ -1838,6 +1982,22 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['auth.forgotPassword'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/auth/referrer': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['rewards.referrer'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -2788,6 +2948,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/group-buys/search': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['deals.searchGroupProducts'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/listings': {
     parameters: {
       query?: never;
@@ -3188,6 +3364,38 @@ export interface paths {
     patch: operations['account.updateMe'];
     trace?: never;
   };
+  '/v1/me/biometrics': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['account.listBiometrics'];
+    put?: never;
+    post: operations['account.addBiometric'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/me/biometrics/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['account.removeBiometric'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/me/blocks': {
     parameters: {
       query?: never;
@@ -3263,6 +3471,38 @@ export interface paths {
     put?: never;
     post: operations['risk.refreshBvn'];
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/me/login-keys': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['account.addLoginKey'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/me/login-keys/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['account.removeLoginKey'];
     options?: never;
     head?: never;
     patch?: never;
@@ -4212,6 +4452,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/promo-codes/mine': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['rewards.myPromos'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/promo-codes/redeem': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['rewards.redeemPromo'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/promotion-packages': {
     parameters: {
       query?: never;
@@ -4220,6 +4492,22 @@ export interface paths {
       cookie?: never;
     };
     get: operations['revenue.listPackages'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/referrals/me': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['rewards.myReferrals'];
     put?: never;
     post?: never;
     delete?: never;
@@ -5140,6 +5428,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/wallet/transfers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['rewards.listTransfers'];
+    put?: never;
+    post: operations['rewards.sendTransfer'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/wallet/transfers/recipient': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['rewards.findRecipient'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/webhooks/{provider}': {
     parameters: {
       query?: never;
@@ -5295,7 +5615,7 @@ export interface components {
     User: {
       id: string;
       name: string;
-      email: string;
+      email: string | null;
       phone: string;
       admin: boolean;
       email_verified_at?: string | null;
@@ -6705,6 +7025,104 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'catalogue.bareListings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            title: string;
+            category: string;
+            unit: string;
+            created_at: string;
+            business_name: string;
+            area: string | null;
+            suggestions: {
+              id: string;
+              url: string;
+              thumbnail_url: string;
+              product: string;
+              hits: number;
+            }[];
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'catalogue.setListingPhoto': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'catalogue.fillBareListings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            filled: number;
+            left: number;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'deliveries.listDeliveries': {
     parameters: {
       query?: never;
@@ -7152,7 +7570,7 @@ export interface operations {
             location_at: string | null;
             created_at: string;
             name: string;
-            email: string;
+            email: string | null;
             phone: string;
             vehicle_name: string;
           } & {
@@ -8587,6 +9005,107 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'rewards.adminPromos': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            code: string;
+            kind: string;
+            amount_kobo: number;
+            percent: number;
+            max_kobo: number;
+            min_order_kobo: number;
+            max_uses: number | null;
+            new_customers_only: boolean;
+            ends_at: string | null;
+            active: boolean;
+            note: string | null;
+            uses: number;
+            paid_kobo: number;
+            created_at: string;
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'rewards.createPromo': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            code: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'rewards.setPromoActive': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'revenue.adminPackages': {
     parameters: {
       query?: never;
@@ -8816,6 +9335,76 @@ export interface operations {
             })[];
           } & {
             [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'rewards.adminReferrals': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            settings: {
+              referral_reward_kobo: number;
+              referral_welcome_kobo: number;
+              referral_min_order_kobo: number;
+              credit_hold_days: number;
+            };
+            totals: {
+              invited: number;
+              rewarded: number;
+              referral_paid_kobo: number;
+              promo_paid_kobo: number;
+            };
+            top: {
+              ahia_id: string;
+              name: string;
+              invited: number;
+              rewarded: number;
+            }[];
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'rewards.saveReferralSettings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
           };
         };
       };
@@ -9462,7 +10051,7 @@ export interface operations {
             business_type: string;
             city: string;
             created_at: string;
-            email: string;
+            email: string | null;
             latitude: number;
             longitude: number;
             market_id: string | null;
@@ -9622,6 +10211,69 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'risk.listSignInCodes': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            email: string;
+            name: string | null;
+            /** @enum {string} */
+            purpose: 'register' | 'login';
+            attempts: number;
+            created_at: string;
+            expires_at: string;
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'risk.issueSignInCode': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            code: string;
+            email: string;
+            expires_at: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'staff.listStaff': {
     parameters: {
       query?: never;
@@ -9638,7 +10290,7 @@ export interface operations {
         };
         content: {
           'application/json': ({
-            email: string;
+            email: string | null;
             id: string;
             name: string;
             staff_role: string;
@@ -9675,7 +10327,7 @@ export interface operations {
         };
         content: {
           'application/json': {
-            email: string;
+            email: string | null;
             id: string;
             name: string;
             staff_role: string;
@@ -10059,7 +10711,7 @@ export interface operations {
           'application/json': ({
             admin: boolean;
             created_at: string;
-            email: string;
+            email: string | null;
             email_verified_at: string | null;
             id: string;
             name: string;
@@ -10456,6 +11108,47 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'auth.biometricSignIn': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            expires_in: number;
+            refresh_token: string;
+            token: string;
+            device_token?: string;
+            user: {
+              id: string;
+              name: string;
+              phone: string;
+            } & {
+              [key: string]: unknown;
+            };
+          } & {
+            [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'auth.login': {
     parameters: {
       query?: never;
@@ -10479,9 +11172,24 @@ export interface operations {
         content: {
           'application/json':
             | ({
+                expires_in: number;
+                refresh_token: string;
+                token: string;
+                device_token?: string;
+                user: {
+                  id: string;
+                  name: string;
+                  phone: string;
+                } & {
+                  [key: string]: unknown;
+                };
+              } & {
+                [key: string]: unknown;
+              })
+            | ({
                 challenge_id: string;
                 delivery: string;
-                email: string;
+                email: string | null;
                 expires_in: number;
                 resend_after: number;
               } & {
@@ -10495,8 +11203,8 @@ export interface operations {
                 token: string;
                 user: {
                   admin: boolean;
-                  email: string;
-                  email_verified_at: string;
+                  email: string | null;
+                  email_verified_at: string | null;
                   id: string;
                   name: string;
                   phone: string;
@@ -10606,8 +11314,8 @@ export interface operations {
                 device_token: string;
                 user: {
                   admin: boolean;
-                  email: string;
-                  email_verified_at: string;
+                  email: string | null;
+                  email_verified_at: string | null;
                   id: string;
                   name: string;
                   phone: string;
@@ -10647,11 +11355,35 @@ export interface operations {
           'application/json': {
             challenge_id: string;
             delivery: string;
-            email: string;
+            email: string | null;
             expires_in: number;
             resend_after: number;
           } & {
             [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'rewards.referrer': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            code: string;
+            name: string;
           };
         };
       };
@@ -10712,15 +11444,31 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': {
-            challenge_id: string;
-            delivery: string;
-            email: string;
-            expires_in: number;
-            resend_after: number;
-          } & {
-            [key: string]: unknown;
-          };
+          'application/json':
+            | ({
+                challenge_id: string;
+                delivery: string;
+                email: string | null;
+                expires_in: number;
+                resend_after: number;
+              } & {
+                [key: string]: unknown;
+              })
+            | ({
+                expires_in: number;
+                refresh_token: string;
+                token: string;
+                device_token?: string;
+                user: {
+                  id: string;
+                  name: string;
+                  phone: string;
+                } & {
+                  [key: string]: unknown;
+                };
+              } & {
+                [key: string]: unknown;
+              });
         };
       };
       default: components['responses']['Error'];
@@ -12939,6 +13687,7 @@ export interface operations {
               needed_unit: string;
               listing: {
                 id: string;
+                variant_id: string;
                 title: string;
                 unit: string;
                 price_kobo: number;
@@ -12947,11 +13696,17 @@ export interface operations {
                 business_name: string;
               } | null;
               quantity: number;
+              portion: number | null;
               line_kobo: number;
               alternatives: number;
               unit_differs: boolean;
               oversized: boolean;
               extra_trip_kobo: number | null;
+              diet: {
+                /** @enum {string} */
+                status: 'AVOID' | 'CAUTION';
+                reason: string;
+              } | null;
             }[];
             sellers: {
               seller_id: string;
@@ -12967,6 +13722,12 @@ export interface operations {
             goods_kobo: number;
             delivery_kobo: number;
             total_kobo: number;
+            budget: {
+              budget_kobo: number;
+              over_by_kobo: number;
+              cheaper_swaps: number;
+              fits_servings: number | null;
+            } | null;
           };
         };
       };
@@ -13425,6 +14186,42 @@ export interface operations {
             /** @constant */
             ok: true;
           };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.searchGroupProducts': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            listing_id: string;
+            title: string;
+            unit: string;
+            price_kobo: number;
+            image_url: string | null;
+            seller_id: string;
+            business_name: string;
+            area: string;
+            verified: boolean;
+            rating: number | null;
+            reviews: number;
+            distance_km: number | null;
+            open_groups: number;
+            reason: string;
+          }[];
         };
       };
       default: components['responses']['Error'];
@@ -14681,7 +15478,7 @@ export interface operations {
         content: {
           'application/json': {
             admin: boolean;
-            email: string;
+            email: string | null;
             email_verified_at: string | null;
             id: string;
             name: string;
@@ -14689,6 +15486,92 @@ export interface operations {
             staff_role: string | null;
           } & {
             [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'account.listBiometrics': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            device_name: string | null;
+            created_at: string;
+            last_used_at: string | null;
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'account.addBiometric': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            key: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'account.removeBiometric': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
           };
         };
       };
@@ -14892,6 +15775,66 @@ export interface operations {
             name: string | null;
             reason: string | null;
             created_at: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'account.addLoginKey': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            key: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'account.removeLoginKey': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
           };
         };
       };
@@ -17740,6 +18683,71 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'rewards.myPromos': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            code: string;
+            kind: string;
+            percent: number;
+            max_kobo: number;
+            min_order_kobo: number;
+            ends_at: string | null;
+            /** @enum {string} */
+            status: 'PENDING' | 'PAID' | 'EXPIRED';
+            amount_kobo: number;
+            created_at: string;
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'rewards.redeemPromo': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            code: string;
+            /** @enum {string} */
+            kind: 'CREDIT' | 'CASHBACK';
+            message: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'revenue.listPackages': {
     parameters: {
       query?: never;
@@ -17766,6 +18774,42 @@ export interface operations {
           } & {
             [key: string]: unknown;
           })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'rewards.myReferrals': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            code: string;
+            link: string;
+            reward_kobo: number;
+            welcome_kobo: number;
+            min_order_kobo: number;
+            hold_days: number;
+            earned_kobo: number;
+            invited: number;
+            rewarded: number;
+            people: {
+              name: string;
+              joined_at: string;
+              rewarded: boolean;
+            }[];
+          };
         };
       };
       default: components['responses']['Error'];
@@ -20135,6 +21179,97 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['Ok'];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'rewards.listTransfers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            amount_kobo: number;
+            note: string | null;
+            created_at: string;
+            /** @enum {string} */
+            direction: 'SENT' | 'RECEIVED';
+            other: {
+              ahia_id: string;
+              name: string;
+            };
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'rewards.sendTransfer': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            amount_kobo: number;
+            to: {
+              ahia_id: string;
+              name: string;
+            };
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'rewards.findRecipient': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ahia_id: string;
+            name: string;
+            business_name: string | null;
+          };
         };
       };
       default: components['responses']['Error'];

@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express';
 import { requestInput } from '../lib/http.js';
+import { createAuthService } from '../services/auth.service.js';
 import { createKycService } from '../services/kyc.service.js';
 import { createRiskService } from '../services/risk.service.js';
 import type { AppDeps } from '../types/deps.js';
@@ -9,6 +10,13 @@ export function createRiskController(deps: AppDeps) {
   const { mutate } = deps;
   const kyc = createKycService(deps);
   const risk = createRiskService(deps);
+  const auth = createAuthService(deps);
+  const listSignInCodes: RequestHandler = async (req, res) => {
+    res.json(await auth.listSignInCodes(res.locals.user, requestInput(req)));
+  };
+  const issueSignInCode: RequestHandler = async (req, res) => {
+    res.json(await auth.issueSignInCode(res.locals.user, requestInput(req)));
+  };
   const getKyc: RequestHandler = async (req, res) => {
     res.json(await kyc.getKyc(res.locals.user, requestInput(req)));
   };
@@ -28,6 +36,8 @@ export function createRiskController(deps: AppDeps) {
   const allowPayoutAccount: RequestHandler = (req, res) =>
     mutate(req, res, (q, user) => risk.allowPayoutAccount(q, user, requestInput(req)));
   return {
+    listSignInCodes,
+    issueSignInCode,
     getKyc,
     startBvn,
     refreshBvn,

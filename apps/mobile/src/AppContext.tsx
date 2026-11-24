@@ -24,6 +24,8 @@ export interface AppState {
   /** Runs an action with shared busy/error/notice handling, then refreshes app data. */
   run: (fn: () => Promise<unknown>, message?: string) => Promise<void>;
   refresh: () => Promise<void>;
+  /** Scrolls the main page so this view sits just under the header. */
+  scrollToView: (view: any) => void;
   openHistory: (booking: Booking) => void;
   openConversation: (conversationId: string) => void;
   openListing: (

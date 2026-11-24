@@ -19,6 +19,7 @@ export const errandResponses: Record<string, z.ZodType> = {
         listing: z
           .object({
             id: z.string(),
+            variant_id: z.string(),
             title: z.string(),
             unit: z.string(),
             price_kobo: z.number().int(),
@@ -28,11 +29,13 @@ export const errandResponses: Record<string, z.ZodType> = {
           })
           .nullable(),
         quantity: z.number().int(),
+        portion: z.number().nullable(),
         line_kobo: z.number().int(),
         alternatives: z.number().int(),
         unit_differs: z.boolean(),
         oversized: z.boolean(),
         extra_trip_kobo: z.number().int().nullable(),
+        diet: z.object({ status: z.enum(['AVOID', 'CAUTION']), reason: z.string() }).nullable(),
       }),
     ),
     sellers: z.array(
@@ -51,6 +54,14 @@ export const errandResponses: Record<string, z.ZodType> = {
     goods_kobo: z.number().int(),
     delivery_kobo: z.number().int(),
     total_kobo: z.number().int(),
+    budget: z
+      .object({
+        budget_kobo: z.number().int(),
+        over_by_kobo: z.number().int(),
+        cheaper_swaps: z.number().int(),
+        fits_servings: z.number().int().nullable(),
+      })
+      .nullable(),
   }),
   'errand.placeErrand': z.object({
     errand_id: z.string(),

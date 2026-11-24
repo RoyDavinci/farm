@@ -124,6 +124,10 @@ model Delivery {
   scheduled_at                      DateTime?             @db.Timestamptz(6)
   requested_rider                   User?                 @relation("delivery_requested_rider", fields: [requested_driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   requested_driver_id               String?
+  /// Extra stop on another delivery's trip (same errand, same rider).
+  trip_lead_id                      String?
+  trip_lead                         Delivery?             @relation("delivery_trip", fields: [trip_lead_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  trip_stops                        Delivery[]            @relation("delivery_trip")
   id                                String                @id
   booking_id                        String                @unique(map: "deliveries_active_idx", where: raw("(status = ANY (ARRAY['OPEN'::text, 'ASSIGNED'::text, 'PICKED_UP'::text, 'DELIVERED'::text]))"))
   buyer_id                          String
@@ -170,6 +174,7 @@ model Delivery {
   @@index([driver_id, created_at], map: "deliveries_driver_idx")
   @@index([status], map: "deliveries_open_idx", where: raw("(status = 'OPEN'::text)"))
   @@index([requested_driver_id, status], map: "deliveries_requested_driver_idx")
+  @@index([trip_lead_id], map: "deliveries_trip_lead_idx", where: raw("(trip_lead_id IS NOT NULL)"))
   @@map("deliveries")
 }
 
@@ -515,7 +520,9 @@ model Notification {
 
 model OtpChallenge {
   id          String    @id
+  /// The email address, or the phone number when channel is 'sms'.
   email       String
+  channel     String    @default("email")
   purpose     String
   user_id     String?
   payload     Json      @default("{}")
@@ -773,6 +780,10 @@ model Session {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model Setting {
   status_boost_hourly_kobo  Int     @default(2500)
+  referral_reward_kobo      Int     @default(50000)
+  referral_welcome_kobo     Int     @default(50000)
+  referral_min_order_kobo   Int     @default(200000)
+  credit_hold_days          Int     @default(30)
   status_lifetime_hours     Int     @default(24)
   status_radius_km          Int     @default(25)
   status_max_active         Int     @default(10)
@@ -818,6 +829,10 @@ model UserBlock {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model User {
+  /// Short public ID ("AH-48213957"): for transfers and as the referral code.
+  ahia_id                                             String                 @unique(map: "users_ahia_id_key") @default(dbgenerated("new_ahia_id()"))
+  referred_by                                         String?
+  referral_rewarded_at                                DateTime?              @db.Timestamptz(6)
   card_refunds                                        CardRefund[]           @relation("card_refund_user")
   card_refunds_resolved                               CardRefund[]           @relation("card_refund_resolver")
   parcel_buyer                                        ParcelJob[]            @relation("parcel_buyer")
@@ -850,12 +865,13 @@ model User {
   funding_intents                                      FundingIntent[]
   id                                                   String                  @id
   name                                                 String
-  email                                                String                  @unique
+  email                                                String?                 @unique
   phone                                                String                  @unique
   password_hash                                        String
   admin                                                Boolean                 @default(false)
   created_at                                           DateTime                @default(now()) @db.Timestamptz(6)
   email_verified_at                                    DateTime?               @db.Timestamptz(6)
+  phone_verified_at                                    DateTime?               @db.Timestamptz(6)
   status                                               String                  @default("ACTIVE")
   staff_role                                           String?
   audit                                                AuditEntry[]
@@ -2067,4 +2083,80 @@ model BookingLine {
 
   @@index([booking_id], map: "booking_lines_booking_idx")
   @@map("booking_lines")
+}
+
+model WalletTransfer {
+  id           String   @id
+  from_user_id String
+  to_user_id   String
+  amount_kobo  BigInt
+  note         String?
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([from_user_id, created_at(sort: Desc)], map: "wallet_transfers_from_idx")
+  @@index([to_user_id, created_at(sort: Desc)], map: "wallet_transfers_to_idx")
+  @@map("wallet_transfers")
+}
+
+model WalletCredit {
+  id          String   @id
+  user_id     String
+  amount_kobo BigInt
+  source      String
+  reference   String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, created_at(sort: Desc)], map: "wallet_credits_user_idx")
+  @@map("wallet_credits")
+}
+
+model PromoCode {
+  id                 String    @id
+  code               String    @unique
+  /// CREDIT or CASHBACK.
+  kind               String
+  amount_kobo        BigInt    @default(0)
+  percent            Int       @default(0)
+  max_kobo           BigInt    @default(0)
+  min_order_kobo     BigInt    @default(0)
+  max_uses           Int?
+  new_customers_only Boolean   @default(false)
+  starts_at          DateTime? @db.Timestamptz(6)
+  ends_at            DateTime? @db.Timestamptz(6)
+  active             Boolean   @default(true)
+  note               String?
+  created_by         String?
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@map("promo_codes")
+}
+
+model PromoRedemption {
+  id          String    @id
+  promo_id    String
+  user_id     String
+  /// PENDING, PAID or EXPIRED.
+  status      String
+  booking_id  String?
+  amount_kobo BigInt    @default(0)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  paid_at     DateTime? @db.Timestamptz(6)
+
+  @@unique([promo_id, user_id])
+  @@map("promo_redemptions")
+}
+
+model BiometricKey {
+  id           String    @id
+  user_id      String
+  secret_hash  String
+  /// PAY (confirm money moves) or LOGIN (sign in on this phone).
+  purpose      String    @default("PAY")
+  device_name  String?
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  last_used_at DateTime? @db.Timestamptz(6)
+  revoked_at   DateTime? @db.Timestamptz(6)
+
+  @@index([user_id], map: "biometric_keys_user_idx", where: raw("(revoked_at IS NULL)"))
+  @@map("biometric_keys")
 }

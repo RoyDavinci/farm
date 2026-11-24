@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import {
+  biometricKey,
+  biometricOn,
+  biometricSupported,
+  savedFingerprintLogin,
+  turnOffBiometric,
+  turnOffFingerprintSignIn,
+  turnOnBiometric,
+  turnOnFingerprintSignIn,
+} from './biometric';
 import { useApp } from './AppContext';
 import { request } from './request';
 import { Button, Field, s } from './ui';
@@ -22,18 +32,171 @@ export function useTransactionPin() {
   return { state, reload };
 }
 
-/** A 4-digit PIN box for confirming a withdrawal or bank change. */
+/** A PIN, or a fingerprint key ("bio:…") from a phone with fingerprint payments on. */
+export const pinReady = (v: string) => /^\d{4}$/.test(v) || v.startsWith('bio:');
+
+/**
+ * Confirms a payment, transfer, withdrawal or bank change: the 4-digit PIN, or on a phone with
+ * fingerprint payments turned on, a fingerprint.
+ */
 export function PinField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { me } = useApp();
+  const [bio, setBio] = useState(false);
+  useEffect(() => {
+    if (me?.id) void biometricOn(me.id).then(setBio);
+  }, [me?.id]);
+  if (value.startsWith('bio:'))
+    return (
+      <View style={[s.rowBetween, { paddingVertical: 6 }]}>
+        <Text style={s.bold}>✓ Confirmed with your fingerprint</Text>
+        <Pressable onPress={() => onChange('')}>
+          <Text style={s.link}>Use PIN</Text>
+        </Pressable>
+      </View>
+    );
   return (
-    <Field
-      label="Transaction PIN"
-      value={value}
-      secureTextEntry
-      keyboardType="number-pad"
-      maxLength={4}
-      placeholder="4 digits"
-      onChangeText={(v: string) => onChange(v.replace(/\D/g, ''))}
-    />
+    <>
+      {bio && (
+        <Button
+          secondary
+          title="👆 Confirm with fingerprint"
+          onPress={() => void biometricKey(me.id).then((k) => k && onChange(k))}
+        />
+      )}
+      <Field
+        label={bio ? 'Or enter your transaction PIN' : 'Transaction PIN'}
+        value={value}
+        secureTextEntry
+        keyboardType="number-pad"
+        maxLength={4}
+        placeholder="4 digits"
+        onChangeText={(v: string) => onChange(v.replace(/\D/g, ''))}
+      />
+    </>
+  );
+}
+
+/** Sign in on this phone with a fingerprint (turned on with the account password). */
+export function FingerprintSignInToggle() {
+  const { me, busy, run } = useApp();
+  const [supported, setSupported] = useState(false),
+    [on, setOn] = useState(false),
+    [password, setPassword] = useState(''),
+    [open, setOpen] = useState(false);
+  useEffect(() => {
+    void biometricSupported().then(setSupported);
+    void savedFingerprintLogin().then((v) => setOn(!!v && !!me && v.name === me.name));
+  }, [me?.id]);
+  if (!supported || !me) return null;
+  return (
+    <View style={s.orderCard}>
+      <Text style={s.sectionTitle}>👆 Fingerprint sign-in {on ? '· On' : ''}</Text>
+      <Text style={s.small}>
+        {on
+          ? 'Sign in on this phone with your fingerprint. A new password turns it off.'
+          : 'Skip typing your password: sign in on this phone with your fingerprint.'}
+      </Text>
+      {on ? (
+        <Button
+          secondary
+          title="Turn off on this phone"
+          disabled={busy}
+          onPress={() =>
+            void run(async () => {
+              await turnOffFingerprintSignIn();
+              setOn(false);
+            }, 'Fingerprint sign-in turned off on this phone.')
+          }
+        />
+      ) : open ? (
+        <>
+          <Field
+            label="Your account password"
+            value={password}
+            secureTextEntry
+            onChangeText={setPassword}
+            placeholder="To confirm it's you"
+          />
+          <Button
+            title="Turn on fingerprint sign-in"
+            disabled={busy || password.length < 10}
+            onPress={() =>
+              void run(async () => {
+                await turnOnFingerprintSignIn(password, me.name);
+                setPassword('');
+                setOpen(false);
+                setOn(true);
+              }, 'Fingerprint sign-in is on for this phone.')
+            }
+          />
+        </>
+      ) : (
+        <Button secondary title="Turn on" onPress={() => setOpen(true)} />
+      )}
+    </View>
+  );
+}
+
+/** Turn fingerprint payments on (with the PIN) or off, on this phone. */
+export function BiometricToggle({ pinSet }: { pinSet: boolean }) {
+  const { me, busy, run } = useApp();
+  const [supported, setSupported] = useState(false),
+    [on, setOn] = useState(false),
+    [pin, setPin] = useState(''),
+    [open, setOpen] = useState(false);
+  useEffect(() => {
+    void biometricSupported().then(setSupported);
+    if (me?.id) void biometricOn(me.id).then(setOn);
+  }, [me?.id]);
+  if (!supported || !pinSet) return null;
+  return (
+    <View style={s.locationBox}>
+      <Text style={s.bold}>👆 Fingerprint payments {on ? '· On' : ''}</Text>
+      <Text style={s.small}>
+        {on
+          ? 'Confirm payments, transfers and withdrawals with your fingerprint on this phone. Changing your PIN turns it off.'
+          : 'Confirm payments with your fingerprint instead of typing your PIN. Enter your PIN once to turn it on.'}
+      </Text>
+      {on ? (
+        <Button
+          secondary
+          title="Turn off on this phone"
+          disabled={busy}
+          onPress={() =>
+            void run(async () => {
+              await turnOffBiometric(me.id);
+              setOn(false);
+            }, 'Fingerprint payments turned off on this phone.')
+          }
+        />
+      ) : open ? (
+        <>
+          <Field
+            label="Transaction PIN"
+            value={pin}
+            secureTextEntry
+            keyboardType="number-pad"
+            maxLength={4}
+            placeholder="4 digits"
+            onChangeText={(v: string) => setPin(v.replace(/\D/g, ''))}
+          />
+          <Button
+            title="Turn on fingerprint payments"
+            disabled={busy || pin.length !== 4}
+            onPress={() =>
+              void run(async () => {
+                await turnOnBiometric(me.id, pin);
+                setPin('');
+                setOpen(false);
+                setOn(true);
+              }, 'Fingerprint payments are on for this phone.')
+            }
+          />
+        </>
+      ) : (
+        <Button secondary title="Turn on" onPress={() => setOpen(true)} />
+      )}
+    </View>
   );
 }
 
@@ -157,5 +320,10 @@ export default function TransactionPinPanel({
 /** The Wallet's PIN card: shows whether a PIN is set and lets the user set or change it. */
 export function TransactionPinCard() {
   const { state, reload } = useTransactionPin();
-  return <TransactionPinPanel state={state} onSaved={() => void reload()} />;
+  return (
+    <>
+      <TransactionPinPanel state={state} onSaved={() => void reload()} />
+      <BiometricToggle pinSet={!!state?.set} />
+    </>
+  );
 }

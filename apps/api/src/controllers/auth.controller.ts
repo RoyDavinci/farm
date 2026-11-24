@@ -6,7 +6,9 @@ import type { AppDeps } from '../types/deps.js';
 export function createAuthController(deps: AppDeps) {
   const service = createAuthService(deps);
   const register: RequestHandler = async (req, res) => {
-    res.status(202).json(await service.register(requestInput(req)));
+    // 202 with a challenge (a code was sent); 201 with a session (phone-only, minimal check).
+    const result = await service.register(requestInput(req));
+    res.status('token' in result ? 201 : 202).json(result);
   };
   const login: RequestHandler = async (req, res) => {
     // 202 with a challenge (a code was emailed); 200 with a session from a trusted device.
@@ -30,5 +32,16 @@ export function createAuthController(deps: AppDeps) {
     if ('error' in result && result.error) res.status(401).json({ error: result.error });
     else res.json(result);
   };
-  return { register, login, forgotPassword, resendCode, verifyCode, refreshSession };
+  const biometricSignIn: RequestHandler = async (req, res) => {
+    res.json(await service.biometricSignIn(requestInput(req)));
+  };
+  return {
+    register,
+    login,
+    forgotPassword,
+    resendCode,
+    verifyCode,
+    refreshSession,
+    biometricSignIn,
+  };
 }

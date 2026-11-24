@@ -60,12 +60,12 @@ export default function VariantEditor({
   const update = (i: number, patch: Partial<VariantDraft>) =>
     onChange(value.map((v, n) => (n === i ? { ...v, ...patch } : v)));
   return (
-    <View style={{ gap: 15 }}>
-      <Text style={s.heading}>Product options & wholesale</Text>
-      <Text style={s.small}>
-        Each option has separate available stock. Reservations are deducted from the exact option a
-        buyer chooses. The first active option is the default.
-      </Text>
+    <View style={{ gap: 16 }}>
+      {value.length > 1 && (
+        <Text style={s.small}>
+          Each option has its own stock. The first active option is the one buyers see first.
+        </Text>
+      )}
       {value.map((v, i) => (
         <View style={s.card} key={v.id || i}>
           <View style={s.row}>
@@ -73,14 +73,16 @@ export default function VariantEditor({
             <Text style={s.small}>Active</Text>
             <Switch value={v.active} onValueChange={(active) => update(i, { active })} />
           </View>
+          <Text style={s.label}>Option name</Text>
           <TextInput
-            style={s.input}
+            style={[s.input, { marginTop: -6 }]}
             accessibilityLabel={`Option ${i + 1} name`}
             value={v.name}
             onChangeText={(name) => update(i, { name })}
             placeholder="e.g. Small basket / 50kg bag"
           />
-          <View style={s.wrap}>
+          <Text style={s.label}>Sold per</Text>
+          <View style={[s.wrap, { marginTop: -6 }]}>
             {(settings?.catalog?.units || ['piece', 'kg', 'pack', 'pair', 'set', 'box']).map(
               (unit) => (
                 <Pressable key={unit} onPress={() => update(i, { unit })}>
@@ -89,38 +91,50 @@ export default function VariantEditor({
               ),
             )}
           </View>
-          <Text style={s.small}>Price per unit (₦) / available stock / minimum quantity</Text>
-          <View style={s.row}>
-            <TextInput
-              style={[s.input, { flex: 1 }]}
-              accessibilityLabel={`Option ${i + 1} price`}
-              value={v.price}
-              onChangeText={(price) => update(i, { price })}
-              placeholder="Price ₦"
-              keyboardType="decimal-pad"
-            />
-            <TextInput
-              style={[s.input, { flex: 1 }]}
-              accessibilityLabel={`Option ${i + 1} stock`}
-              value={v.stock}
-              onChangeText={(stock) => update(i, { stock })}
-              placeholder="Stock"
-              keyboardType="number-pad"
-            />
-            <TextInput
-              style={[s.input, { flex: 1 }]}
-              accessibilityLabel={`Option ${i + 1} minimum`}
-              value={v.minimum}
-              onChangeText={(minimum) => update(i, { minimum })}
-              placeholder="Minimum"
-              keyboardType="number-pad"
-            />
+          <View style={s.cells}>
+            <View style={s.cell}>
+              <Text style={s.label}>Price per {v.unit} (₦) *</Text>
+              <TextInput
+                style={s.input}
+                accessibilityLabel={`Option ${i + 1} price`}
+                value={v.price}
+                onChangeText={(price) => update(i, { price })}
+                placeholder="e.g. 2500"
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <View style={s.cell}>
+              <Text style={s.label}>In stock *</Text>
+              <TextInput
+                style={s.input}
+                accessibilityLabel={`Option ${i + 1} stock`}
+                value={v.stock}
+                onChangeText={(stock) => update(i, { stock })}
+                placeholder="e.g. 20"
+                keyboardType="number-pad"
+              />
+            </View>
+            <View style={s.cell}>
+              <Text style={s.label}>Min. order</Text>
+              <TextInput
+                style={s.input}
+                accessibilityLabel={`Option ${i + 1} minimum`}
+                value={v.minimum}
+                onChangeText={(minimum) => update(i, { minimum })}
+                placeholder="1"
+                keyboardType="number-pad"
+              />
+            </View>
           </View>
-          <Text style={s.bold}>Wholesale tiers</Text>
+          <View style={s.divider} />
+          <View style={{ gap: 2 }}>
+            <Text style={s.bold}>Wholesale prices (optional)</Text>
+            <Text style={s.small}>Cheaper price when someone buys a lot.</Text>
+          </View>
           {v.tiers.map((t, n) => (
             <View key={n} style={s.row}>
               <TextInput
-                style={[s.input, { flex: 1 }]}
+                style={[s.input, s.grow]}
                 accessibilityLabel="Wholesale minimum quantity"
                 value={t.minimum}
                 onChangeText={(minimum) =>
@@ -132,7 +146,7 @@ export default function VariantEditor({
                 keyboardType="number-pad"
               />
               <TextInput
-                style={[s.input, { flex: 1 }]}
+                style={[s.input, s.grow]}
                 accessibilityLabel="Wholesale unit price"
                 value={t.price}
                 onChangeText={(price) =>
@@ -168,14 +182,19 @@ export default function VariantEditor({
             onChange([...value, { ...newVariant(), name: `Option ${value.length + 1}` }])
           }
         >
-          <Text style={s.link}>+ Add another product option</Text>
+          <Text style={s.link}>+ Add another size or option</Text>
         </Pressable>
       )}
     </View>
   );
 }
 const s = StyleSheet.create({
-  heading: { fontSize: 16, color: '#226644', fontWeight: '600' },
+  label: { fontSize: 11, fontWeight: '600', color: '#3d6b54' },
+  cells: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  // minWidth 0 lets the three boxes share a phone-width row instead of overflowing.
+  cell: { flexGrow: 1, flexBasis: 90, minWidth: 0, gap: 6 },
+  grow: { flex: 1, minWidth: 0 },
+  divider: { height: 1, backgroundColor: '#e3f1ea' },
   small: { fontSize: 10, lineHeight: 18, color: '#73ad90' },
   bold: { fontSize: 12, color: '#307452', fontWeight: '600' },
   card: {
@@ -183,8 +202,8 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d3ebdf',
     borderRadius: 10,
-    gap: 13,
-    backgroundColor: '#fff',
+    gap: 16,
+    backgroundColor: '#fbfefc',
   },
   row: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },

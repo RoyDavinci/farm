@@ -55,6 +55,7 @@ const c = {
   ...config,
   dataDir: mailDir,
   mailMode: 'file' as const,
+  smsMode: 'file' as const,
   // Tests never call real map or storage services.
   mapboxToken: '',
   storageProvider: 'local' as const,
@@ -117,7 +118,7 @@ beforeEach(async () => {
     );
     for (const [i, actor] of actors.entries()) {
       await q.query(
-        'INSERT INTO users(id,name,email,phone,password_hash,admin,staff_role) VALUES($1,$2,$3,$4,$5,$6,$7)',
+        'INSERT INTO users(id,name,email,phone,password_hash,admin,staff_role,email_verified_at) VALUES($1,$2,$3,$4,$5,$6,$7,now())',
         [
           actor,
           actor,
@@ -608,6 +609,307 @@ async function ledgerBalances() {
   const [r] = await db.query('SELECT COALESCE(SUM(amount_kobo),0)::text AS total FROM ledger');
   return Number(r.total);
 }
+describe('phone-number accounts and fingerprint sign-in', () => {
+  const latestSms = () => {
+    const folder = join(mailDir, 'sms');
+    const newest = readdirSync(folder).sort().at(-1)!;
+    return /(\d{6}) is your Ahia/.exec(readFileSync(join(folder, newest), 'utf8'))![1];
+  };
+  const person = {
+    name: 'Ngozi Phone',
+    phone: '0803 555 1234',
+    password: 'correct-horse-123',
+    transaction_pin: '4826',
+  };
+  it('with text messages: signs up and signs in with a phone number and a texted code', async () => {
+    const reg = await request(app).post('/v1/auth/register').send(person);
+    expect(reg.status).toBe(202);
+    expect(reg.body).toMatchObject({ channel: 'sms', email: '+2348035551234' });
+    const ok = await request(app)
+      .post('/v1/auth/otp/verify')
+      .send({ challenge_id: reg.body.challenge_id, code: latestSms() });
+    expect(ok.status).toBe(200);
+    expect(ok.body.user).toMatchObject({ email: null, phone: '+2348035551234' });
+    const [u] = await db.query('SELECT phone_verified_at,email FROM users WHERE id=$1', [
+      ok.body.user.id,
+    ]);
+    expect(u.phone_verified_at).toBeTruthy();
+    // Signing in with the phone (any common format) on a new device texts a code.
+    await db.query("UPDATE otp_challenges SET sent_at=now()-interval '2 minutes'");
+    const login = await request(app)
+      .post('/v1/auth/login')
+      .send({ login: '+234 803 555 1234', password: person.password });
+    expect(login.status).toBe(202);
+    expect(login.body.channel).toBe('sms');
+    // A known device signs straight in; email accounts still sign in with "email".
+    const again = await request(app)
+      .post('/v1/auth/login')
+      .send({
+        login: '08035551234',
+        password: person.password,
+        device_token: ok.body.device_token,
+      });
+    expect(again.status).toBe(200);
+    expect(
+      (
+        await request(app)
+          .post('/v1/auth/login')
+          .send({ login: '08035551234', password: 'wrong-password-1' })
+      ).status,
+    ).toBe(401);
+  });
+  it('without text messages: opens a phone-only account with the minimal check', async () => {
+    const noSms = createApp(db, { ...c, smsMode: 'off' as const });
+    const reg = await request(noSms)
+      .post('/v1/auth/register')
+      .send({ ...person, email: '' });
+    expect(reg.status).toBe(201);
+    expect(reg.body).toMatchObject({ verification: 'minimal', user: { email: null } });
+    const auth = { Authorization: `Bearer ${reg.body.token}` };
+    // Money can't leave the account until the phone or BVN is verified.
+    const sent = await request(noSms)
+      .post('/v1/wallet/transfers')
+      .set(auth)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        to: (await db.query("SELECT ahia_id FROM users WHERE id='other'"))[0].ahia_id,
+        amount_kobo: 10000,
+        transaction_pin: '4826',
+      });
+    expect(sent.body.error.code).toBe('VERIFY_TO_MOVE_MONEY');
+    // A new-device sign-in uses the password alone, and pauses withdrawals for a day.
+    const login = await request(noSms)
+      .post('/v1/auth/login')
+      .send({ phone: '2348035551234', password: person.password });
+    expect(login.status).toBe(200);
+    const [u] = await db.query('SELECT money_locked_until FROM users WHERE phone=$1', [
+      '+2348035551234',
+    ]);
+    expect(new Date(u.money_locked_until).getTime()).toBeGreaterThan(Date.now());
+    // Password reset by phone needs texts.
+    expect(
+      (await request(noSms).post('/v1/auth/password/forgot').send({ login: '08035551234' })).body
+        .error.code,
+    ).toBe('SMS_UNAVAILABLE');
+  });
+  it('signs in with a fingerprint key made with the password, until the password changes', async () => {
+    const bad = await call('buyer', 'post', '/me/login-keys', { password: 'nope-nope-nope' });
+    expect(bad.body.error.code).toBe('INVALID_PASSWORD');
+    await db.query("UPDATE users SET password_hash=$1 WHERE id='buyer'", [
+      bcrypt.hashSync('buyer-password-1', 4),
+    ]);
+    const made = await call('buyer', 'post', '/me/login-keys', {
+      password: 'buyer-password-1',
+      device_name: 'Pixel 8',
+    });
+    expect(made.body.key).toMatch(/^login:/);
+    const signIn = (key: string) => request(app).post('/v1/auth/biometric').send({ key });
+    const ok = await signIn(made.body.key);
+    expect(ok.status).toBe(200);
+    expect(ok.body.user.id).toBe('buyer');
+    expect((await signIn(`${made.body.key}0`)).status).toBe(401);
+    // A sign-in key can't confirm payments, and a payment key can't sign in.
+    expect(
+      (
+        await call('buyer', 'post', '/wallet/transfers', {
+          to: (await db.query("SELECT ahia_id FROM users WHERE id='other'"))[0].ahia_id,
+          amount_kobo: 10000,
+          transaction_pin: made.body.key.replace('login:', 'bio:'),
+        })
+      ).body.error.code,
+    ).toBe('BIOMETRIC_INVALID');
+    // A password reset turns it off.
+    const reset = await request(app)
+      .post('/v1/auth/password/forgot')
+      .send({ email: 'buyer@test.com' });
+    await request(app)
+      .post('/v1/auth/otp/verify')
+      .send({
+        challenge_id: reset.body.challenge_id,
+        code: latestCode(),
+        new_password: 'buyer-password-2',
+      });
+    expect((await signIn(made.body.key)).status).toBe(401);
+  });
+});
+describe('Ahia IDs, transfers, referrals and promo codes', () => {
+  const idOf = async (actor: string) =>
+    (await db.query('SELECT ahia_id FROM users WHERE id=$1', [actor]))[0].ahia_id as string;
+  const wallet = async (actor: string) =>
+    Number(
+      (
+        await db.query(
+          "SELECT COALESCE(SUM(amount_kobo),0)::bigint AS n FROM ledger WHERE account='wallet' AND owner_id=$1",
+          [actor],
+        )
+      )[0].n,
+    );
+  it('gives everyone an Ahia ID and sends money between wallets by it', async () => {
+    const me = (await call('buyer', 'get', '/me')).body.user;
+    expect(me.ahia_id).toMatch(/^AH-\d{8}$/);
+    const other = await idOf('other');
+    expect(
+      (
+        await call(
+          'buyer',
+          'get',
+          `/wallet/transfers/recipient?id=${other.replace('-', '').toLowerCase()}`,
+        )
+      ).body,
+    ).toMatchObject({ ahia_id: other, name: 'other' });
+    expect(
+      (await call('buyer', 'get', `/wallet/transfers/recipient?id=${me.ahia_id}`)).body.error.code,
+    ).toBe('SELF_TRANSFER');
+    await call('buyer', 'post', '/wallet/demo-fund', { amount_kobo: 500000 });
+    const send = (body: any) => call('buyer', 'post', '/wallet/transfers', body);
+    expect((await send({ to: other, amount_kobo: 100000, transaction_pin: '0000' })).status).toBe(
+      400,
+    );
+    const ok = await send({
+      to: other,
+      amount_kobo: 100000,
+      note: 'For the rice',
+      transaction_pin: PIN,
+    });
+    expect(ok.status).toBe(200);
+    expect(ok.body.to).toEqual({ ahia_id: other, name: 'other' });
+    expect(await wallet('other')).toBe(100000);
+    expect(await wallet('buyer')).toBe(400000);
+    const theirs = (await call('other', 'get', '/wallet/transfers')).body;
+    expect(theirs[0]).toMatchObject({
+      direction: 'RECEIVED',
+      amount_kobo: 100000,
+      note: 'For the rice',
+    });
+    expect(theirs[0].other.ahia_id).toBe(me.ahia_id);
+    expect(await ledgerBalances()).toBe(0);
+  });
+  it('confirms money moves with a fingerprint key made with the PIN', async () => {
+    await call('buyer', 'post', '/wallet/demo-fund', { amount_kobo: 300000 });
+    const other = await idOf('other');
+    expect(
+      (await call('buyer', 'post', '/me/biometrics', { transaction_pin: '1111' })).status,
+    ).toBe(400);
+    const made = await call('buyer', 'post', '/me/biometrics', {
+      transaction_pin: PIN,
+      device_name: 'Pixel 8',
+    });
+    expect(made.status).toBe(200);
+    expect(made.body.key).toMatch(/^bio:/);
+    // A fingerprint key can't make another key: that needs the PIN itself.
+    expect(
+      (await call('buyer', 'post', '/me/biometrics', { transaction_pin: made.body.key })).body.error
+        .code,
+    ).toBe('PIN_REQUIRED');
+    const send = (pin: string) =>
+      call('buyer', 'post', '/wallet/transfers', {
+        to: other,
+        amount_kobo: 50000,
+        transaction_pin: pin,
+      });
+    expect((await send(made.body.key)).status).toBe(200);
+    expect((await send(`${made.body.key}x`)).body.error.code).toBe('BIOMETRIC_INVALID');
+    expect((await call('buyer', 'get', '/me/biometrics')).body[0]).toMatchObject({
+      device_name: 'Pixel 8',
+    });
+    // Changing the PIN turns fingerprint off everywhere.
+    await call('buyer', 'put', '/me/transaction-pin', { pin: '4826', current_pin: PIN });
+    expect((await send(made.body.key)).body.error.code).toBe('BIOMETRIC_INVALID');
+    expect((await call('buyer', 'get', '/me/biometrics')).body).toEqual([]);
+  });
+  it('rewards both people when an invited customer’s first order completes', async () => {
+    // A bad invite code is refused at sign-up; a good one names the inviter.
+    const reg = await request(app).post('/v1/auth/register').send({
+      name: 'Invited Person',
+      email: 'invited@test.com',
+      phone: '+2348091112222',
+      password: 'correct-horse-123',
+      referral_code: 'AH-00000000',
+    });
+    expect(reg.body.error.code).toBe('REFERRAL_INVALID');
+    const code = await idOf('other');
+    expect((await request(app).get(`/v1/auth/referrer?code=${code}`)).body).toEqual({
+      code,
+      name: 'other',
+    });
+    await db.query("UPDATE users SET referred_by='other' WHERE id='buyer'");
+    await completedSale();
+    expect(await wallet('other')).toBe(50000);
+    const credits = await db.query(
+      'SELECT user_id,source,amount_kobo::int FROM wallet_credits ORDER BY source',
+    );
+    expect(credits).toEqual([
+      { user_id: 'other', source: 'REFERRAL', amount_kobo: 50000 },
+      { user_id: 'buyer', source: 'WELCOME', amount_kobo: 50000 },
+    ]);
+    const mine = (await call('other', 'get', '/referrals/me')).body;
+    expect(mine).toMatchObject({ code, invited: 1, rewarded: 1, earned_kobo: 50000 });
+    expect(mine.link).toContain(`?ref=${code}`);
+    // Credit can be spent but not sent or withdrawn until the hold ends.
+    const send = await call('other', 'post', '/wallet/transfers', {
+      to: await idOf('buyer'),
+      amount_kobo: 20000,
+      transaction_pin: PIN,
+    });
+    expect(send.body.error.code).toBe('FUNDS_ON_HOLD');
+    // Paid once: the buyer is marked rewarded, so later orders pay nothing more.
+    const [buyer] = await db.query("SELECT referral_rewarded_at FROM users WHERE id='buyer'");
+    expect(buyer.referral_rewarded_at).toBeTruthy();
+    expect(await ledgerBalances()).toBe(0);
+  });
+  it('promo codes: instant credit, cashback on the next completed order, one use each', async () => {
+    const mk = (body: any) => call('admin', 'post', '/admin/promo-codes', body);
+    expect((await mk({ code: 'welcome500', kind: 'CREDIT', amount_kobo: 50000 })).status).toBe(200);
+    expect(
+      (await mk({ code: 'WELCOME500', kind: 'CREDIT', amount_kobo: 50000 })).body.error.code,
+    ).toBe('PROMO_EXISTS');
+    expect(
+      (await mk({ code: 'BACK10', kind: 'CASHBACK', percent: 10, max_kobo: 50000, max_uses: 1 }))
+        .status,
+    ).toBe(200);
+    const redeem = (actor: 'buyer' | 'other', code: string) =>
+      call(actor, 'post', '/promo-codes/redeem', { code });
+    expect((await redeem('buyer', 'welcome500')).body.kind).toBe('CREDIT');
+    expect(await wallet('buyer')).toBe(50000);
+    expect((await redeem('buyer', 'WELCOME500')).body.error.code).toBe('PROMO_USED');
+    expect((await redeem('buyer', 'NOPE123')).body.error.code).toBe('PROMO_INVALID');
+    expect((await redeem('buyer', 'BACK10')).body.message).toContain('10% back');
+    expect((await redeem('other', 'BACK10')).body.error.code).toBe('PROMO_USED_UP');
+    const before = await wallet('buyer');
+    const b = await completedSale();
+    const [order] = await db.query('SELECT total_kobo FROM bookings WHERE id=$1', [b]);
+    const back = Math.min(50000, Math.round(Number(order.total_kobo) / 10));
+    const [r] = await db.query(
+      "SELECT status,amount_kobo::int FROM promo_redemptions WHERE status='PAID' AND booking_id=$1",
+      [b],
+    );
+    expect(r).toEqual({ status: 'PAID', amount_kobo: back });
+    expect(
+      (await call('buyer', 'get', '/promo-codes/mine')).body.map((x: any) => x.status).sort(),
+    ).toEqual(['PAID', 'PAID']);
+    expect(before).toBeGreaterThan(0);
+    const admin = (await call('admin', 'get', '/admin/promo-codes')).body;
+    expect(admin.find((p: any) => p.code === 'BACK10')).toMatchObject({ uses: 1, paid_kobo: back });
+    expect(
+      (await call('admin', 'post', `/admin/promo-codes/${admin[0].id}/active`, { active: false }))
+        .status,
+    ).toBe(200);
+    expect((await call('admin', 'get', '/admin/referrals')).body.totals.promo_paid_kobo).toBe(
+      50000 + back,
+    );
+    expect(
+      (
+        await call('admin', 'put', '/admin/referrals', {
+          referral_reward_kobo: 100000,
+          referral_welcome_kobo: 50000,
+          referral_min_order_kobo: 100000,
+          credit_hold_days: 14,
+        })
+      ).status,
+    ).toBe(200);
+    expect(await ledgerBalances()).toBe(0);
+  });
+});
 describe('seller payouts', () => {
   const simulated = () => createApp(db, { ...c, payments: false, demo: true });
   /** These tests are about the payout flow, so money is treated as past its fraud hold. */
@@ -2640,6 +2942,71 @@ describe('shared catalogue and easy stock', () => {
     ]);
     return url;
   };
+  it('gives listings without a photo one from the library, and cleans staff uploads', async () => {
+    await approveSeller('seller', 'Mama Ngozi Foodstuff');
+    const made = async (title: string) =>
+      (
+        await call('seller', 'post', '/listings', {
+          title,
+          description: `${title} from the market`,
+          category: 'Food & groceries',
+          unit: 'piece',
+          price_kobo: 30000,
+          stock: 10,
+        })
+      ).body.id;
+    const ponmo = await made('Ponmo (cow skin)');
+    const curry = await made('Curry sachet');
+    const odd = await made('Zobo flower');
+    // A shared photo for ponmo is already in the library.
+    await call('admin', 'post', '/admin/catalogue-products', {
+      name: 'Ponmo',
+      category: 'Food & groceries',
+      unit: 'piece',
+    });
+    const [p] = (await call('admin', 'get', '/admin/catalogue-products?q=ponmo')).body;
+    await call('admin', 'post', `/admin/catalogue-products/${p.id}/photos`, {
+      url: await photoOf('admin'),
+    });
+    const bare = (await call('admin', 'get', '/admin/catalogue-products/bare-listings')).body;
+    // The ponmo listing wasn't added from the catalogue, so it is still bare, with a suggestion.
+    const row = (id: string) => bare.find((x: any) => x.id === id);
+    expect(row(ponmo).suggestions[0].product).toBe('Ponmo');
+    expect(row(odd).suggestions).toEqual([]);
+    // Staff upload a cleaned photo for the curry: it lands on a white square.
+    const tall = await sharp({
+      create: { width: 300, height: 600, channels: 3, background: { r: 200, g: 40, b: 40 } },
+    })
+      .png()
+      .toBuffer();
+    const up = await request(app)
+      .post('/v1/media?clean=true')
+      .set('Authorization', 'Bearer token-admin')
+      .attach('image', tall, { filename: 'c.png', contentType: 'image/png' });
+    expect(up.status).toBe(201);
+    expect(
+      (
+        await call('admin', 'post', `/admin/catalogue-products/bare-listings/${curry}/photo`, {
+          url: up.body.url,
+        })
+      ).status,
+    ).toBe(200);
+    const [c] = await db.query('SELECT * FROM listings WHERE id=$1', [curry]);
+    expect(c.image_url).toBe(up.body.url);
+    expect(c.catalogue_photo_id).toBeTruthy();
+    // The new photo joined the library, so the next "curry" listing is suggested it.
+    const later = await made('Curry powder');
+    const again = (await call('admin', 'get', '/admin/catalogue-products/bare-listings')).body;
+    expect(again.find((x: any) => x.id === later).suggestions[0].url).toBe(up.body.url);
+    // Fill all: every listing with a match gets its best photo; the rest stay.
+    const fill = (await call('admin', 'post', '/admin/catalogue-products/bare-listings/fill', {}))
+      .body;
+    expect(fill).toEqual({ filled: 2, left: 1 });
+    const [pm] = await db.query('SELECT image_url FROM listings WHERE id=$1', [ponmo]);
+    expect(pm.image_url).toBeTruthy();
+    const seen = (await call('seller', 'get', '/notifications')).body;
+    expect(JSON.stringify(seen)).toContain('We added a photo to your product');
+  });
   it('adds many products without photos, shares and rotates photos, skips duplicates', async () => {
     await approveSeller('seller', 'Ada Phones');
     await approveSeller('other', 'Tunde Gadgets');
@@ -3037,6 +3404,200 @@ describe('buy it and bring it', () => {
     ]);
     expect(back.stock).toBe(30);
   });
+  it('fits the basket to a budget and leaves out what the person can’t eat', async () => {
+    await foodShop('seller', 'Mama Ngozi Foodstuff', 6.6, 3.35, [
+      ['Ground egusi', 'Food & groceries', 9000, 'kg'],
+      ['Palm oil', 'Food & groceries', 2800, 'litre'],
+      ['Ugu leaves', 'Vegetables', 400, 'bunch'],
+      ['Ijebu garri', 'Grains', 1200, 'kg'],
+      ['Beef', 'Food & groceries', 6500, 'kg'],
+      ['Stockfish', 'Food & groceries', 9000, 'kg'],
+      ['Ground crayfish', 'Food & groceries', 12000, 'kg'],
+    ]);
+    await foodShop('other', 'Iya Bisi', 6.61, 3.36, [
+      ['Ground egusi', 'Food & groceries', 2000, 'kg'],
+    ]);
+    const me = (await call('buyer', 'get', '/me')).body.user;
+    await db.query(
+      "INSERT INTO diet_profiles(user_id,allergies,intolerances,avoid,patterns,consented_at,updated_at) VALUES($1,ARRAY['shellfish'],ARRAY[]::text[],ARRAY[]::text[],ARRAY[]::text[],now(),now())",
+      [me.id],
+    );
+    const ask = { text: 'I want to make egusi for 6', latitude: 6.59, longitude: 3.34 };
+    const full = (await call('buyer', 'post', '/errands/plan', { ...ask, avoid: ['stockfish'] }))
+      .body;
+    const crayfish = full.items.find((i: any) => i.name === 'Ground crayfish');
+    expect(crayfish.diet).toMatchObject({ status: 'AVOID' });
+    expect(crayfish.diet.reason).toContain('allergy');
+    expect(crayfish.listing).toBeNull();
+    const stockfish = full.items.find((i: any) => i.name.startsWith('Stockfish'));
+    expect(stockfish.diet).toEqual({ status: 'AVOID', reason: 'You said no stockfish' });
+    expect(full.missing).not.toContain('Ground crayfish');
+    expect(full.budget).toBeNull();
+    const egusiShop = (p: any) =>
+      p.items.find((i: any) => i.name === 'Ground egusi').listing.business_name;
+    expect(egusiShop(full)).toBe('Mama Ngozi Foodstuff');
+    // A budget a little under the full price swaps to cheaper egusi from the second shop.
+    const fit = (
+      await call('buyer', 'post', '/errands/plan', {
+        ...ask,
+        avoid: ['stockfish'],
+        budget_kobo: full.total_kobo - 50000,
+      })
+    ).body;
+    expect(egusiShop(fit)).toBe('Iya Bisi');
+    expect(fit.budget.cheaper_swaps).toBeGreaterThan(0);
+    expect(fit.total_kobo).toBeLessThan(full.total_kobo);
+    // A budget far too small says how many people it would feed.
+    const tight = (await call('buyer', 'post', '/errands/plan', { ...ask, budget_kobo: 1000000 }))
+      .body;
+    expect(tight.budget.over_by_kobo).toBeGreaterThan(0);
+    expect(tight.budget.fits_servings).toBeLessThan(6);
+  });
+  it('buys a portion of loose goods and ignores products that only share a word', async () => {
+    await foodShop('seller', 'Oyingbo Soup Ingredients', 6.6, 3.35, [
+      ['Ground ogbono', 'Food & groceries', 9000, 'kg'],
+      ['Ground crayfish', 'Food & groceries', 12000, 'kg'],
+      ['Pepper soup spice', 'Food & groceries', 600, 'pack'],
+      ['Vegetable oil', 'Food & groceries', 3200, 'litre'],
+      ['Seasoning cubes', 'Food & groceries', 1500, 'pack'],
+    ]);
+    const plan = (
+      await call('buyer', 'post', '/errands/plan', {
+        text: 'I want to make ogbono soup for 2',
+        latitude: 6.59,
+        longitude: 3.34,
+      })
+    ).body;
+    const item = (name: string) => plan.items.find((i: any) => i.name.startsWith(name));
+    // Scotch bonnet isn't pepper soup spice; palm oil isn't vegetable oil.
+    expect(item('Scotch bonnet').listing).toBeNull();
+    expect(item('Palm oil').listing).toBeNull();
+    // 2 people need about 0.1 kg of ogbono: priced as that part of a kilo.
+    const ogbono = item('Ground ogbono');
+    expect(ogbono).toMatchObject({ quantity: 1, portion: 0.1, line_kobo: 90000 });
+    expect(item('Ground crayfish').line_kobo).toBe(120000);
+    const placed = (
+      await call('buyer', 'post', '/errands', {
+        text: 'I want to make ogbono soup for 2',
+        dropoff: { latitude: 6.59, longitude: 3.34 },
+        dropoff_address: '12 Office Close, Ikeja, Lagos',
+        deliver_at: new Date(Date.now() + 4 * 3600000).toISOString(),
+        items: [
+          { listing_id: ogbono.listing.id, quantity: 1, portion: 0.1 },
+          { listing_id: item('Seasoning cubes').listing.id, quantity: 1 },
+        ],
+      })
+    ).body;
+    expect(placed.orders[0].total_kobo).toBe(90000 + 150000);
+    const [line] = await db.query(
+      "SELECT * FROM booking_lines WHERE booking_id=$1 AND title='Ground ogbono'",
+      [placed.orders[0].booking_id],
+    );
+    expect(line).toMatchObject({ unit: '0.1 kg', quantity: 1, price_kobo: 90000 });
+    // A part of something sold by the pack is refused.
+    const bad = await call('buyer', 'post', '/errands', {
+      text: 'cubes',
+      dropoff: { latitude: 6.59, longitude: 3.34 },
+      dropoff_address: '12 Office Close, Ikeja, Lagos',
+      deliver_at: new Date(Date.now() + 4 * 3600000).toISOString(),
+      items: [{ listing_id: item('Seasoning cubes').listing.id, quantity: 1, portion: 0.5 }],
+    });
+    expect(bad.body.error.code).toBe('PORTION_NOT_ALLOWED');
+  });
+  it('sends one rider to every shop of an errand and picks the single-cube option', async () => {
+    const a = await foodShop('seller', 'Oyingbo Soup Ingredients', 6.6, 3.35, [
+      ['Ground ogbono', 'Food & groceries', 9000, 'kg'],
+      ['Maggi cubes', 'Food & groceries', 1500, 'pack'],
+    ]);
+    // The cube listing also sells single cubes.
+    const [primary] = await db.query('SELECT * FROM listing_variants WHERE listing_id=$1', [
+      a['Maggi cubes'],
+    ]);
+    await db.query(
+      "INSERT INTO listing_variants(id,listing_id,name,unit,price_kobo,stock) VALUES($1,$2,'1 cube','piece',7500,200)",
+      [randomUUID(), primary.listing_id],
+    );
+    await foodShop('other', 'Mushin Meat and Fish', 6.605, 3.355, [
+      ['Beef', 'Food & groceries', 6500, 'kg'],
+    ]);
+    const ask = { text: 'I want to make ogbono soup for 2', latitude: 6.59, longitude: 3.34 };
+    const plan = (await call('buyer', 'post', '/errands/plan', ask)).body;
+    const cubes = plan.items.find((i: any) => i.name === 'Seasoning cubes');
+    expect(cubes).toMatchObject({ quantity: 2, line_kobo: 15000 });
+    expect(cubes.listing).toMatchObject({ unit: 'piece', title: 'Maggi cubes · 1 cube' });
+    // Two shops: the second is priced as an extra stop, not a second full trip.
+    expect(plan.sellers).toHaveLength(2);
+    const [full, stop] = [...plan.sellers].sort(
+      (x: any, y: any) => y.delivery_kobo - x.delivery_kobo,
+    );
+    expect(stop.delivery_kobo).toBeLessThan(full.delivery_kobo);
+    const placed = (
+      await call('buyer', 'post', '/errands', {
+        text: ask.text,
+        dropoff: { latitude: 6.59, longitude: 3.34 },
+        dropoff_address: '12 Office Close, Ikeja, Lagos',
+        deliver_at: new Date(Date.now() + 4 * 3600000).toISOString(),
+        items: plan.items
+          .filter((i: any) => i.listing)
+          .map((i: any) => ({
+            listing_id: i.listing.id,
+            variant_id: i.listing.variant_id,
+            quantity: i.portion ? 1 : i.quantity,
+            ...(i.portion ? { portion: i.portion } : {}),
+          })),
+      })
+    ).body;
+    expect(placed.orders).toHaveLength(2);
+    const [line] = await db.query("SELECT * FROM booking_lines WHERE title='Maggi cubes · 1 cube'");
+    expect(line).toMatchObject({ unit: 'piece', quantity: 2, price_kobo: 7500 });
+    const bookingOf = (seller: string) =>
+      placed.orders.find((o: any) => o.seller_id === seller).booking_id;
+    await call('seller', 'post', `/bookings/${bookingOf('seller')}/accept`, {});
+    await call('other', 'post', `/bookings/${bookingOf('other')}/accept`, {});
+    const [lead] = await db.query('SELECT * FROM deliveries WHERE booking_id=$1', [
+      bookingOf('seller'),
+    ]);
+    const [extra] = await db.query('SELECT * FROM deliveries WHERE booking_id=$1', [
+      bookingOf('other'),
+    ]);
+    expect(lead.trip_lead_id).toBeNull();
+    expect(extra.trip_lead_id).toBe(lead.id);
+    expect(Number(extra.fare_kobo)).toBeLessThan(Number(lead.fare_kobo));
+    // Only the lead is offered; taking it brings the other shop along.
+    await call('admin', 'post', '/drivers', {
+      vehicle_type: 'motorcycle',
+      plate_number: 'lag-888-xy',
+      licence_number: 'ABC12399',
+      city: 'Lagos',
+    });
+    await call('admin', 'post', '/admin/drivers/admin/review', {
+      status: 'APPROVED',
+      reason: 'Checked',
+    });
+    await call('admin', 'put', '/drivers/me/status', {
+      online: true,
+      latitude: 6.6,
+      longitude: 3.35,
+    });
+    await db.query('UPDATE deliveries SET scheduled_at=NULL WHERE id = ANY($1)', [
+      [lead.id, extra.id],
+    ]);
+    const jobs = (await call('admin', 'get', '/drivers/me/jobs')).body;
+    expect(jobs.open.map((j: any) => j.id)).toEqual([lead.id]);
+    expect((await call('admin', 'post', `/deliveries/${extra.id}/claim`, {})).body.error.code).toBe(
+      'PART_OF_TRIP',
+    );
+    expect((await call('admin', 'post', `/deliveries/${lead.id}/claim`, {})).status).toBe(200);
+    const [after] = await db.query('SELECT status,driver_id FROM deliveries WHERE id=$1', [
+      extra.id,
+    ]);
+    expect(after).toEqual({ status: 'ASSIGNED', driver_id: 'admin' });
+    // If the first shop's part is cancelled, the other becomes its own trip at a normal fare.
+    await call('buyer', 'post', `/bookings/${bookingOf('seller')}/cancel`, {});
+    const [promoted] = await db.query('SELECT * FROM deliveries WHERE id=$1', [extra.id]);
+    expect(promoted.trip_lead_id).toBeNull();
+    expect(Number(promoted.fare_kobo)).toBeGreaterThan(Number(extra.fare_kobo));
+  });
   it('reads explicit items with quantities', async () => {
     await foodShop('seller', 'Ikeja Poultry', 6.6, 3.35, [
       ['Eggs crate', 'Livestock', 5000, 'crate'],
@@ -3230,6 +3791,15 @@ describe('offers and group buying', () => {
     );
     expect(heard.title).toBe('Share Whole goat and save 2%');
     expect((await call('other', 'get', '/group-buys')).body.open[0].id).toBe(g.id);
+    // Searching for something to share finds the goat and its seller, with the open group.
+    const found = (await call('other', 'get', '/group-buys/search?q=goat')).body;
+    expect(found[0]).toMatchObject({
+      listing_id: goat,
+      business_name: 'Oko Oba Meats',
+      open_groups: 1,
+    });
+    expect(found[0].reason).toBeTruthy();
+    expect((await call('seller', 'get', '/group-buys/search?q=goat')).body).toEqual([]);
     expect((await call('seller', 'post', `/group-buys/${g.id}/join`, {})).body.error.code).toBe(
       'OWN_LISTING',
     );
@@ -4734,6 +5304,61 @@ describe('road-distance fares', () => {
     expect(d.body.distance_km).toBe(12);
   });
 });
+describe('staff sign-in codes', () => {
+  it('lets support issue a fresh code for a waiting sign-up, never for a password reset', async () => {
+    const reg = await request(app).post('/v1/auth/register').send({
+      name: 'Code Person',
+      email: 'stuck@test.com',
+      phone: '+2348091112222',
+      password: 'correct-horse-123',
+      transaction_pin: '4826',
+    });
+    expect(reg.status).toBe(202);
+    const emailed = latestCode();
+    expect((await call('buyer', 'get', '/admin/sign-in-codes')).status).toBe(403);
+    const list = await call('admin', 'get', '/admin/sign-in-codes?email=stuck');
+    expect(list.status).toBe(200);
+    expect(list.body).toHaveLength(1);
+    expect(list.body[0]).toMatchObject({
+      email: 'stuck@test.com',
+      name: 'Code Person',
+      purpose: 'register',
+    });
+    expect(JSON.stringify(list.body)).not.toContain('code_hash');
+    const issued = await call(
+      'admin',
+      'post',
+      `/admin/sign-in-codes/${reg.body.challenge_id}/issue`,
+    );
+    expect(issued.status).toBe(200);
+    expect(issued.body.code).toMatch(/^\d{6}$/);
+    const [log] = await db.query("SELECT * FROM audit WHERE action='auth.issue_code'");
+    expect(log.entity_id).toBe(reg.body.challenge_id);
+    if (issued.body.code !== emailed)
+      expect(
+        (
+          await request(app)
+            .post('/v1/auth/otp/verify')
+            .send({ challenge_id: reg.body.challenge_id, code: emailed })
+        ).status,
+      ).toBe(400);
+    const ok = await request(app)
+      .post('/v1/auth/otp/verify')
+      .send({ challenge_id: reg.body.challenge_id, code: issued.body.code });
+    expect(ok.status).toBe(200);
+    expect((await call('admin', 'get', '/admin/sign-in-codes?email=stuck')).body).toHaveLength(0);
+    // Password resets need only an email, so staff can never issue those codes.
+    await db.query("UPDATE otp_challenges SET sent_at=now()-interval '2 minutes'");
+    const reset = await request(app)
+      .post('/v1/auth/password/forgot')
+      .send({ email: 'stuck@test.com' });
+    expect(reset.status).toBe(202);
+    expect(
+      (await call('admin', 'post', `/admin/sign-in-codes/${reset.body.challenge_id}/issue`)).status,
+    ).toBe(404);
+  });
+});
+
 describe('redis, rate limits and realtime', () => {
   it('publishes user events only after commit, never on rollback', async () => {
     const { events } = await import('../src/lib/events.js');

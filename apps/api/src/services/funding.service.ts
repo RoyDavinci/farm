@@ -134,7 +134,8 @@ export interface FundingCheckout {
 }
 interface FundingActor {
   id: string;
-  email: string;
+  email: string | null;
+  phone?: string;
   name: string;
 }
 interface FundingFailure {
@@ -285,7 +286,8 @@ export async function startFunding(
         provider,
         reference,
         input.amount_kobo,
-        actor.email,
+        // Card providers need an email; phone-only accounts use a stand-in address.
+        actor.email || `${String(actor.phone).replace(/\D/g, '')}@phone.ahiamarketplace.com`,
         actor.name,
         { cardOnly: input.method === 'card' },
       );
@@ -328,7 +330,8 @@ export async function startFunding(
         provider,
         reference,
         input.amount_kobo,
-        actor.email,
+        // Card providers need an email; phone-only accounts use a stand-in address.
+        actor.email || `${String(actor.phone).replace(/\D/g, '')}@phone.ahiamarketplace.com`,
         actor.name,
         { cardOnly: input.method === 'card' },
       );

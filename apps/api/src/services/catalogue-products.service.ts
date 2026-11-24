@@ -6,6 +6,7 @@ import type { RequestInput } from '../lib/http.js';
 import type { AppDeps } from '../types/deps.js';
 import { productConditions, productUnits } from '../config/marketplace.js';
 import { audit } from './audit.service.js';
+import { notify } from './communications.service.js';
 import { createMarketplaceService, validateImages } from './listing.service.js';
 
 /**
@@ -75,6 +76,27 @@ export async function refreshFulfilment(db: Database) {
      FROM sellers s2 LEFT JOIN decided d ON d.seller_id=s2.user_id WHERE s.user_id=s2.user_id`,
   );
 }
+
+/** Words that say nothing about what the product is. */
+const NAME_NOISE = new Set([
+  'fresh',
+  'the',
+  'and',
+  'with',
+  'for',
+  'pack',
+  'piece',
+  'bag',
+  'per',
+  'new',
+  'big',
+  'small',
+  'large',
+  'medium',
+  'standard',
+  'quality',
+  'original',
+]);
 
 export function createCatalogueProductsService(deps: AppDeps) {
   const { db } = deps;
@@ -377,6 +399,112 @@ export function createCatalogueProductsService(deps: AppDeps) {
     await audit(q, user.id, 'catalogue_photo.add', photo.id);
     return { id: photo.id, filled: bare.length };
   }
+  /** Words of a product name worth matching on ("Fresh tomatoes (1 kg)" → fresh, tomatoes). */
+  const BARE = `l.status='ACTIVE' AND l.archived_at IS NULL AND l.image_url IS NULL
+    AND COALESCE(jsonb_array_length(l.image_urls::jsonb),0)=0`;
+  async function suggestionsFor(q: Query, title: string) {
+    const words = [
+      ...new Set((title.toLowerCase().match(/[a-z]{3,}/g) || []).filter((w) => !NAME_NOISE.has(w))),
+    ].slice(0, 6);
+    if (!words.length) return [];
+    return q.query(
+      `SELECT f.id,COALESCE(f.thumbnail_url,f.url) AS thumbnail_url,f.url,p.name AS product,
+         (SELECT COUNT(*)::int FROM unnest($1::text[]) w WHERE (lower(p.name)||' '||p.keywords) ~ ('\\m'||w)) AS hits
+       FROM catalogue_photos f JOIN catalogue_products p ON p.id=f.product_id
+       WHERE f.active AND p.active
+         AND EXISTS(SELECT 1 FROM unnest($1::text[]) w WHERE (lower(p.name)||' '||p.keywords) ~ ('\\m'||w))
+       ORDER BY hits DESC, f.created_at LIMIT 6`,
+      [words],
+    );
+  }
+  /** Staff: active listings with no photo, each with matching photos from the library. */
+  async function bareListings(_user: any, input: RequestInput) {
+    const d = z.object({ q: z.string().trim().max(100).default('') }).parse(input.query);
+    const rows = await db.query(
+      `SELECT l.id,l.title,l.category,l.unit,l.created_at,s.business_name,s.area
+       FROM listings l JOIN sellers s ON s.user_id=l.seller_id
+       WHERE ${BARE} AND ($1='' OR l.title ILIKE '%'||$1||'%' OR s.business_name ILIKE '%'||$1||'%')
+       ORDER BY l.created_at DESC LIMIT 200`,
+      [d.q],
+    );
+    const out = [];
+    for (const r of rows) out.push({ ...r, suggestions: await suggestionsFor(db as any, r.title) });
+    return out;
+  }
+  /** Puts a library photo (or a new staff upload, saved to the library) on a listing. */
+  async function attachPhoto(q: Query, user: any, l: any, photo: any, productId: string) {
+    await q.query(
+      `UPDATE listings SET image_url=$1,image_urls=$2,catalogue_photo_id=$3,
+         catalogue_product_id=COALESCE(catalogue_product_id,$4) WHERE id=$5`,
+      [photo.url, JSON.stringify([photo.url]), photo.id, productId, l.id],
+    );
+    await notify(
+      q,
+      l.seller_id,
+      'listing',
+      'We added a photo to your product',
+      `“${l.title}” had no photo, so we added a representative one. Replace it with your own photo any time.`,
+    );
+    await audit(q, user.id, 'listing.library_photo', l.id, { photo_id: photo.id });
+  }
+  async function setListingPhoto(q: Query, user: any, input: RequestInput) {
+    const d = z
+      .object({ photo_id: z.string().max(60).optional(), url: z.url().max(2000).optional() })
+      .refine((x) => x.photo_id || x.url, 'Choose a photo.')
+      .parse(input.body);
+    const [l] = await q.query('SELECT * FROM listings WHERE id=$1 FOR UPDATE', [input.params.id]);
+    ensure(l && !l.archived_at, 404, 'NOT_FOUND', 'Listing not found.');
+    if (d.photo_id) {
+      const [f] = await q.query('SELECT * FROM catalogue_photos WHERE id=$1 AND active', [
+        d.photo_id,
+      ]);
+      ensure(f, 404, 'NOT_FOUND', 'Photo not found.');
+      await attachPhoto(q, user, l, f, f.product_id);
+      return { ok: true as const };
+    }
+    // A new photo: it joins the library under this product name, so the next seller gets it too.
+    const [m] = await q.query('SELECT thumbnail_url FROM media WHERE url=$1 AND owner_id=$2', [
+      d.url,
+      user.id,
+    ]);
+    ensure(m, 400, 'INVALID_MEDIA', 'Upload the photo first.');
+    let productId = l.catalogue_product_id;
+    if (!productId) {
+      const [p] = await q.query(
+        'SELECT id FROM catalogue_products WHERE lower(name)=lower($1) AND unit=$2',
+        [l.title, l.unit],
+      );
+      productId =
+        p?.id ??
+        (
+          await q.query(
+            'INSERT INTO catalogue_products(id,name,brand,category,unit,keywords,created_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+            [randomUUID(), l.title, '', l.category, l.unit, l.title.toLowerCase(), user.id],
+          )
+        )[0].id;
+    }
+    const [f] = await q.query(
+      "INSERT INTO catalogue_photos(id,product_id,url,thumbnail_url,contributor_id,source) VALUES($1,$2,$3,$4,$5,'STAFF') ON CONFLICT(product_id,url) DO UPDATE SET active=TRUE RETURNING *",
+      [randomUUID(), productId, d.url, m.thumbnail_url, user.id],
+    );
+    await attachPhoto(q, user, l, f, productId);
+    return { ok: true as const };
+  }
+  /** Gives every photo-less listing its best library match (those with no match are left). */
+  async function fillBareListings(q: Query, user: any, _input: RequestInput) {
+    const rows = await q.query(
+      `SELECT l.* FROM listings l WHERE ${BARE} ORDER BY l.created_at DESC LIMIT 500 FOR UPDATE`,
+    );
+    let filled = 0;
+    for (const l of rows) {
+      const [best] = await suggestionsFor(q, l.title);
+      if (!best) continue;
+      const [f] = await q.query('SELECT * FROM catalogue_photos WHERE id=$1', [best.id]);
+      await attachPhoto(q, user, l, f, f.product_id);
+      filled++;
+    }
+    return { filled, left: rows.length - filled };
+  }
   /** Takes a shared photo out of use (wrong product, poor quality, a complaint). */
   async function removePhoto(q: Query, user: any, input: RequestInput) {
     const [f] = await q.query(
@@ -417,5 +545,8 @@ export function createCatalogueProductsService(deps: AppDeps) {
     addStaffPhoto,
     removePhoto,
     setProductActive,
+    bareListings,
+    setListingPhoto,
+    fillBareListings,
   };
 }

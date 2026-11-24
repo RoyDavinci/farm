@@ -91,9 +91,19 @@ export const operationResponses: Record<string, z.ZodType> = {
     set: z.boolean(),
     locked_until: z.string().nullable(),
   }),
+  'account.addBiometric': z.object({ id: z.string(), key: z.string() }),
+  'account.listBiometrics': z.array(
+    z.object({
+      id: z.string(),
+      device_name: z.string().nullable(),
+      created_at: z.string(),
+      last_used_at: z.string().nullable(),
+    }),
+  ),
+  'account.removeBiometric': z.object({ ok: z.literal(true) }),
   'account.updateMe': z.looseObject({
     admin: z.boolean(),
-    email: z.string(),
+    email: z.string().nullable(),
     email_verified_at: z.string().nullable(),
     id: z.string(),
     name: z.string(),
@@ -234,7 +244,7 @@ export const operationResponses: Record<string, z.ZodType> = {
       business_type: z.string(),
       city: z.string(),
       created_at: z.string(),
-      email: z.string(),
+      email: z.string().nullable(),
       latitude: z.number(),
       longitude: z.number(),
       market_id: z.string().nullable(),
@@ -294,16 +304,23 @@ export const operationResponses: Record<string, z.ZodType> = {
   'auth.forgotPassword': z.looseObject({
     challenge_id: z.string(),
     delivery: z.string(),
-    email: z.string(),
+    email: z.string().nullable(),
     expires_in: z.number(),
     resend_after: z.number(),
   }),
   // A code was emailed (202), or a trusted device signed straight in (200, with a session).
   'auth.login': z.union([
     z.looseObject({
+      expires_in: z.number(),
+      refresh_token: z.string(),
+      token: z.string(),
+      device_token: z.string().optional(),
+      user: z.looseObject({ id: z.string(), name: z.string(), phone: z.string() }),
+    }),
+    z.looseObject({
       challenge_id: z.string(),
       delivery: z.string(),
-      email: z.string(),
+      email: z.string().nullable(),
       expires_in: z.number(),
       resend_after: z.number(),
     }),
@@ -314,8 +331,8 @@ export const operationResponses: Record<string, z.ZodType> = {
       token: z.string(),
       user: z.looseObject({
         admin: z.boolean(),
-        email: z.string(),
-        email_verified_at: z.string(),
+        email: z.string().nullable(),
+        email_verified_at: z.string().nullable(),
         id: z.string(),
         name: z.string(),
         phone: z.string(),
@@ -328,13 +345,33 @@ export const operationResponses: Record<string, z.ZodType> = {
     refresh_token: z.string(),
     token: z.string(),
   }),
-  'auth.register': z.looseObject({
-    challenge_id: z.string(),
-    delivery: z.string(),
-    email: z.string(),
+  // A code was sent (by email or text), or, with no text messages yet, a phone-only account was
+  // opened straight away with the minimal check.
+  'auth.register': z.union([
+    z.looseObject({
+      challenge_id: z.string(),
+      delivery: z.string(),
+      email: z.string().nullable(),
+      expires_in: z.number(),
+      resend_after: z.number(),
+    }),
+    z.looseObject({
+      expires_in: z.number(),
+      refresh_token: z.string(),
+      token: z.string(),
+      device_token: z.string().optional(),
+      user: z.looseObject({ id: z.string(), name: z.string(), phone: z.string() }),
+    }),
+  ]),
+  'auth.biometricSignIn': z.looseObject({
     expires_in: z.number(),
-    resend_after: z.number(),
+    refresh_token: z.string(),
+    token: z.string(),
+    device_token: z.string().optional(),
+    user: z.looseObject({ id: z.string(), name: z.string(), phone: z.string() }),
   }),
+  'account.addLoginKey': z.object({ id: z.string(), key: z.string() }),
+  'account.removeLoginKey': z.object({ ok: z.literal(true) }),
   'auth.resendCode': z.looseObject({
     ok: z.boolean(),
     resend_after: z.number(),
@@ -349,8 +386,8 @@ export const operationResponses: Record<string, z.ZodType> = {
       device_token: z.string(),
       user: z.looseObject({
         admin: z.boolean(),
-        email: z.string(),
-        email_verified_at: z.string(),
+        email: z.string().nullable(),
+        email_verified_at: z.string().nullable(),
         id: z.string(),
         name: z.string(),
         phone: z.string(),
@@ -513,7 +550,7 @@ export const operationResponses: Record<string, z.ZodType> = {
     z.looseObject({
       admin: z.boolean(),
       created_at: z.string(),
-      email: z.string(),
+      email: z.string().nullable(),
       email_verified_at: z.string().nullable(),
       id: z.string(),
       name: z.string(),
@@ -669,7 +706,7 @@ export const operationResponses: Record<string, z.ZodType> = {
   'deliveries.listDrivers': z.array(
     Driver.extend({
       name: z.string(),
-      email: z.string(),
+      email: z.string().nullable(),
       phone: z.string(),
       vehicle_name: z.string(),
     }),
@@ -1112,7 +1149,7 @@ export const operationResponses: Record<string, z.ZodType> = {
   }),
   'staff.listStaff': z.array(
     z.looseObject({
-      email: z.string(),
+      email: z.string().nullable(),
       id: z.string(),
       name: z.string(),
       staff_role: z.string(),
@@ -1120,7 +1157,7 @@ export const operationResponses: Record<string, z.ZodType> = {
     }),
   ),
   'staff.setStaffRole': z.looseObject({
-    email: z.string(),
+    email: z.string().nullable(),
     id: z.string(),
     name: z.string(),
     staff_role: z.string(),

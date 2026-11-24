@@ -32,6 +32,8 @@ import {
   Banknote,
   Bike,
   Boxes,
+  Images,
+  Ticket,
   ChartLine,
   Check,
   CircleDot,
@@ -66,6 +68,7 @@ import {
   ShoppingBag,
   Store,
   Wallet,
+  KeyRound,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -83,7 +86,10 @@ import { SellerReviewModal, TimelineModal } from './pages/Modals';
 import OverviewPage from './pages/OverviewPage';
 import PayoutsPage from './pages/PayoutsPage';
 import RiskPage from './pages/RiskPage';
+import SignInCodesPage from './pages/SignInCodesPage';
 import CatalogueProductsPage from './pages/CatalogueProductsPage';
+import PhotoLibraryPage from './pages/PhotoLibraryPage';
+import PromosPage from './pages/PromosPage';
 import RefundsPage from './pages/RefundsPage';
 import { AllergenReportsPage, PlannerUsagePage } from './pages/PlannerPages';
 import {
@@ -137,6 +143,9 @@ const pageArea: Record<Page, string> = {
   Payouts: 'payouts',
   Risk: 'risk',
   'Product catalogue': 'catalogue-products',
+  'Photo library': 'catalogue-products',
+  'Promos & referrals': 'promo-codes',
+  'Sign-in codes': 'sign-in-codes',
   Refunds: 'refunds',
   Planner: 'planner',
   'Allergen reports': 'allergen-reports',
@@ -202,6 +211,7 @@ const navGroups: { label: string; items: (readonly [Page, LucideIcon])[] }[] = [
       ['Refunds', RotateCcw],
       ['Reconciliation', ArrowLeftRight],
       ['Ledger', Wallet],
+      ['Promos & referrals', Ticket],
       ['Promotions', Megaphone],
       ['Advertising', Newspaper],
     ],
@@ -211,7 +221,9 @@ const navGroups: { label: string; items: (readonly [Page, LucideIcon])[] }[] = [
     items: [
       ['Risk', ShieldAlert],
       ['Product catalogue', Boxes],
+      ['Photo library', Images],
       ['Users', Users],
+      ['Sign-in codes', KeyRound],
       ['Verifications', BadgeCheck],
       ['Reports', Flag],
       ['Allergen reports', ShieldAlert],
@@ -498,6 +510,12 @@ function App() {
                       Payouts: 'Review seller withdrawals and send bank transfers.',
                       'Product catalogue':
                         'Standard products sellers pick from, and the shared photos rotated across their listings.',
+                      'Promos & referrals':
+                        'Promo codes, and what people get for inviting friends. Rewards are Ahia credit.',
+                      'Photo library':
+                        'Products listed without a photo: give them one from the library, or upload and clean a new one.',
+                      'Sign-in codes':
+                        'People stuck waiting for an email code: give them a new one to read out.',
                       Risk: 'Fraud signals to check: linked accounts, odd money patterns and identity problems.',
                       Refunds: 'Refunds sent back to buyers’ cards, and any that need a check.',
                       Planner: 'How customers plan: types, products matched, orders and budgets.',
@@ -570,7 +588,10 @@ function App() {
             {page === 'Ledger' && <LedgerPage ledger={ledger} />}
             {page === 'Payouts' && <PayoutsPage />}
             {page === 'Risk' && <RiskPage />}
+            {page === 'Sign-in codes' && <SignInCodesPage />}
             {page === 'Product catalogue' && <CatalogueProductsPage />}
+            {page === 'Photo library' && <PhotoLibraryPage />}
+            {page === 'Promos & referrals' && <PromosPage />}
             {page === 'Refunds' && <RefundsPage />}
             {page === 'Planner' && <PlannerUsagePage />}
             {page === 'Verifications' && <VerificationsPage />}

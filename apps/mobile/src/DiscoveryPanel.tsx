@@ -1,7 +1,7 @@
 import LocalStatusFeed from './LocalStatusFeed';
 import { FadeIn, PressScale, produceIcon } from './ui';
 import { VerifiedBadge } from './BusinessTools';
-import { Linking } from 'react-native';
+import { Keyboard, Linking } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useApp } from './AppContext';
 import { featureOn } from './features';
@@ -21,7 +21,7 @@ import {
 import MapPanel from './MapPanel';
 import { request } from './request';
 import { WantIt } from './Deals';
-import { GroupBuysPanel, OffersPanel } from './Offers';
+import { GroupBuysPanel, GroupFinder, OffersPanel } from './Offers';
 import RequestForm from './RequestForm';
 import ErrandPanel from './Errand';
 export default function DiscoveryPanel({
@@ -37,7 +37,8 @@ export default function DiscoveryPanel({
   category: string;
   onCategory: (category: string) => void;
 }) {
-  const { settings, setTab, openSeller, run } = useApp();
+  const { settings, setTab, openSeller, run, scrollToView } = useApp();
+  const resultsRef = useRef<View>(null);
   const [featured, setFeatured] = useState<any[]>([]),
     [ads, setAds] = useState<any[]>([]),
     [adPage, setAdPage] = useState(0),
@@ -48,7 +49,7 @@ export default function DiscoveryPanel({
     [market, setMarket] = useState(''),
     [markets, setMarkets] = useState<any[]>([]),
     [point, setPoint] = useState<{ latitude: number; longitude: number } | null>(null),
-    [requesting, setRequesting] = useState(false),
+    [tool, setTool] = useState<'' | 'errand' | 'request' | 'offers' | 'groups'>(''),
     [radius, setRadius] = useState('25'),
     [sort, setSort] = useState('recent'),
     [min, setMin] = useState(''),
@@ -198,6 +199,17 @@ export default function DiscoveryPanel({
   ) : null;
   return (
     <View style={{ gap: 18 }}>
+      {featureOn(settings, 'local_status') ? (
+        <LocalStatusFeed
+          point={point}
+          category={category}
+          refreshVersion={refreshVersion}
+          aside={aside}
+        />
+      ) : (
+        aside && <View style={{ height: 230 }}>{aside}</View>
+      )}
+
       <View style={s.locRow}>
         <Pressable
           accessibilityRole="button"
@@ -229,7 +241,7 @@ export default function DiscoveryPanel({
         </Pressable>
       </View>
 
-      <View style={s.searchBox}>
+      <View style={s.searchBox} {...({ dataSet: { focusring: 'pill' } } as any)}>
         <Svg
           width={20}
           height={20}
@@ -249,6 +261,11 @@ export default function DiscoveryPanel({
           placeholderTextColor="#8aa698"
           value={q}
           onChangeText={setQ}
+          returnKeyType="search"
+          onSubmitEditing={() => {
+            Keyboard.dismiss();
+            if (q.trim()) scrollToView(resultsRef.current);
+          }}
         />
         <Pressable
           accessibilityRole="button"
@@ -272,6 +289,22 @@ export default function DiscoveryPanel({
           </Svg>
         </Pressable>
       </View>
+      {!!q.trim() && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            Keyboard.dismiss();
+            scrollToView(resultsRef.current);
+          }}
+          style={s.resultsJump}
+        >
+          <Text style={s.resultsJumpText}>
+            {busy
+              ? `Searching for “${q.trim()}”…`
+              : `See ${items.length}${cursor ? '+' : ''} result${items.length === 1 ? '' : 's'} for “${q.trim()}” ↓`}
+          </Text>
+        </Pressable>
+      )}
 
       <View style={s.quickRow}>
         {(
@@ -314,17 +347,6 @@ export default function DiscoveryPanel({
           </PressScale>
         ))}
       </View>
-
-      {featureOn(settings, 'local_status') ? (
-        <LocalStatusFeed
-          point={point}
-          category={category}
-          refreshVersion={refreshVersion}
-          aside={aside}
-        />
-      ) : (
-        aside && <View style={{ height: 230 }}>{aside}</View>
-      )}
 
       {!!ads.length && (
         <View style={{ gap: 8 }}>
@@ -383,6 +405,53 @@ export default function DiscoveryPanel({
           )}
         </View>
       )}
+
+      <View style={s.sectionHead}>
+        <Text style={s.sectionTitle}>✨ New on Ahia</Text>
+        <Text style={s.small}>Shop smarter</Text>
+      </View>
+      {tool === 'errand' && <ErrandPanel startOpen onClose={() => setTool('')} />}
+      {tool === 'request' && <RequestForm onDone={() => setTool('')} />}
+      {tool === 'offers' && (
+        <View style={{ gap: 8 }}>
+          <OffersPanel />
+          <Text style={s.small}>
+            Sellers add new offers every day. Watch a product with 🔔 to hear when it drops.
+          </Text>
+        </View>
+      )}
+      {tool === 'groups' && <GroupFinder point={point} />}
+      <View style={s.featureGrid}>
+        {(
+          [
+            ['errand', '🛵', 'Buy it & bring it', 'We shop & deliver', '#1f754a'],
+            ['request', '🙋', 'Request it', 'Sellers quote you', '#2b4a8b'],
+            ['offers', '🏷️', 'Offers & deals', 'Today, weekly, bulk', '#b5462f'],
+            ['groups', '👥', 'Group buys', 'Share it, save 1–3%', '#6a3d9a'],
+          ] as const
+        ).map(([key, icon, title, sub, bg]) => (
+          <PressScale
+            key={key}
+            accessibilityRole="button"
+            accessibilityLabel={title}
+            accessibilityState={{ expanded: tool === key }}
+            onPress={() => setTool(tool === key ? '' : key)}
+            wrapStyle={s.featureWrap}
+            style={[s.feature, { backgroundColor: bg }, tool === key && s.featureActive]}
+          >
+            <Text style={s.featureIcon}>{icon}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.featureTitle} numberOfLines={1}>
+                {title}
+              </Text>
+              <Text style={s.featureSub} numberOfLines={1}>
+                {tool === key ? 'Tap to close' : sub}
+              </Text>
+            </View>
+            {tool !== key && <Text style={s.featureNew}>NEW</Text>}
+          </PressScale>
+        ))}
+      </View>
 
       {error && (
         <Text accessibilityRole="alert" style={s.error}>
@@ -519,24 +588,14 @@ export default function DiscoveryPanel({
         </>
       )}
 
-      {!q.trim() && <ErrandPanel />}
-      {!q.trim() &&
-        (requesting ? (
-          <RequestForm onDone={() => setRequesting(false)} />
-        ) : (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setRequesting(true)}
-            style={s.sectionHead}
-          >
-            <Text style={s.sectionTitle}>🙋 Request what you need</Text>
-            <Text style={s.small}>Sellers near you quote ›</Text>
-          </Pressable>
-        ))}
       {!q.trim() && <OffersPanel />}
       <GroupBuysPanel query={q.trim() || undefined} />
-      <View style={s.sectionHead}>
-        <Text style={s.sectionTitle}>🔥 {point ? 'Hot deals near you' : 'Hot deals'}</Text>
+      <View style={s.sectionHead} ref={resultsRef as any}>
+        <Text style={s.sectionTitle}>
+          {q.trim()
+            ? `🔎 Results for “${q.trim()}”`
+            : `🔥 ${point ? 'Hot deals near you' : 'Hot deals'}`}
+        </Text>
         <Pressable
           accessibilityRole="button"
           onPress={() => setSort(point ? 'distance' : 'price_asc')}
@@ -621,34 +680,6 @@ export default function DiscoveryPanel({
           </ScrollView>
         </>
       )}
-
-      <View style={s.sectionHead}>
-        <Text style={s.sectionTitle}>Your tools</Text>
-      </View>
-      <View style={s.quickRow}>
-        {(
-          [
-            ['💼', 'Business hub', '#eef3fb', 'Business'],
-            ['👛', 'Wallet', '#fdf3dc', 'Wallet'],
-            ['🏪', 'Sell', '#e9f6ef', 'Sell'],
-            ['🛵', 'Drive', '#fde9d9', 'Drive'],
-          ] as const
-        ).map(([icon, label, bg, tab]) => (
-          <PressScale
-            key={label}
-            accessibilityRole="button"
-            accessibilityLabel={label}
-            onPress={() => setTab(tab)}
-            wrapStyle={{ flex: 1 }}
-            style={[s.quick, { backgroundColor: bg }]}
-          >
-            <Text style={s.quickIcon}>{icon}</Text>
-            <Text style={s.quickText} numberOfLines={2}>
-              {label}
-            </Text>
-          </PressScale>
-        ))}
-      </View>
 
       {featureOn(settings, 'shopping') && (
         <PressScale onPress={() => setTab('Riders')} style={s.riderPromo}>
@@ -817,6 +848,15 @@ const BRAND = '#1f754a',
   ACCENT = '#f5a524',
   INK = '#143022';
 const s = StyleSheet.create({
+  resultsJump: {
+    alignSelf: 'flex-start',
+    marginTop: -8,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: '#1f754a',
+  },
+  resultsJumpText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   locRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   locPill: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   locTitle: { fontSize: 15, fontWeight: '800', color: INK },
@@ -952,6 +992,36 @@ const s = StyleSheet.create({
   },
   riderEmoji: { fontSize: 30 },
   quickRow: { flexDirection: 'row', gap: 8 },
+  featureGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  featureWrap: { flexGrow: 1, flexBasis: 160 },
+  feature: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    minHeight: 58,
+  },
+  featureActive: { borderWidth: 2, borderColor: '#f5c451' },
+  featureIcon: { fontSize: 22 },
+  featureNew: {
+    position: 'absolute',
+    top: -7,
+    right: 10,
+    color: '#3a2a00',
+    backgroundColor: '#f5c451',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  featureTitle: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  featureSub: { color: 'rgba(255,255,255,0.85)', fontSize: 11 },
   quick: {
     borderRadius: 16,
     paddingVertical: 12,

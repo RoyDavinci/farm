@@ -47,4 +47,26 @@ export const catalogueResponses: Record<string, z.ZodType> = {
   'catalogue.addStaffPhoto': z.object({ id: z.string(), filled: z.number().int() }),
   'catalogue.removePhoto': ok,
   'catalogue.setProductActive': ok,
+  'catalogue.bareListings': z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      category: z.string(),
+      unit: z.string(),
+      created_at: z.string(),
+      business_name: z.string(),
+      area: z.string().nullable(),
+      suggestions: z.array(
+        z.object({
+          id: z.string(),
+          url: z.string(),
+          thumbnail_url: z.string(),
+          product: z.string(),
+          hits: z.number().int(),
+        }),
+      ),
+    }),
+  ),
+  'catalogue.setListingPhoto': ok,
+  'catalogue.fillBareListings': z.object({ filled: z.number().int(), left: z.number().int() }),
 };

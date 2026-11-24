@@ -6,6 +6,26 @@ import type { RequestInput } from '../lib/http.js';
 import { storage } from '../lib/storage.js';
 import type { AppDeps } from '../types/deps.js';
 
+const WHITE = { r: 255, g: 255, b: 255, alpha: 1 };
+export async function cleanPhoto(input: Buffer) {
+  const upright = await sharp(input, { limitInputPixels: 40000000 })
+    .rotate()
+    .flatten({ background: WHITE })
+    .toBuffer();
+  // Trimming fails on a photo that is one flat colour; keep it as it is then.
+  const trimmed = await sharp(upright)
+    .trim({ threshold: 18 })
+    .toBuffer()
+    .catch(() => upright);
+  return sharp(trimmed)
+    .resize(1000, 1000, { fit: 'contain', background: WHITE })
+    .extend({ top: 40, bottom: 40, left: 40, right: 40, background: WHITE })
+    .resize(1000, 1000)
+    .sharpen({ sigma: 0.6 })
+    .webp({ quality: 82 })
+    .toBuffer();
+}
+
 /** Listing photos: validated, re-encoded to WebP (metadata stripped) with a thumbnail. */
 export function createMediaService(deps: AppDeps) {
   const { db, config: c } = deps;
@@ -16,7 +36,13 @@ export function createMediaService(deps: AppDeps) {
       "SELECT user_id FROM sellers WHERE user_id=$1 AND status='APPROVED'",
       [uid],
     );
-    ensure(seller, 403, 'SELLER_NOT_APPROVED', 'Approved sellers can upload product photos.');
+    const [staff] = await db.query('SELECT 1 FROM users WHERE id=$1 AND admin', [uid]);
+    ensure(
+      seller || staff,
+      403,
+      'SELLER_NOT_APPROVED',
+      'Approved sellers can upload product photos.',
+    );
     ensure(input.file, 400, 'IMAGE_REQUIRED', 'Choose a JPEG, PNG or WebP image under 5 MB.');
     const [count] = await db.query('SELECT COUNT(*)::int AS n FROM media WHERE owner_id=$1', [uid]);
     ensure(
@@ -41,11 +67,16 @@ export function createMediaService(deps: AppDeps) {
       'This file is not a supported photo.',
     );
     const key = randomUUID();
-    const full = await sharp(input.file.buffer, { limitInputPixels: 40000000 })
-      .rotate()
-      .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toBuffer();
+    // "Clean" (staff photo library): turn it upright, trim empty borders, centre it on a white
+    // square and sharpen a little, so shared product photos look alike.
+    const clean = staff && String(input.query?.clean) === 'true';
+    const full = clean
+      ? await cleanPhoto(input.file.buffer)
+      : await sharp(input.file.buffer, { limitInputPixels: 40000000 })
+          .rotate()
+          .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+          .webp({ quality: 80 })
+          .toBuffer();
     const thumb = await sharp(full)
       .resize(400, 400, { fit: 'cover', withoutEnlargement: true })
       .webp({ quality: 70 })

@@ -65,6 +65,24 @@ export async function lockMoney(q: Query, userId: string, hours: number, reason:
   );
 }
 
+/**
+ * Money can only leave an account whose owner has been reached at least once: a verified email,
+ * a phone verified by text, or a verified BVN. (Phone-only accounts opened while text messages
+ * aren't available start unverified.)
+ */
+export async function ensureVerifiedContact(q: Query, userId: string) {
+  const [u] = await q.query(
+    'SELECT email_verified_at,phone_verified_at,bvn_verified_at FROM users WHERE id=$1',
+    [userId],
+  );
+  ensure(
+    u?.email_verified_at || u?.phone_verified_at || u?.bvn_verified_at,
+    403,
+    'VERIFY_TO_MOVE_MONEY',
+    'Verify your BVN (Wallet → Verify) or add and confirm an email before withdrawing or sending money.',
+  );
+}
+
 /** Blocks frozen accounts from moving money or taking jobs. */
 export async function ensureNotFrozen(q: Query, userId: string) {
   const [u] = await q.query('SELECT frozen_at,frozen_reason FROM users WHERE id=$1', [userId]);
@@ -139,7 +157,13 @@ export async function heldKobo(q: Query, userId: string, account: string) {
        WHERE user_id=$1 AND status='SUCCESSFUL' AND purpose='wallet' AND credited_at>now()-make_interval(hours=>$2)`,
       [userId, DEPOSIT_HOLD_HOURS],
     );
-    return Number(r.held);
+    // Ahia credit (referrals, promo codes) can be spent at once but not cashed out for a while.
+    const [credit] = await q.query(
+      `SELECT COALESCE(SUM(amount_kobo),0)::bigint AS held FROM wallet_credits
+       WHERE user_id=$1 AND created_at>now()-make_interval(days=>(SELECT credit_hold_days FROM settings WHERE id=1))`,
+      [userId],
+    );
+    return Number(r.held) + Number(credit.held);
   }
   if (account === 'seller_payable' && (await completedJobs(q, userId)) < TRUSTED_AFTER_JOBS) {
     const [r] = await q.query(
@@ -192,6 +216,7 @@ export async function guardWithdrawal(
   amount: number,
 ) {
   await ensureNotFrozen(q, userId);
+  await ensureVerifiedContact(q, userId);
   const limits = await payoutLimits(q, userId);
   if (limits.locked_until)
     throw new AppError(

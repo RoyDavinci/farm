@@ -9,6 +9,7 @@ import PayoutPanel from '../PayoutPanel';
 import { TransactionPinCard } from '../TransactionPin';
 import { request } from '../request';
 import { Badge, Button, Chip, Field, s } from '../ui';
+import { AhiaIdCard, InviteCard, PromoCodeCard, SendMoneyPanel } from '../Rewards';
 
 export interface WalletData {
   balance_kobo: number;
@@ -26,7 +27,7 @@ export interface WalletData {
 export default function WalletScreen({ wallet }: { wallet: WalletData }) {
   const { seller, settings, busy, run, refresh } = useApp();
   const [fund, setFund] = useState('5000');
-  const [panel, setPanel] = useState<'deposit' | 'withdraw' | null>(null);
+  const [panel, setPanel] = useState<'deposit' | 'withdraw' | 'send' | null>(null);
   const [withdrawFrom, setWithdrawFrom] = useState<'wallet' | 'earnings'>('wallet');
   /** Opens the provider's checkout; the wallet is credited when the payment is confirmed. */
   const deposit = (provider: PaymentProvider, method: 'card' | 'any') =>
@@ -74,7 +75,16 @@ export default function WalletScreen({ wallet }: { wallet: WalletData }) {
             Withdraw
           </Text>
         </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          style={[styles.action, panel === 'send' && styles.actionOn]}
+          onPress={() => setPanel(panel === 'send' ? null : 'send')}
+        >
+          <Text style={[styles.actionIcon, panel === 'send' && styles.actionTextOn]}>⇄</Text>
+          <Text style={[styles.actionText, panel === 'send' && styles.actionTextOn]}>Send</Text>
+        </Pressable>
       </View>
+      {panel === 'send' && <SendMoneyPanel onSent={() => void refresh()} />}
       {panel === 'deposit' && (
         <View style={s.orderCard}>
           <Text style={s.cardTitle}>Add money to your wallet</Text>
@@ -202,6 +212,11 @@ export default function WalletScreen({ wallet }: { wallet: WalletData }) {
             </View>
           );
         })}
+      <View style={{ gap: 16, marginVertical: 4 }}>
+        <AhiaIdCard />
+        <PromoCodeCard />
+        <InviteCard />
+      </View>
       <Text style={s.sectionTitle}>{t('wallet.recent')}</Text>
       {wallet.entries.length ? (
         wallet.entries.map((e: any) => (

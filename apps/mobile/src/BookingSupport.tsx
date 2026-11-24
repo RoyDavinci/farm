@@ -5,6 +5,27 @@ import { useEffect, useState } from 'react';
 import { Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { uploadEvidence } from './api';
 import { request } from './request';
+import { useApp } from './AppContext';
+/** Opens (or starts) the chat between the buyer and the seller of this order. */
+export function MessageButton({ booking: b, isSeller }: { booking: Booking; isSeller: boolean }) {
+  const { openConversation, run, busy } = useApp();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={busy}
+      style={s.chat}
+      onPress={() =>
+        void run(async () => {
+          const c = await request('post', '/conversations', { body: { booking_id: b.id } });
+          openConversation(c.id);
+        })
+      }
+    >
+      <Text style={s.chatText}>💬 Message the {isSeller ? 'buyer' : 'seller'}</Text>
+    </Pressable>
+  );
+}
+
 export default function BookingSupport({
   booking: b,
   isSeller,
@@ -48,6 +69,7 @@ export default function BookingSupport({
   }
   return (
     <View style={s.box}>
+      <MessageButton booking={b} isSeller={isSeller} />
       <View style={s.row}>
         <Pressable
           disabled={busy}
@@ -203,6 +225,14 @@ export default function BookingSupport({
   );
 }
 const s = StyleSheet.create({
+  chat: {
+    alignSelf: 'flex-start',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    backgroundColor: '#1f754a',
+  },
+  chatText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   note: { backgroundColor: '#f4fbf8', borderRadius: 10, padding: 10, gap: 3 },
   noteStaff: { backgroundColor: '#eefaf4', borderLeftWidth: 3, borderLeftColor: '#1f754a' },
   noteHead: { fontSize: 11, fontWeight: '700', color: '#325142' },

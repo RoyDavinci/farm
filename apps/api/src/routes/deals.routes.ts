@@ -9,6 +9,7 @@ export function dealsRoutes(deps: AppDeps) {
   r.get('/offers', c.offers);
   r.post('/listings/:id/sale', c.setSale);
   r.get('/group-buys', c.listGroups);
+  r.get('/group-buys/search', c.searchGroupProducts);
   r.post('/group-buys', c.startGroup);
   r.get('/group-buys/:id', c.getGroup);
   r.post('/group-buys/:id/join', c.joinGroup);

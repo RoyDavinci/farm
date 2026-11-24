@@ -70,6 +70,10 @@ export const envSchema = z.object({
   SMTP_SECURE: bool(false),
   SMTP_USER: str(),
   SMTP_PASSWORD: str(),
+  // Text messages (codes for phone-only accounts)
+  SMS_MODE: z.enum(['termii', 'file', 'off', '']).optional(),
+  TERMII_API_KEY: str(),
+  TERMII_SENDER_ID: str(),
   // Maps, storage, push
   MAPBOX_PUBLIC_TOKEN: str(),
   MAPBOX_SERVER_TOKEN: str(),

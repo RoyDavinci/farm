@@ -10,7 +10,9 @@ import { unitPrice } from './catalog.service.js';
 import { notify } from './communications.service.js';
 import { words } from './deals.service.js';
 import { ledger, lockedBalance } from './ledger.service.js';
+import { verifiedSql } from './business-verification.service.js';
 import { bookableSql } from './retention.service.js';
+import { haversineKm } from './routing.service.js';
 import { ensureNotFrozen } from './risk.service.js';
 
 /**
@@ -491,5 +493,80 @@ export function createGroupBuyService(deps: AppDeps) {
   async function getGroup(user: any, input: RequestInput) {
     return await view(db, String(input.params.id), user.id);
   }
-  return { startGroup, joinGroup, leaveGroup, invite, listGroups, getGroup };
+  /**
+   * Find something to buy as a group: products matching the search, best sellers first
+   * (verified, well rated, reliable, close by), with how many groups are already open for each.
+   */
+  async function searchGroupProducts(user: any, input: RequestInput) {
+    const d = z
+      .object({
+        q: z.string().trim().min(2).max(100),
+        lat: z.coerce.number().min(-90).max(90).optional(),
+        lng: z.coerce.number().min(-180).max(180).optional(),
+      })
+      .parse(input.query);
+    const w = words(d.q);
+    if (!w.length) return [];
+    const rows = await db.query(
+      `SELECT l.id,l.title,l.unit,l.image_url,l.seller_id,v.price_kobo,
+         s.business_name,s.area,s.fulfilment_pct,${verifiedSql('s')} AS verified,
+         COALESCE(s.latitude,s.public_latitude) AS lat,COALESCE(s.longitude,s.public_longitude) AS lng,
+         (SELECT AVG(r.score)::float8 FROM ratings r WHERE r.seller_id=s.user_id) AS rating,
+         (SELECT COUNT(*)::int FROM ratings r WHERE r.seller_id=s.user_id) AS reviews,
+         (SELECT COUNT(*)::int FROM group_buys g WHERE g.listing_id=l.id AND g.status='OPEN' AND g.expires_at>now()) AS open_groups,
+         (SELECT COUNT(*)::int FROM unnest($1::text[]) x WHERE l.title ~* ('\\m'||x)) AS hits
+       FROM listings l JOIN sellers s ON s.user_id=l.seller_id JOIN users u ON u.id=s.user_id
+       JOIN listing_variants v ON v.listing_id=l.id AND v.is_primary AND v.active
+       WHERE l.status='ACTIVE' AND s.status='APPROVED' AND u.status='ACTIVE' AND u.frozen_at IS NULL
+         AND l.seller_id<>$2 AND ${bookableSql('l')}
+         AND EXISTS(SELECT 1 FROM unnest($1::text[]) x WHERE l.title ~* ('\\m'||x))
+       LIMIT 80`,
+      [w, user.id],
+    );
+    return rows
+      .map((r: any) => {
+        const km =
+          d.lat != null && d.lng != null && r.lat != null
+            ? Math.round(haversineKm(d.lat, d.lng, r.lat, r.lng) * 10) / 10
+            : null;
+        const rating = r.rating ? Math.round(Number(r.rating) * 10) / 10 : null;
+        const score =
+          r.hits * 4 +
+          (r.verified ? 3 : 0) +
+          (rating ? rating - 3 : 0) +
+          (r.fulfilment_pct != null ? (r.fulfilment_pct - 70) / 15 : 0) +
+          (r.open_groups ? 1 : 0) -
+          (km ?? 10) / 4;
+        const why = [
+          r.verified ? 'Verified' : null,
+          rating ? `★ ${rating} (${r.reviews})` : null,
+          r.fulfilment_pct != null && r.fulfilment_pct >= 90
+            ? `${r.fulfilment_pct}% delivered`
+            : null,
+          km != null ? `${km} km` : null,
+        ].filter(Boolean);
+        return {
+          listing_id: r.id,
+          title: r.title,
+          unit: r.unit,
+          price_kobo: r.price_kobo,
+          image_url: r.image_url,
+          seller_id: r.seller_id,
+          business_name: r.business_name,
+          area: r.area,
+          verified: !!r.verified,
+          rating,
+          reviews: r.reviews,
+          distance_km: km,
+          open_groups: r.open_groups,
+          reason: why.join(' · ') || 'New seller',
+          score,
+        };
+      })
+      .filter((r: any) => r.distance_km == null || r.distance_km <= 50)
+      .sort((a: any, b: any) => b.score - a.score)
+      .slice(0, 8)
+      .map(({ score: _s, ...r }: any) => r);
+  }
+  return { startGroup, joinGroup, leaveGroup, invite, listGroups, getGroup, searchGroupProducts };
 }

@@ -21,5 +21,7 @@ export function adminRiskRoutes(deps: AppDeps) {
   r.post('/users/:id/freeze', c.freezeUser);
   r.post('/users/:id/unfreeze', c.unfreezeUser);
   r.post('/payout-accounts/:id/allow', c.allowPayoutAccount);
+  r.get('/sign-in-codes', c.listSignInCodes);
+  r.post('/sign-in-codes/:id/issue', c.issueSignInCode);
   return r;
 }

@@ -22,6 +22,7 @@ export function createDealsController(deps: AppDeps) {
     offers: read(service.offers),
     setSale: write(service.setSale),
     listGroups: read(groups.listGroups),
+    searchGroupProducts: read(groups.searchGroupProducts),
     getGroup: read(groups.getGroup),
     startGroup: write(groups.startGroup),
     joinGroup: write(groups.joinGroup),

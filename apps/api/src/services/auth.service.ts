@@ -12,23 +12,29 @@ import {
 import { z } from 'zod';
 import type { Query } from '../database/client.js';
 import { ensure } from '../lib/errors.js';
+import { audit } from './audit.service.js';
 import type { RequestInput } from '../lib/http.js';
 import { mailer } from '../lib/mail.js';
+import { normalPhone, smsSender } from '../lib/sms.js';
+import { hashSecret } from './transaction-pin.service.js';
 import { codeEmail, noAccountEmail, type Email } from '../lib/email-templates.js';
 import type { AppDeps } from '../types/deps.js';
 export const tokenHash = (s: string) => createHash('sha256').update(s).digest('hex');
 export interface AuthenticatedUser {
   id: string;
   name: string;
-  email: string;
+  /** Null for accounts opened with a phone number only. */
+  email: string | null;
   phone: string;
   admin: boolean;
   staff_role: import('./staff.service.js').StaffRole | null;
   email_verified_at: Date | null;
+  /** Short public ID for transfers and referrals. */
+  ahia_id: string;
 }
 type UserIdentity = Pick<
   import('../generated/prisma/client.js').User,
-  'id' | 'name' | 'email' | 'phone' | 'admin' | 'staff_role' | 'email_verified_at'
+  'id' | 'name' | 'email' | 'phone' | 'admin' | 'staff_role' | 'email_verified_at' | 'ahia_id'
 >;
 export const publicUser = (u: UserIdentity): AuthenticatedUser => ({
   id: u.id,
@@ -38,6 +44,7 @@ export const publicUser = (u: UserIdentity): AuthenticatedUser => ({
   admin: u.admin,
   staff_role: u.admin ? (u.staff_role as AuthenticatedUser['staff_role']) : null,
   email_verified_at: u.email_verified_at,
+  ahia_id: u.ahia_id,
 });
 export const email = z.string().trim().toLowerCase().pipe(z.email());
 export const password = z.string().min(10).max(100);
@@ -45,13 +52,21 @@ export const profile = z.object({
   name: z.string().trim().min(2).max(100),
   phone: z
     .string()
-    .regex(/^\+[1-9]\d{7,14}$/, 'Use international phone format, e.g. +2348012345678'),
+    .transform(normalPhone)
+    .pipe(z.string().regex(/^\+[1-9]\d{7,14}$/, 'Enter a phone number like 08031234567.')),
 });
 
 /** Business logic for auth requests. HTTP-free: callers pass plain input. */
 export function createAuthService(deps: AppDeps) {
   const { db, config: c } = deps;
   const mail = mailer(c);
+  const sms = smsSender(c);
+  const smsCode = (purpose: string, code: string) =>
+    `${code} is your Ahia ${purpose === 'register' ? 'sign-up' : purpose === 'reset' ? 'password reset' : 'sign-in'} code. It expires in 10 minutes. Never share it with anyone, not even Ahia staff.`;
+  const deliver = (channel: string, to: string, purpose: string, code: string) =>
+    channel === 'sms'
+      ? sms.send(to, smsCode(purpose, code))
+      : mail.send(to, codeEmail(purpose, code));
   const digest = (id: string, code: string) =>
     createHmac('sha256', c.otpSecret).update(`${id}:${code}`).digest('hex');
   async function challenge(
@@ -60,6 +75,7 @@ export function createAuthService(deps: AppDeps) {
     uid: string | null,
     payload: object = {},
     email?: Email,
+    channel: 'email' | 'sms' = 'email',
   ) {
     const cid = randomUUID(),
       code = String(randomInt(100000, 1000000));
@@ -87,7 +103,7 @@ export function createAuthService(deps: AppDeps) {
         [to, purpose],
       );
       await q.query(
-        'INSERT INTO otp_challenges(id,email,purpose,user_id,payload,code_hash,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7)',
+        'INSERT INTO otp_challenges(id,email,purpose,user_id,payload,code_hash,expires_at,channel) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
         [
           cid,
           to,
@@ -96,17 +112,28 @@ export function createAuthService(deps: AppDeps) {
           JSON.stringify(payload),
           digest(cid, code),
           new Date(Date.now() + 10 * 60000),
+          channel,
         ],
       );
       // No challenge is committed if delivery fails.
-      await mail.send(to, email ?? codeEmail(purpose, code));
+      if (email) await mail.send(to, email);
+      else await deliver(channel, to, purpose, code);
     });
     return {
       challenge_id: cid,
+      // Where the code went: an email address, or a phone number for a text.
       email: to,
+      channel,
       expires_in: 600,
       resend_after: 60,
-      delivery: c.mailMode === 'smtp' ? 'email' : 'development_file',
+      delivery:
+        channel === 'sms'
+          ? c.smsMode === 'termii'
+            ? 'sms'
+            : 'development_file'
+          : c.mailMode === 'smtp'
+            ? 'email'
+            : 'development_file',
     };
   }
   async function session(q: Query, uid: string, device: string) {
@@ -174,7 +201,7 @@ export function createAuthService(deps: AppDeps) {
         'UPDATE otp_challenges SET code_hash=$1,sent_at=now(),send_count=send_count+1 WHERE id=$2',
         [digest(otp.id, code), otp.id],
       );
-      await mail.send(otp.email, codeEmail(otp.purpose, code));
+      await deliver(otp.channel, otp.email, otp.purpose, code);
       return { ok: true, resend_after: 60 };
     });
     return result;
@@ -182,19 +209,80 @@ export function createAuthService(deps: AppDeps) {
   /** Starts registration: validates details and emails a verification code (no account yet). */
   async function register(input: RequestInput) {
     const d = profile
-      .extend({ email, password, transaction_pin: transactionPin.optional() })
+      .extend({
+        /** Optional: people without email sign up with their phone number alone. */
+        email: z.preprocess((v) => (v === '' || v == null ? undefined : v), email.optional()),
+        password,
+        transaction_pin: transactionPin.optional(),
+        /** The inviter's Ahia ID, from a referral link (?ref=…) or typed in. */
+        referral_code: z
+          .string()
+          .trim()
+          .max(14)
+          .transform((v) => {
+            const d = v.toUpperCase().replace(/[^0-9A-Z]/g, '');
+            return /^AH\d{8}$/.test(d) ? `AH-${d.slice(2)}` : v.toUpperCase();
+          })
+          .optional(),
+      })
       .parse(input.body);
+    let referredBy: string | null = null;
+    if (d.referral_code) {
+      const [r] = await db.query("SELECT id FROM users WHERE ahia_id=$1 AND status='ACTIVE'", [
+        d.referral_code,
+      ]);
+      ensure(
+        r,
+        400,
+        'REFERRAL_INVALID',
+        'This invite code isn’t valid. Check it, or leave it empty.',
+      );
+      referredBy = r.id;
+    }
     const [existing] = await db.query('SELECT id FROM users WHERE email=$1 OR phone=$2', [
-      d.email,
+      d.email ?? null,
       d.phone,
     ]);
-    ensure(!existing, 409, 'ACCOUNT_EXISTS', 'An account with this email or phone already exists.');
+    ensure(
+      !existing,
+      409,
+      'ACCOUNT_EXISTS',
+      d.email
+        ? 'An account with this email or phone already exists.'
+        : 'An account with this phone number already exists. Sign in instead.',
+    );
     const password_hash = await bcrypt.hash(d.password, 12);
-    return await challenge(d.email, 'register', null, {
+    const payload = {
       name: d.name,
       phone: d.phone,
       password_hash,
       transaction_pin_hash: d.transaction_pin ? await hashPin(d.transaction_pin) : null,
+      referred_by: referredBy,
+    };
+    if (d.email) return await challenge(d.email, 'register', null, payload);
+    if (sms.available) return await challenge(d.phone, 'register', null, payload, undefined, 'sms');
+    // No text messages yet: the minimal check. The account opens now; money can't leave it until
+    // the phone (by text, once available) or BVN is verified.
+    return await db.transaction(async (q) => {
+      const [u] = await q.query(
+        'INSERT INTO users(id,name,email,phone,password_hash,transaction_pin_hash,referred_by) VALUES($1,$2,NULL,$3,$4,$5,$6) RETURNING *',
+        [
+          randomUUID(),
+          payload.name,
+          payload.phone,
+          payload.password_hash,
+          payload.transaction_pin_hash,
+          payload.referred_by,
+        ],
+      );
+      await audit(q, u.id, 'auth.register_phone_minimal', u.id);
+      const device = input.header('User-Agent') || 'Unknown device';
+      return {
+        user: publicUser(u as UserIdentity),
+        ...(await session(q, u.id, device)),
+        device_token: await trustDevice(q, u.id, device),
+        verification: 'minimal' as const,
+      };
     });
   }
   /**
@@ -203,9 +291,20 @@ export function createAuthService(deps: AppDeps) {
    */
   async function login(input: RequestInput) {
     const d = z
-      .object({ email, password, device_token: z.string().min(40).max(100).optional() })
+      .object({
+        /** An email address or a phone number ("login"; "email" still works). */
+        login: z.string().trim().max(200).optional(),
+        email: z.string().trim().max(200).optional(),
+        phone: z.string().trim().max(30).optional(),
+        password: z.string().max(100),
+        device_token: z.string().min(40).max(100).optional(),
+      })
       .parse(input.body);
-    const [u] = await db.query('SELECT * FROM users WHERE email=$1', [d.email]);
+    const id = d.login || d.email || d.phone || '';
+    const byEmail = id.includes('@');
+    const [u] = await db.query(`SELECT * FROM users WHERE ${byEmail ? 'email' : 'phone'}=$1`, [
+      byEmail ? id.toLowerCase() : normalPhone(id),
+    ]);
     // Always perform a password check to avoid a fast account-existence probe.
     const valid = await bcrypt.compare(
       d.password,
@@ -215,7 +314,7 @@ export function createAuthService(deps: AppDeps) {
       u && valid && u.status === 'ACTIVE',
       401,
       'INVALID_CREDENTIALS',
-      'Email or password is incorrect, or the account is unavailable.',
+      'Email/phone or password is incorrect, or the account is unavailable.',
     );
     if (d.device_token) {
       const signedIn = await db.transaction(async (q) => {
@@ -232,20 +331,58 @@ export function createAuthService(deps: AppDeps) {
       });
       if (signedIn) return signedIn;
     }
-    return await challenge(u.email, 'login', u.id);
+    // A new device: a code by email, or by text for phone-only accounts.
+    if (u.email) return await challenge(u.email, 'login', u.id);
+    if (sms.available) return await challenge(u.phone, 'login', u.id, {}, undefined, 'sms');
+    // Phone-only and no text messages yet (the minimal check): the password signs in, and
+    // withdrawals pause for a day as with any new-device sign-in.
+    return await db.transaction(async (q) => {
+      const device = input.header('User-Agent') || 'Unknown device';
+      await lockMoney(q, u.id, 24, `sign-in from a new device (${device.slice(0, 60)})`);
+      return {
+        user: publicUser(u as UserIdentity),
+        ...(await session(q, u.id, device)),
+        device_token: await trustDevice(q, u.id, device),
+      };
+    });
   }
-  /** Emails a password-reset code (also for unknown addresses, to avoid account probing). */
+  /** Sends a password-reset code by email, or by text for a phone number (when texts work). */
   async function forgotPassword(input: RequestInput) {
-    const d = z.object({ email }).parse(input.body);
-    const [u] = await db.query("SELECT * FROM users WHERE email=$1 AND status='ACTIVE'", [d.email]);
+    const d = z
+      .object({
+        login: z.string().trim().max(200).optional(),
+        email: z.string().trim().max(200).optional(),
+      })
+      .parse(input.body);
+    const id = (d.login || d.email || '').trim();
+    if (!id.includes('@')) {
+      const phone = normalPhone(id);
+      ensure(
+        /^\+[1-9]\d{7,14}$/.test(phone),
+        400,
+        'INVALID_LOGIN',
+        'Enter your email address or phone number.',
+      );
+      const [u] = await db.query("SELECT * FROM users WHERE phone=$1 AND status='ACTIVE'", [phone]);
+      if (u?.email) return await challenge(u.email, 'reset', u.id);
+      ensure(
+        sms.available,
+        503,
+        'SMS_UNAVAILABLE',
+        'Resetting a password by text isn’t available yet. Contact Ahia support to reset it.',
+      );
+      return await challenge(phone, 'reset', u?.id || null, {}, undefined, 'sms');
+    }
+    const mail_ = email.parse(id);
+    const [u] = await db.query("SELECT * FROM users WHERE email=$1 AND status='ACTIVE'", [mail_]);
     // Unknown addresses get the same response (so the form can't be used to find accounts), but
     // their email explains that no account uses the address instead of sending a useless code.
     return await challenge(
-      d.email,
+      mail_,
       'reset',
       u?.id || null,
       {},
-      u ? undefined : noAccountEmail(d.email),
+      u ? undefined : noAccountEmail(mail_),
     );
   }
   /** Completes registration, sign-in or password reset with an emailed code. */
@@ -281,7 +418,7 @@ export function createAuthService(deps: AppDeps) {
             message:
               otp.attempts >= 4
                 ? 'Too many incorrect codes. Please start again.'
-                : 'That code is incorrect. Please check your email.',
+                : `That code is incorrect. Please check your ${otp.channel === 'sms' ? 'text messages' : 'email'}.`,
           },
         };
       }
@@ -304,6 +441,11 @@ export function createAuthService(deps: AppDeps) {
           );
           await q.query('DELETE FROM sessions WHERE user_id=$1', [otp.user_id]);
           await q.query('DELETE FROM trusted_devices WHERE user_id=$1', [otp.user_id]);
+          // A new password also turns off fingerprint sign-in on every phone.
+          await q.query(
+            "UPDATE biometric_keys SET revoked_at=now() WHERE user_id=$1 AND purpose='LOGIN' AND revoked_at IS NULL",
+            [otp.user_id],
+          );
           await lockMoney(q, otp.user_id, 24, 'password reset');
         }
         await q.query('UPDATE otp_challenges SET consumed_at=now() WHERE id=$1', [otp.id]);
@@ -311,20 +453,24 @@ export function createAuthService(deps: AppDeps) {
       }
       let u: any;
       if (otp.purpose === 'register') {
+        const bySms = otp.channel === 'sms';
         [u] = await q.query(
-          'INSERT INTO users(id,name,email,phone,password_hash,transaction_pin_hash,email_verified_at) VALUES($1,$2,$3,$4,$5,$6,now()) RETURNING *',
+          `INSERT INTO users(id,name,email,phone,password_hash,transaction_pin_hash,referred_by,${bySms ? 'phone_verified_at' : 'email_verified_at'}) VALUES($1,$2,$3,$4,$5,$6,$7,now()) RETURNING *`,
           [
             randomUUID(),
             otp.payload.name,
-            otp.email,
+            bySms ? null : otp.email,
             otp.payload.phone,
             otp.payload.password_hash,
             otp.payload.transaction_pin_hash ?? null,
+            otp.payload.referred_by ?? null,
           ],
         );
       } else {
         [u] = await q.query(
-          "UPDATE users SET email_verified_at=COALESCE(email_verified_at,now()) WHERE id=$1 AND status='ACTIVE' RETURNING *",
+          otp.channel === 'sms'
+            ? "UPDATE users SET phone_verified_at=COALESCE(phone_verified_at,now()) WHERE id=$1 AND status='ACTIVE' RETURNING *"
+            : "UPDATE users SET email_verified_at=COALESCE(email_verified_at,now()) WHERE id=$1 AND status='ACTIVE' RETURNING *",
           [otp.user_id],
         );
         // A code is only asked for on a device we don't know: tell the owner and pause withdrawals
@@ -348,6 +494,60 @@ export function createAuthService(deps: AppDeps) {
       };
     });
     return result;
+  }
+  /**
+   * Fingerprint sign-in (phone app). Turning it on needs the account password; the phone keeps a
+   * key behind its fingerprint and sends it here to sign in. A new password turns it off.
+   */
+  async function addLoginKey(q: Query, user: any, input: RequestInput) {
+    const d = z
+      .object({ password: z.string().max(100), device_name: z.string().trim().max(60).optional() })
+      .parse(input.body);
+    const [u] = await q.query('SELECT password_hash FROM users WHERE id=$1', [user.id]);
+    ensure(
+      await bcrypt.compare(d.password, u.password_hash),
+      400,
+      'INVALID_PASSWORD',
+      'That password is incorrect.',
+    );
+    const id = randomUUID();
+    const secret = randomBytes(32).toString('base64url');
+    await q.query(
+      "INSERT INTO biometric_keys(id,user_id,secret_hash,device_name,purpose) VALUES($1,$2,$3,$4,'LOGIN')",
+      [id, user.id, hashSecret(secret), d.device_name ?? null],
+    );
+    await audit(q, user.id, 'auth.login_key_add', id);
+    return { id, key: `login:${id}.${secret}` };
+  }
+  async function removeLoginKey(q: Query, user: any, input: RequestInput) {
+    await q.query(
+      "UPDATE biometric_keys SET revoked_at=now() WHERE id=$1 AND user_id=$2 AND purpose='LOGIN'",
+      [input.params.id, user.id],
+    );
+    return { ok: true as const };
+  }
+  async function biometricSignIn(input: RequestInput) {
+    const d = z.object({ key: z.string().max(200) }).parse(input.body);
+    const [keyId, secret] = d.key.replace(/^login:/, '').split('.');
+    return db.transaction(async (q) => {
+      const [k] = await q.query(
+        `SELECT k.id,k.secret_hash,k.user_id FROM biometric_keys k JOIN users u ON u.id=k.user_id
+         WHERE k.id=$1 AND k.purpose='LOGIN' AND k.revoked_at IS NULL AND u.status='ACTIVE'`,
+        [keyId ?? ''],
+      );
+      ensure(
+        k && secret && k.secret_hash === hashSecret(secret),
+        401,
+        'BIOMETRIC_INVALID',
+        'Fingerprint sign-in is off for this phone. Sign in with your password, then turn it on again.',
+      );
+      await q.query('UPDATE biometric_keys SET last_used_at=now() WHERE id=$1', [keyId]);
+      const [u] = await q.query('SELECT * FROM users WHERE id=$1', [k.user_id]);
+      return {
+        user: publicUser(u as UserIdentity),
+        ...(await session(q, u.id, input.header('User-Agent') || 'Unknown device')),
+      };
+    });
   }
   /** Rotates the refresh token; reuse of a consumed token revokes the session. */
   async function refreshSession(input: RequestInput) {
@@ -384,5 +584,80 @@ export function createAuthService(deps: AppDeps) {
     });
     return result;
   }
-  return { resendCode, register, login, forgotPassword, verifyCode, refreshSession };
+  /**
+   * Staff support: sign-ins and sign-ups waiting for an email code. Codes are stored only as
+   * hashes, so staff can't read one; they issue a fresh code instead (see issueSignInCode).
+   */
+  async function listSignInCodes(_staff: any, input: RequestInput) {
+    const search = String(input.query.email ?? '')
+      .trim()
+      .toLowerCase();
+    const rows = await db.query(
+      `SELECT o.id,o.email,o.purpose,o.attempts,o.send_count,o.created_at,o.expires_at,
+         COALESCE(u.name,o.payload->>'name') AS name
+       FROM otp_challenges o LEFT JOIN users u ON u.id=o.user_id
+       WHERE o.consumed_at IS NULL AND o.expires_at>now() AND o.attempts<5
+         AND o.purpose IN ('register','login') AND ($1='' OR o.email ILIKE '%'||$1||'%')
+       ORDER BY o.created_at DESC LIMIT 50`,
+      [search],
+    );
+    return rows.map((r: any) => ({
+      id: r.id,
+      email: r.email,
+      name: r.name ?? null,
+      purpose: r.purpose as 'register' | 'login',
+      attempts: r.attempts,
+      created_at: new Date(r.created_at).toISOString(),
+      expires_at: new Date(r.expires_at).toISOString(),
+    }));
+  }
+  /**
+   * Replaces a waiting challenge's code with a new one and shows it to staff once, so they can
+   * pass it on (e.g. by phone) when the email doesn't arrive. Only for sign-up and sign-in:
+   * a sign-in challenge exists only after the person typed the right password, so the code
+   * alone can't open an account. Password-reset codes are never issued this way. Audited.
+   */
+  async function issueSignInCode(staff: any, input: RequestInput) {
+    const id = z.uuid().parse(input.params.id);
+    return db.transaction(async (q) => {
+      const [otp] = await q.query('SELECT * FROM otp_challenges WHERE id=$1 FOR UPDATE', [id]);
+      ensure(
+        otp &&
+          !otp.consumed_at &&
+          new Date(otp.expires_at).getTime() > Date.now() &&
+          otp.attempts < 5 &&
+          ['register', 'login'].includes(otp.purpose),
+        404,
+        'OTP_NOT_WAITING',
+        'This sign-in is no longer waiting for a code. Ask them to start again.',
+      );
+      const code = String(randomInt(100000, 1000000));
+      await q.query('UPDATE otp_challenges SET code_hash=$1 WHERE id=$2', [
+        digest(otp.id, code),
+        otp.id,
+      ]);
+      await audit(q, staff.id, 'auth.issue_code', otp.id, {
+        email: otp.email,
+        purpose: otp.purpose,
+      });
+      return {
+        code,
+        email: otp.email as string,
+        expires_at: new Date(otp.expires_at).toISOString(),
+      };
+    });
+  }
+  return {
+    resendCode,
+    register,
+    login,
+    forgotPassword,
+    verifyCode,
+    refreshSession,
+    addLoginKey,
+    removeLoginKey,
+    biometricSignIn,
+    listSignInCodes,
+    issueSignInCode,
+  };
 }

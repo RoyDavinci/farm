@@ -16,6 +16,7 @@ import { dealsResponses } from './deals.js';
 import { errandResponses } from './errand.js';
 import { businessResponses } from './business.js';
 import { growthResponses } from './growth.js';
+import { rewardsResponses } from './rewards.js';
 import type { z } from 'zod';
 import { operationResponses } from './operations.js';
 import { coreResponses } from './responses.js';
@@ -45,6 +46,7 @@ export const responses: Record<string, z.ZodType> = {
   ...errandResponses,
   ...businessResponses,
   ...growthResponses,
+  ...rewardsResponses,
   ...localStatusResponses,
   ...statusBoostResponses,
   ...coreResponses,

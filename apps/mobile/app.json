@@ -44,6 +44,10 @@
     "plugins": [
       "expo-secure-store",
       [
+        "expo-local-authentication",
+        { "faceIDPermission": "Allow Ahia to use Face ID to confirm payments." }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Allow Ahia to select product and receipt photos.",

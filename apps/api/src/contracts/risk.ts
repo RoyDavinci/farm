@@ -58,4 +58,16 @@ export const riskResponses: Record<string, z.ZodType> = {
   'risk.freezeUser': ok,
   'risk.unfreezeUser': ok,
   'risk.allowPayoutAccount': ok,
+  'risk.listSignInCodes': z.array(
+    z.object({
+      id: z.string(),
+      email: z.string(),
+      name: z.string().nullable(),
+      purpose: z.enum(['register', 'login']),
+      attempts: z.number().int(),
+      created_at: z.string(),
+      expires_at: z.string(),
+    }),
+  ),
+  'risk.issueSignInCode': z.object({ code: z.string(), email: z.string(), expires_at: z.string() }),
 };

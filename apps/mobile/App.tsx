@@ -7,13 +7,15 @@ import {
   type OrderEvent,
   type Seller,
   type Settings,
+  money,
 } from '@ahia/shared';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Path } from 'react-native-svg';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -21,6 +23,7 @@ import {
   ScrollView,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import {
   actAsSeller,
@@ -53,14 +56,28 @@ import SellerShop from './src/screens/SellerShop';
 import SellScreen from './src/screens/SellScreen';
 import WalletScreen, { type WalletData } from './src/screens/WalletScreen';
 import { sellerFromUrl } from './src/share';
-import { Alert, Brand, FadeIn, s } from './src/ui';
+import { Alert, Brand, Button, FadeIn, s } from './src/ui';
 
 // Web: keyboard focus rings in the brand green instead of the browser's default blue.
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const focus = document.createElement('style');
   focus.textContent =
-    'input:focus-visible,textarea:focus-visible,[role="button"]:focus-visible{outline:2px solid #1f754a;outline-offset:1px}';
+    // Fields: a soft light-green ring that follows the field's rounded corners.
+    'input:focus,textarea:focus{outline:none!important;box-shadow:0 0 0 3px #d3eedf;border-color:#8fd0ac!important}' +
+    // Pill fields (search): the ring goes round the whole pill, not the text area inside it.
+    '[data-focusring="pill"]:focus-within{box-shadow:0 0 0 3px #d3eedf;border-color:#8fd0ac!important}' +
+    '[data-focusring="pill"] input:focus{box-shadow:none;border-color:transparent!important}' +
+    '[role="button"]:focus-visible{outline:2px solid #8fd0ac;outline-offset:2px}';
   document.head.appendChild(focus);
+}
+
+/** Header balance: full naira under ₦100k, then ₦125k / ₦1.2m so it fits next to the icons. */
+function shortMoney(kobo: number) {
+  const n = kobo / 100;
+  if (n >= 1_000_000)
+    return `₦${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1).replace(/\.0$/, '')}m`;
+  if (n >= 100_000) return `₦${Math.floor(n / 1000)}k`;
+  return money(kobo).replace(/\.00$/, '');
 }
 
 export default function App() {
@@ -72,6 +89,11 @@ export default function App() {
 }
 
 function Main() {
+  const scrollY = useRef(0);
+  const scrollRef = useRef<{ scrollTo: (o: { y: number; animated: boolean }) => void } | null>(
+    null,
+  );
+  const { width } = useWindowDimensions();
   const { t } = useI18n();
   const [me, setMe] = useState<any>(null),
     [seller, setSeller] = useState<Seller | null>(null),
@@ -80,6 +102,8 @@ function Main() {
     [loading, setLoading] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
+    // An action that failed (a button press): shown as a popup so it isn't missed off-screen.
+    [popup, setPopup] = useState(''),
     [notice, setNotice] = useState('');
   const [settings, setSettings] = useState<Settings | null>(null),
     [mine, setMine] = useState<Listing[]>([]),
@@ -234,12 +258,14 @@ function Main() {
       setNotice(message);
       if (me) await refresh();
     } catch (e) {
-      setError((e as Error).message);
+      setPopup((e as Error).message);
     } finally {
       setBusy(false);
     }
   }
   const changeTab = (t: Tab) => {
+    // Each tab opens at its top, not at the scroll position of the previous one.
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
     if (t === 'Inbox') setConversationId(null);
     if (t !== 'Inbox') setInboxSection('messages');
     setFocusBooking(null);
@@ -252,6 +278,19 @@ function Main() {
     setNotice('');
   };
   const ctx: AppState = {
+    scrollToView: (view) => {
+      const scroller: any = scrollRef.current;
+      view?.measureInWindow?.((_x: number, y: number) => {
+        const go = (top: number) =>
+          scrollRef.current?.scrollTo({
+            y: Math.max(0, scrollY.current + y - top - 12),
+            animated: true,
+          });
+        if (scroller?.measureInWindow)
+          scroller.measureInWindow((_a: number, top: number) => go(top));
+        else go(90);
+      });
+    },
     cartCount,
     me,
     seller,
@@ -390,13 +429,27 @@ function Main() {
         }}
       />
     );
+  const narrow = width < 480;
   return (
     <AppContext.Provider value={ctx}>
       <SafeAreaView style={s.safe}>
         <StatusBar style="dark" />
         <View style={s.topbar}>
-          <Brand size={38} tagline="Buy · Sell · Discover nearby" />
+          <Brand size={38} tagline={narrow ? undefined : 'Buy · Sell · Discover nearby'} />
           <View style={s.topActions}>
+            {!actingAs() && wallet && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Wallet balance ${money(wallet.balance_kobo)}. Open wallet`}
+                onPress={() => changeTab('Wallet')}
+                style={s.walletPill}
+              >
+                <Text style={s.walletPillIcon}>👛</Text>
+                <Text style={s.walletPillText} numberOfLines={1}>
+                  {shortMoney(wallet.balance_kobo)}
+                </Text>
+              </Pressable>
+            )}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Cart, ${cartCount} item${cartCount === 1 ? '' : 's'}`}
@@ -460,6 +513,11 @@ function Main() {
           </View>
         </View>
         <ScrollView
+          ref={scrollRef as any}
+          onScroll={(e) => {
+            scrollY.current = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={32}
           style={s.flex}
           contentContainerStyle={s.content}
           refreshControl={
@@ -502,6 +560,33 @@ function Main() {
           <FadeIn key={tab}>{screen}</FadeIn>
           <Text style={s.bottomNote}>{t('footer.note')}</Text>
         </ScrollView>
+        <Modal
+          visible={!!popup}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPopup('')}
+        >
+          <View style={s.popupBackdrop}>
+            <View style={s.popup} accessibilityRole="alert">
+              <Text style={s.popupTitle}>
+                {/wallet/i.test(popup) ? '👛 Not enough in your wallet' : 'That didn’t go through'}
+              </Text>
+              <Text style={s.body}>{popup}</Text>
+              <View style={{ gap: 10 }}>
+                {/wallet/i.test(popup) && !actingAs() && (
+                  <Button
+                    title="Add money to wallet"
+                    onPress={() => {
+                      setPopup('');
+                      changeTab('Wallet');
+                    }}
+                  />
+                )}
+                <Button secondary={/wallet/i.test(popup)} title="OK" onPress={() => setPopup('')} />
+              </View>
+            </View>
+          </View>
+        </Modal>
         <BottomNavigation
           tab={tab}
           onNavigate={changeTab}

@@ -64,6 +64,9 @@ export const config = {
   smtpSecure: env.SMTP_SECURE,
   smtpUser: env.SMTP_USER,
   smtpPassword: env.SMTP_PASSWORD,
+  smsMode: (env.SMS_MODE || (production ? 'off' : 'file')) as 'termii' | 'file' | 'off',
+  termiiApiKey: env.TERMII_API_KEY,
+  termiiSenderId: env.TERMII_SENDER_ID,
   // Maps, storage, push
   mapboxToken: env.MAPBOX_PUBLIC_TOKEN || env.MAPBOX_SERVER_TOKEN,
   permanentGeocoding: env.MAPBOX_PERMANENT_GEOCODING,

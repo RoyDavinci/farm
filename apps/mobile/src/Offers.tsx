@@ -1,6 +1,6 @@
 import { money } from '@ahia/shared';
 import { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useApp } from './AppContext';
 import { request } from './request';
 import { shareOnWhatsApp } from './share';
@@ -306,6 +306,36 @@ export function GroupBuyForListing({ listing }: { listing: any }) {
 }
 
 const styles = StyleSheet.create({
+  search: {
+    padding: 12,
+    paddingRight: 40,
+    borderWidth: 1,
+    borderColor: '#d1e9dd',
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    fontSize: 15,
+  },
+  clear: { position: 'absolute', right: 12, top: 10, padding: 2 },
+  dropdown: {
+    borderWidth: 1,
+    borderColor: '#d1e9dd',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
+  option: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10 },
+  optionLine: { borderTopWidth: 1, borderTopColor: '#eef4f0' },
+  optionPhoto: { width: 44, height: 44, borderRadius: 8 },
+  openBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#6a3d9a',
+    backgroundColor: '#efedff',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
   card: {
     width: 170,
     padding: 10,
@@ -337,3 +367,157 @@ const styles = StyleSheet.create({
     gap: 6,
   },
 });
+
+const GROUP_IDEAS = [
+  'Goat',
+  'Bag of rice',
+  'Crate of eggs',
+  'Cow meat',
+  'Carton of fish',
+  'Tuber of yam',
+];
+
+/**
+ * Home → Group buys: search for what you want to share; matching products come up in a
+ * dropdown with the best sellers first (verified, well rated, reliable, nearby). Pick one to
+ * join an open group for it or start one. Open groups matching the search show below.
+ */
+export function GroupFinder({ point }: { point?: { latitude: number; longitude: number } | null }) {
+  const [q, setQ] = useState(''),
+    [results, setResults] = useState<any[] | null>(null),
+    [searching, setSearching] = useState(false),
+    [picked, setPicked] = useState<any>(null);
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2 || picked) {
+      setResults(null);
+      return;
+    }
+    setSearching(true);
+    const timer = setTimeout(() => {
+      void request('get', '/group-buys/search', {
+        query: {
+          q: term,
+          ...(point ? { lat: point.latitude, lng: point.longitude } : {}),
+        } as any,
+      })
+        .then((r) => setResults(r as any[]))
+        .catch(() => setResults([]))
+        .finally(() => setSearching(false));
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [q, point, picked]);
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={s.locationBox}>
+        <Text style={s.bold}>👥 What do you want to buy together?</Text>
+        <Text style={s.small}>
+          Search, pick a good seller, then start a group or join one. Everyone pays their share,
+          held safely until the group fills; Ahia takes 1–3% off.
+        </Text>
+        <View>
+          <TextInput
+            style={styles.search}
+            value={q}
+            onChangeText={(v) => {
+              setQ(v);
+              setPicked(null);
+            }}
+            placeholder="e.g. goat, bag of rice, crate of eggs"
+            placeholderTextColor="#8aa698"
+            accessibilityLabel="Search for something to buy together"
+          />
+          {!!q && (
+            <Pressable
+              accessibilityLabel="Clear search"
+              onPress={() => {
+                setQ('');
+                setPicked(null);
+              }}
+              style={styles.clear}
+            >
+              <Text style={{ color: '#5e8270', fontSize: 16 }}>✕</Text>
+            </Pressable>
+          )}
+        </View>
+        {!q && (
+          <View style={s.chipWrap}>
+            {GROUP_IDEAS.map((x) => (
+              <Chip key={x} title={x} active={false} onPress={() => setQ(x)} />
+            ))}
+          </View>
+        )}
+        {!picked && q.trim().length >= 2 && (
+          <View style={styles.dropdown}>
+            {searching && !results ? (
+              <Text style={[s.small, { padding: 10 }]}>Looking for sellers…</Text>
+            ) : !results?.length ? (
+              <Text style={[s.small, { padding: 10 }]}>
+                No sellers have “{q.trim()}” yet. Try another word, or ask sellers from Home →
+                Request it.
+              </Text>
+            ) : (
+              results.map((r, i) => (
+                <Pressable
+                  key={r.listing_id}
+                  accessibilityRole="button"
+                  onPress={() => setPicked(r)}
+                  style={[styles.option, i > 0 && styles.optionLine]}
+                >
+                  {r.image_url ? (
+                    <Image source={{ uri: r.image_url }} style={styles.optionPhoto} />
+                  ) : (
+                    <View style={[styles.optionPhoto, styles.noPhoto]}>
+                      <Text>🛍️</Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1, gap: 1 }}>
+                    <Text style={s.bold} numberOfLines={1}>
+                      {r.title}
+                    </Text>
+                    <Text style={s.small} numberOfLines={1}>
+                      {money(r.price_kobo)}/{r.unit} · {r.verified ? '✅ ' : ''}
+                      {r.business_name}
+                      {r.area ? `, ${r.area}` : ''}
+                    </Text>
+                    <Text style={s.fine} numberOfLines={1}>
+                      {i === 0 ? '⭐ Best match · ' : ''}
+                      {r.reason}
+                    </Text>
+                  </View>
+                  {r.open_groups > 0 && (
+                    <Text style={styles.openBadge}>
+                      {r.open_groups} group{r.open_groups === 1 ? '' : 's'} open
+                    </Text>
+                  )}
+                </Pressable>
+              ))
+            )}
+          </View>
+        )}
+        {picked && (
+          <View style={{ gap: 6 }}>
+            <View style={s.rowBetween}>
+              <Text style={[s.small, { flex: 1 }]}>
+                {picked.title} from {picked.verified ? '✅ ' : ''}
+                {picked.business_name} · {picked.reason}
+              </Text>
+              <Pressable onPress={() => setPicked(null)}>
+                <Text style={s.link}>Change</Text>
+              </Pressable>
+            </View>
+            <GroupBuyForListing
+              listing={{
+                id: picked.listing_id,
+                title: picked.title,
+                unit: picked.unit,
+                price_kobo: picked.price_kobo,
+              }}
+            />
+          </View>
+        )}
+      </View>
+      {!picked && <GroupBuysPanel query={q.trim().length >= 2 ? q.trim() : undefined} />}
+    </View>
+  );
+}

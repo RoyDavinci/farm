@@ -9,6 +9,8 @@ import { languages, useI18n } from '../i18n';
 import { unregisterPush } from '../push';
 import { request } from '../request';
 import { Button, Chip, s } from '../ui';
+import { AhiaIdCard, InviteCard } from '../Rewards';
+import { FingerprintSignInToggle } from '../TransactionPin';
 
 export default function AccountScreen({ onSignedOut }: { onSignedOut: () => void }) {
   const { me, settings, busy, run, refresh, openListing } = useApp();
@@ -16,7 +18,11 @@ export default function AccountScreen({ onSignedOut }: { onSignedOut: () => void
   return (
     <>
       <Text style={s.heading}>{t('account.heading')}</Text>
-      <MembershipCard />
+      <View style={{ gap: 16, marginBottom: 4 }}>
+        <AhiaIdCard />
+        <InviteCard />
+        <MembershipCard />
+      </View>
       <MyTeams />
       <View style={s.orderCard}>
         <Text style={s.sectionTitle}>{t('account.language')}</Text>
@@ -42,9 +48,10 @@ export default function AccountScreen({ onSignedOut }: { onSignedOut: () => void
       />
       <DiscoveryPreferencesPanel />
       <AccountPanel user={me} onUpdate={refresh} />
+      <FingerprintSignInToggle />
       <View style={s.orderCard}>
         <Text style={s.sectionTitle}>{me.name}</Text>
-        <Text style={s.body}>{me.email}</Text>
+        {!!me.email && <Text style={s.body}>{me.email}</Text>}
         <Text style={s.body}>{me.phone}</Text>
         <Text style={s.fine}>
           Your account can buy and sell. Seller approval is managed separately.
