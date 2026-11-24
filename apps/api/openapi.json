@@ -1778,6 +1778,326 @@
         }
       }
     },
+    "/v1/admin/catalogue-photos/{id}/remove": {
+      "post": {
+        "operationId": "catalogue.removePhoto",
+        "tags": [
+          "catalogue"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/catalogue-products": {
+      "get": {
+        "operationId": "catalogue.adminCatalogue",
+        "tags": [
+          "catalogue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "brand": {
+                        "type": "string"
+                      },
+                      "category": {
+                        "type": "string"
+                      },
+                      "unit": {
+                        "type": "string"
+                      },
+                      "active": {
+                        "type": "boolean"
+                      },
+                      "listings": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "photos": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            },
+                            "uses": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "url",
+                            "source",
+                            "uses"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "brand",
+                      "category",
+                      "unit",
+                      "active",
+                      "listings",
+                      "photos"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "catalogue.adminAddProduct",
+        "tags": [
+          "catalogue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "brand": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "unit": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "brand",
+                    "category",
+                    "unit"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/catalogue-products/{id}/active": {
+      "post": {
+        "operationId": "catalogue.setProductActive",
+        "tags": [
+          "catalogue"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/catalogue-products/{id}/photos": {
+      "post": {
+        "operationId": "catalogue.addStaffPhoto",
+        "tags": [
+          "catalogue"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "filled": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "filled"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/deliveries": {
       "get": {
         "operationId": "deliveries.listDeliveries",
@@ -13014,6 +13334,165 @@
         }
       }
     },
+    "/v1/catalogue/products": {
+      "get": {
+        "operationId": "catalogue.searchCatalogue",
+        "tags": [
+          "catalogue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "brand": {
+                        "type": "string"
+                      },
+                      "category": {
+                        "type": "string"
+                      },
+                      "unit": {
+                        "type": "string"
+                      },
+                      "photos": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "photo": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "sellers": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "min_price_kobo": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "max_price_kobo": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "listed": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "brand",
+                      "category",
+                      "unit",
+                      "photos",
+                      "photo",
+                      "sellers",
+                      "min_price_kobo",
+                      "max_price_kobo",
+                      "listed"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "catalogue.addProduct",
+        "tags": [
+          "catalogue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "brand": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "unit": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "brand",
+                    "category",
+                    "unit"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/conversations": {
       "get": {
         "operationId": "communications.listConversations",
@@ -16310,7 +16789,10 @@
                       "crate",
                       "bag",
                       "basket",
-                      "carton"
+                      "carton",
+                      "tin",
+                      "can",
+                      "bunch"
                     ]
                   },
                   "price_kobo": {
@@ -16394,7 +16876,10 @@
                             "crate",
                             "bag",
                             "basket",
-                            "carton"
+                            "carton",
+                            "tin",
+                            "can",
+                            "bunch"
                           ]
                         },
                         "price_kobo": {
@@ -16667,7 +17152,10 @@
                       "crate",
                       "bag",
                       "basket",
-                      "carton"
+                      "carton",
+                      "tin",
+                      "can",
+                      "bunch"
                     ]
                   },
                   "price_kobo": {
@@ -16751,7 +17239,10 @@
                             "crate",
                             "bag",
                             "basket",
-                            "carton"
+                            "carton",
+                            "tin",
+                            "can",
+                            "bunch"
                           ]
                         },
                         "price_kobo": {
@@ -17059,6 +17550,67 @@
         }
       }
     },
+    "/v1/listings/{id}/out-today": {
+      "post": {
+        "operationId": "catalogue.setOutToday",
+        "tags": [
+          "catalogue"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "out_until": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "out_until"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/listings/{id}/promote": {
       "post": {
         "operationId": "promotions.promoteListing",
@@ -17136,6 +17688,86 @@
                     "seller_id",
                     "starts_at",
                     "status"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/listings/{id}/sale": {
+      "post": {
+        "operationId": "deals.setSale",
+        "tags": [
+          "deals"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "price_kobo": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "was_price_kobo": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "sale_until": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "price_kobo",
+                    "was_price_kobo",
+                    "sale_until"
                   ],
                   "additionalProperties": {}
                 }
@@ -17247,6 +17879,74 @@
                     "stock_alert"
                   ],
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/listings/{id}/stock-mode": {
+      "put": {
+        "operationId": "catalogue.setStockMode",
+        "tags": [
+          "catalogue"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "stock_mode": {
+                      "type": "string",
+                      "enum": [
+                        "ALWAYS",
+                        "COUNTED"
+                      ]
+                    },
+                    "stock": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "stock_mode",
+                    "stock"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -25347,6 +26047,686 @@
         }
       }
     },
+    "/v1/price-watches": {
+      "get": {
+        "operationId": "deals.listWatches",
+        "tags": [
+          "deals"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "LISTING",
+                          "PRODUCT",
+                          "SEARCH"
+                        ]
+                      },
+                      "listing_id": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "catalogue_product_id": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "query": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "watched_price_kobo": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "lowest": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "listing_id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "business_name": {
+                                "type": "string"
+                              },
+                              "price_kobo": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "on_sale": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "listing_id",
+                              "title",
+                              "business_name",
+                              "price_kobo",
+                              "on_sale"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "created_at": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "label",
+                      "kind",
+                      "listing_id",
+                      "catalogue_product_id",
+                      "query",
+                      "watched_price_kobo",
+                      "lowest",
+                      "created_at"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "deals.watchPrice",
+        "tags": [
+          "deals"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "watched_price_kobo": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label",
+                    "watched_price_kobo"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/price-watches/{id}": {
+      "delete": {
+        "operationId": "deals.unwatchPrice",
+        "tags": [
+          "deals"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/product-requests": {
+      "post": {
+        "operationId": "deals.createRequest",
+        "tags": [
+          "deals"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sellers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "seller_id": {
+                            "type": "string"
+                          },
+                          "business_name": {
+                            "type": "string"
+                          },
+                          "area": {
+                            "type": "string"
+                          },
+                          "city": {
+                            "type": "string"
+                          },
+                          "verified": {
+                            "type": "boolean"
+                          },
+                          "rating": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "reviews": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "fulfilment_pct": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "sales": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "distance_km": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "examples": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "seller_id",
+                          "business_name",
+                          "area",
+                          "city",
+                          "verified",
+                          "rating",
+                          "reviews",
+                          "fulfilment_pct",
+                          "sales",
+                          "distance_km",
+                          "examples",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "text",
+                    "category",
+                    "sellers"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/product-requests/{id}/close": {
+      "post": {
+        "operationId": "deals.closeRequest",
+        "tags": [
+          "deals"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/product-requests/{id}/offer": {
+      "post": {
+        "operationId": "deals.offer",
+        "tags": [
+          "deals"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/product-requests/mine": {
+      "get": {
+        "operationId": "deals.myRequests",
+        "tags": [
+          "deals"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "text": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "OPEN",
+                          "CLOSED"
+                        ]
+                      },
+                      "sellers_alerted": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "offers": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "listing_id": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "price_kobo": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "business_name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "listing_id",
+                            "title",
+                            "price_kobo",
+                            "business_name"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "text",
+                      "status",
+                      "sellers_alerted",
+                      "offers"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/product-requests/suggest": {
+      "get": {
+        "operationId": "deals.suggest",
+        "tags": [
+          "deals"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "category": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sellers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "seller_id": {
+                            "type": "string"
+                          },
+                          "business_name": {
+                            "type": "string"
+                          },
+                          "area": {
+                            "type": "string"
+                          },
+                          "city": {
+                            "type": "string"
+                          },
+                          "verified": {
+                            "type": "boolean"
+                          },
+                          "rating": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "reviews": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "fulfilment_pct": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "sales": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "distance_km": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "examples": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "seller_id",
+                          "business_name",
+                          "area",
+                          "city",
+                          "verified",
+                          "rating",
+                          "reviews",
+                          "fulfilment_pct",
+                          "sales",
+                          "distance_km",
+                          "examples",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "category",
+                    "sellers"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/v1/promotion-packages": {
       "get": {
         "operationId": "revenue.listPackages",
@@ -28191,6 +29571,66 @@
         }
       }
     },
+    "/v1/sellers/me/listings/from-catalogue": {
+      "post": {
+        "operationId": "catalogue.addFromCatalogue",
+        "tags": [
+          "catalogue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "created": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "skipped": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "created",
+                    "ids",
+                    "skipped"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sellers/me/listings/import": {
       "post": {
         "operationId": "growth.importListings",
@@ -28284,6 +29724,52 @@
                 "required": [
                   "items"
                 ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sellers/me/listings/prices": {
+      "post": {
+        "operationId": "catalogue.updatePrices",
+        "tags": [
+          "catalogue"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "updated": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "updated"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
@@ -28420,6 +29906,53 @@
                     "note"
                   ],
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/sellers/me/product-requests": {
+      "get": {
+        "operationId": "deals.sellerRequests",
+        "tags": [
+          "deals"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "text": {
+                        "type": "string"
+                      },
+                      "offered_listing_id": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "text",
+                      "offered_listing_id"
+                    ],
+                    "additionalProperties": {}
+                  }
                 }
               }
             }

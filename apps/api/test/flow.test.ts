@@ -18,6 +18,8 @@ import { recoverFunding } from '../src/services/funding-recovery.service.js';
 import { deliverPush } from '../src/services/push.service.js';
 import { deliverPartnerWebhooks } from '../src/services/partner.service.js';
 import { clearMarketCache, plannerReminders } from '../src/services/planner-wizard.service.js';
+import { pickPhoto, refreshFulfilment } from '../src/services/catalogue-products.service.js';
+import { dealsSweep } from '../src/services/deals.service.js';
 /**
  * Every JSON response is recorded and checked against the published response schemas by the
  * last test. With CONTRACT_CAPTURE=<file> the recordings are also written out (to derive schemas).
@@ -87,7 +89,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   await db.transaction(async (q) => {
     const tables = await q.query<{ tablename: string }>(
-      "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename NOT IN ('_prisma_migrations','settings','vehicle_types','catalogue_categories','market_regions','marketplace_policies','promotion_packages','subscription_plans')",
+      "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename NOT IN ('_prisma_migrations','settings','vehicle_types','catalogue_categories','market_regions','marketplace_policies','promotion_packages','subscription_plans','catalogue_products')",
     );
     await q.query(`TRUNCATE ${tables.map((t) => `"${t.tablename}"`).join(',')} CASCADE`);
     await q.query(
@@ -2615,6 +2617,286 @@ async function readyForDeliveryFraud() {
   });
   return { b, quote: quote.body };
 }
+describe('shared catalogue and easy stock', () => {
+  async function approveSeller(actor: 'seller' | 'other' | 'admin', name: string) {
+    await call(actor, 'post', '/sellers', {
+      business_name: name,
+      business_type: 'home_based',
+      city: 'Lagos',
+      area: 'Ikeja',
+      address: 'PRIVATE 2 Shop Road',
+    });
+    await call('admin', 'post', `/admin/sellers/${actor}/review`, {
+      status: 'APPROVED',
+      reason: 'Checked',
+    });
+  }
+  const photoOf = async (owner: string) => {
+    const url = `http://localhost/media/${randomUUID()}.webp`;
+    await db.query('INSERT INTO media(id,owner_id,url,thumbnail_url) VALUES($1,$2,$3,$3)', [
+      randomUUID(),
+      owner,
+      url,
+    ]);
+    return url;
+  };
+  it('adds many products without photos, shares and rotates photos, skips duplicates', async () => {
+    await approveSeller('seller', 'Ada Phones');
+    await approveSeller('other', 'Tunde Gadgets');
+    const found = (await call('seller', 'get', '/catalogue/products?q=iphone 15')).body;
+    expect(found.map((p: any) => p.name)).toEqual(
+      expect.arrayContaining(['iPhone 15', 'iPhone 15 Pro', 'iPhone 15 Pro Max', 'iPhone 15 Plus']),
+    );
+    const pro = found.find((p: any) => p.name === 'iPhone 15 Pro');
+    const plus = found.find((p: any) => p.name === 'iPhone 15 Plus');
+    const own = await photoOf('seller');
+    const added = (
+      await call('seller', 'post', '/sellers/me/listings/from-catalogue', {
+        items: [
+          { product_id: pro.id, price_kobo: 98000000, photo_url: own, condition: 'USED' },
+          { product_id: plus.id, price_kobo: 95000000 },
+        ],
+      })
+    ).body;
+    expect(added).toMatchObject({ created: 2, skipped: [] });
+    // Again: already in the shop.
+    expect(
+      (
+        await call('seller', 'post', '/sellers/me/listings/from-catalogue', {
+          items: [{ product_id: pro.id, price_kobo: 1000 }],
+        })
+      ).body.skipped,
+    ).toEqual(['iPhone 15 Pro']);
+    // Another seller gets the shared photo, labelled as representative.
+    const theirs = (
+      await call('other', 'post', '/sellers/me/listings/from-catalogue', {
+        items: [{ product_id: pro.id, price_kobo: 97000000 }],
+      })
+    ).body;
+    const listing = (await call('buyer', 'get', `/listings/${theirs.ids[0]}`)).body;
+    expect(listing).toMatchObject({
+      image_url: own,
+      representative_photo: true,
+      stock_mode: 'ALWAYS',
+    });
+    // A photo on 10 listings makes way for a less-used one.
+    const [first] = await db.query('SELECT id FROM catalogue_photos WHERE product_id=$1', [pro.id]);
+    await db.query(
+      "INSERT INTO catalogue_photos(id,product_id,url,source) VALUES('photo-2',$1,'https://example.com/p2.webp','STAFF')",
+      [pro.id],
+    );
+    await db.query('UPDATE listings SET catalogue_photo_id=$1 WHERE id=$2', [
+      first.id,
+      theirs.ids[0],
+    ]);
+    for (let i = 0; i < 9; i++)
+      await db.query(
+        `INSERT INTO listings(id,seller_id,title,description,category,unit,price_kobo,stock,catalogue_product_id,catalogue_photo_id)
+         VALUES($1,'other','iPhone 15 Pro','Representative test listing','Phones & electronics','piece',100,1,$2,$3)`,
+        [randomUUID(), pro.id, first.id],
+      );
+    expect((await pickPhoto(db as any, pro.id)).id).toBe('photo-2');
+    // Searching shows how many sellers and the price range.
+    const again = (await call('buyer', 'get', '/catalogue/products?q=iphone 15 pro')).body.find(
+      (p: any) => p.id === pro.id,
+    );
+    expect(again).toMatchObject({ sellers: 2, min_price_kobo: 100 });
+  });
+  it('keeps always-in-stock items available, hides out-today items and updates prices in bulk', async () => {
+    await approveSeller('seller', 'Mega Mart');
+    const milk = (await call('seller', 'get', '/catalogue/products?q=peak milk powder')).body[0];
+    const { ids } = (
+      await call('seller', 'post', '/sellers/me/listings/from-catalogue', {
+        items: [{ product_id: milk.id, price_kobo: 450000 }],
+      })
+    ).body;
+    const id = ids[0];
+    const booking = (await call('buyer', 'post', '/bookings', { listing_id: id, quantity: 3 }))
+      .body;
+    await call('seller', 'post', `/bookings/${booking.id}/accept`, {});
+    const [v] = await db.query('SELECT stock FROM listing_variants WHERE listing_id=$1', [id]);
+    expect(v.stock).toBe(100000);
+    // Out today: hidden from buyers until midnight.
+    await call('seller', 'post', `/listings/${id}/out-today`, { out: true });
+    expect((await call('buyer', 'get', '/listings')).body.some((l: any) => l.id === id)).toBe(
+      false,
+    );
+    await call('seller', 'post', `/listings/${id}/out-today`, { out: false });
+    expect((await call('buyer', 'get', '/listings')).body.some((l: any) => l.id === id)).toBe(true);
+    // Prices up 10% across the shop, rounded to ₦10.
+    expect(
+      (await call('seller', 'post', '/sellers/me/listings/prices', { percent: 10 })).body.updated,
+    ).toBeGreaterThan(0);
+    const [l] = await db.query('SELECT price_kobo FROM listings WHERE id=$1', [id]);
+    expect(l.price_kobo).toBe(495000);
+    await call('seller', 'post', '/sellers/me/listings/prices', {
+      items: [{ listing_id: id, price_kobo: 470000 }],
+    });
+    const [p] = await db.query('SELECT price_kobo FROM listing_variants WHERE listing_id=$1', [id]);
+    expect(p.price_kobo).toBe(470000);
+    // Switch to counting stock.
+    expect(
+      (await call('seller', 'put', `/listings/${id}/stock-mode`, { mode: 'COUNTED', stock: 4 }))
+        .body.stock,
+    ).toBe(4);
+  });
+  it('points buyers elsewhere when a seller is out of stock and tracks fulfilment', async () => {
+    await approveSeller('seller', 'Shop A');
+    await approveSeller('other', 'Shop B');
+    const rice = (await call('seller', 'get', '/catalogue/products?q=mama gold 50kg')).body[0];
+    const a = (
+      await call('seller', 'post', '/sellers/me/listings/from-catalogue', {
+        items: [{ product_id: rice.id, price_kobo: 9000000 }],
+      })
+    ).body.ids[0];
+    await call('other', 'post', '/sellers/me/listings/from-catalogue', {
+      items: [{ product_id: rice.id, price_kobo: 9200000 }],
+    });
+    const ids: string[] = [];
+    for (let i = 0; i < 5; i++)
+      ids.push((await call('buyer', 'post', '/bookings', { listing_id: a, quantity: 1 })).body.id);
+    for (const id of ids.slice(0, 4)) await call('seller', 'post', `/bookings/${id}/accept`, {});
+    await call('seller', 'post', `/bookings/${ids[4]}/decline`, { reason: 'OUT_OF_STOCK' });
+    const [l] = await db.query('SELECT out_until FROM listings WHERE id=$1', [a]);
+    expect(new Date(l.out_until).getTime()).toBeGreaterThan(Date.now());
+    const [n] = await db.query(
+      "SELECT body FROM notifications WHERE user_id='buyer' AND title LIKE '%available elsewhere'",
+    );
+    expect(n.body).toMatch(/1 other seller has it/);
+    await refreshFulfilment(db);
+    const [s] = await db.query(
+      "SELECT fulfilment_pct,fulfilment_orders FROM sellers WHERE user_id='seller'",
+    );
+    expect(s).toEqual({ fulfilment_pct: 80, fulfilment_orders: 5 });
+  });
+});
+describe('deals and buyer requests', () => {
+  async function sellerWith(actor: 'seller' | 'other', name: string, products: [string, number][]) {
+    await call(actor, 'post', '/sellers', {
+      business_name: name,
+      business_type: 'market_stall',
+      city: 'Lagos',
+      area: 'Mile 12',
+      address: 'PRIVATE 3 Market Lane',
+    });
+    await call('admin', 'post', `/admin/sellers/${actor}/review`, {
+      status: 'APPROVED',
+      reason: 'Checked',
+    });
+    const ids: string[] = [];
+    for (const [title, naira] of products) {
+      const r = await call(actor, 'post', '/listings', {
+        title,
+        description: `${title} from the market`,
+        category: 'Vegetables',
+        unit: 'kg',
+        price_kobo: naira * 100,
+        stock: 50,
+      });
+      ids.push(r.body.id);
+    }
+    return ids;
+  }
+  const alerts = (title: string) =>
+    db.query("SELECT title,body FROM notifications WHERE user_id='buyer' AND title LIKE $1", [
+      title,
+    ]);
+  it('runs sales and tells watchers about price cuts and sales once', async () => {
+    const [tomatoes] = await sellerWith('seller', 'Mama Tomato', [['Fresh tomatoes', 1600]]);
+    // Watch a search and a listing.
+    const search = (await call('buyer', 'post', '/price-watches', { query: 'tomatoes' })).body;
+    expect(search.watched_price_kobo).toBe(160000);
+    await call('buyer', 'post', '/price-watches', { listing_id: tomatoes });
+    await dealsSweep(db);
+    expect(await alerts('Price drop%')).toHaveLength(0);
+    // A 10% cut.
+    await call('seller', 'post', '/sellers/me/listings/prices', {
+      items: [{ listing_id: tomatoes, price_kobo: 144000 }],
+    });
+    await dealsSweep(db);
+    await dealsSweep(db);
+    const drops = await alerts('Price drop%');
+    expect(drops).toHaveLength(2);
+    expect(drops[0].body).toMatch(/now ₦1,440 at Mama Tomato \(was ₦1,600\)/);
+    // A sale: was-price shown, watchers told, and it ends by itself.
+    expect(
+      (await call('seller', 'post', `/listings/${tomatoes}/sale`, { price_kobo: 150000, days: 2 }))
+        .body.error.code,
+    ).toBe('NOT_A_SALE');
+    const sale = (
+      await call('seller', 'post', `/listings/${tomatoes}/sale`, { price_kobo: 120000, days: 2 })
+    ).body;
+    expect(sale).toMatchObject({ price_kobo: 120000, was_price_kobo: 144000 });
+    await dealsSweep(db);
+    expect((await alerts('On sale%')).length).toBeGreaterThan(0);
+    expect((await call('buyer', 'get', '/price-watches')).body[0].lowest).toMatchObject({
+      price_kobo: 120000,
+      on_sale: true,
+    });
+    await db.query("UPDATE listings SET sale_until=now()-interval '1 minute' WHERE id=$1", [
+      tomatoes,
+    ]);
+    await dealsSweep(db);
+    const [l] = await db.query('SELECT price_kobo,was_price_kobo FROM listings WHERE id=$1', [
+      tomatoes,
+    ]);
+    expect(l).toEqual({ price_kobo: 144000, was_price_kobo: null });
+    const [v] = await db.query('SELECT price_kobo FROM listing_variants WHERE listing_id=$1', [
+      tomatoes,
+    ]);
+    expect(v.price_kobo).toBe(144000);
+    expect((await call('buyer', 'delete', `/price-watches/${search.id}`)).status).toBe(200);
+  });
+  it('suggests the best-matched sellers for something no one lists, and lets them offer it', async () => {
+    const [, pepper] = await sellerWith('seller', 'Ada Vegetables', [
+      ['Fresh tomatoes', 1600],
+      ['Scotch bonnet pepper', 3000],
+    ]);
+    await sellerWith('other', 'Tunde Veg', [['Red pepper (tatashe)', 2800]]);
+    // The verified, better-rated seller comes first.
+    await db.query(
+      "UPDATE sellers SET verification_status='VERIFIED',verification_expires_at=now()+interval '1 year' WHERE user_id='seller'",
+    );
+    const hint = (await call('buyer', 'get', '/product-requests/suggest?q=bell peppers')).body;
+    expect(hint.category).toBe('Vegetables');
+    expect(hint.sellers.map((x: any) => x.seller_id)).toEqual(['seller', 'other']);
+    expect(hint.sellers[0].reason).toMatch(/Sells Scotch bonnet pepper · verified/);
+    const req = (await call('buyer', 'post', '/product-requests', { text: 'Bell peppers, 2kg' }))
+      .body;
+    expect(req.sellers).toHaveLength(2);
+    const [asked] = await db.query(
+      "SELECT title FROM notifications WHERE user_id='seller' AND kind='request'",
+    );
+    expect(asked.title).toMatch(/looking for something you might have/);
+    const open = (await call('seller', 'get', '/sellers/me/product-requests')).body;
+    expect(open[0]).toMatchObject({
+      id: req.id,
+      text: 'Bell peppers, 2kg',
+      offered_listing_id: null,
+    });
+    expect(
+      (await call('buyer', 'post', `/product-requests/${req.id}/offer`, { listing_id: pepper }))
+        .status,
+    ).toBe(404);
+    expect(
+      (
+        await call('seller', 'post', `/product-requests/${req.id}/offer`, {
+          listing_id: pepper,
+          note: 'Have tatashe too',
+        })
+      ).status,
+    ).toBe(200);
+    const mine = (await call('buyer', 'get', '/product-requests/mine')).body;
+    expect(mine[0].offers[0]).toMatchObject({
+      title: 'Scotch bonnet pepper',
+      business_name: 'Ada Vegetables',
+      price_kobo: 300000,
+    });
+    expect((await alerts('Ada Vegetables has what you asked for')).length).toBe(1);
+    await call('buyer', 'post', `/product-requests/${req.id}/close`, {});
+    expect((await call('seller', 'get', '/sellers/me/product-requests')).body).toEqual([]);
+  });
+});
 describe('fraud controls', () => {
   const simulated = () => createApp(db, { ...c, payments: false, demo: true });
   const as = (app_: any, actor: string, method: 'get' | 'post', path: string, body?: any) => {

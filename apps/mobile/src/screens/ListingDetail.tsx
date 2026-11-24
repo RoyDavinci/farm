@@ -5,6 +5,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { useApp } from '../AppContext';
 import { useI18n } from '../i18n';
 import { request } from '../request';
+import { WasPrice, WatchPrice } from '../Deals';
 import { SellerTrust } from '../TrustPanels';
 import AllergenReport, { isFood } from '../AllergenReport';
 import { Back, Button, Chip, produceIcon, s } from '../ui';
@@ -92,6 +93,9 @@ export default function ListingDetail({
         ) : (
           <Text style={s.detailEmoji}>{produceIcon(selected.category)}</Text>
         )}
+        {(selected as any).representative_photo && (
+          <Text style={s.small}>Representative photo · the seller’s item may differ slightly</Text>
+        )}
         <Text style={s.eyebrow}>{selected.category.toUpperCase()} · AVAILABLE LOCALLY</Text>
       </View>
       {selected.image_urls && selected.image_urls.length > 1 && (
@@ -115,12 +119,20 @@ export default function ListingDetail({
         {money(selectedPrice)}{' '}
         <Text style={s.muted}>/ {selectedVariant?.unit || selected.unit}</Text>
       </Text>
+      <WasPrice listing={selected} />
+      {!own && <WatchPrice target={{ listing_id: selected.id }} />}
       <Text style={s.body}>{selected.description}</Text>
       <View style={s.sellerInfo}>
         <Text style={s.bold}>{selected.business_name}</Text>
         <Text style={s.muted}>
           {selected.area}, {selected.city} · Approved seller
         </Text>
+        {(selected as any).fulfilment_pct != null && (
+          <Text style={s.small}>
+            ✅ Fulfils {(selected as any).fulfilment_pct}% of orders (last{' '}
+            {(selected as any).fulfilment_orders} orders)
+          </Text>
+        )}
         <Text style={s.small}>Exact collection address is shared after acceptance.</Text>
         <Pressable onPress={() => openSeller(selected.seller_id)}>
           <Text style={s.link}>{t('listing.visitShop', { name: selected.business_name })}</Text>

@@ -8,10 +8,11 @@ import { notify } from './communications.service.js';
 
 /** SQL: listing alias is bookable now from stock, or open for pre-orders before its harvest date. */
 export const bookableSql = (a = 'l') =>
-  `(${a}.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM catalogue_categories cc WHERE cc.name=${a}.category AND (NOT cc.active OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(cc.prohibited_terms) term WHERE strpos(lower(${a}.title || ' ' || ${a}.description),lower(term))>0))) AND (COALESCE((SELECT (approved->>'stock_stale_days')::int FROM marketplace_policies WHERE id=1),0)=0 OR ${a}.confirmed_at>now()-COALESCE((SELECT (approved->>'stock_stale_days')::int FROM marketplace_policies WHERE id=1),0)*interval '1 day') AND (EXISTS(SELECT 1 FROM listing_variants av WHERE av.listing_id=${a}.id AND av.active AND av.stock>=av.min_quantity) OR (${a}.available_from>now() AND ${a}.preorder_capacity>0 AND EXISTS(SELECT 1 FROM listing_variants pv WHERE pv.listing_id=${a}.id AND pv.active))))`;
+  `(${a}.archived_at IS NULL AND (${a}.out_until IS NULL OR ${a}.out_until<=now()) AND NOT EXISTS(SELECT 1 FROM catalogue_categories cc WHERE cc.name=${a}.category AND (NOT cc.active OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(cc.prohibited_terms) term WHERE strpos(lower(${a}.title || ' ' || ${a}.description),lower(term))>0))) AND (COALESCE((SELECT (approved->>'stock_stale_days')::int FROM marketplace_policies WHERE id=1),0)=0 OR ${a}.stock_mode='ALWAYS' OR ${a}.confirmed_at>now()-COALESCE((SELECT (approved->>'stock_stale_days')::int FROM marketplace_policies WHERE id=1),0)*interval '1 day') AND (EXISTS(SELECT 1 FROM listing_variants av WHERE av.listing_id=${a}.id AND av.active AND av.stock>=av.min_quantity) OR (${a}.available_from>now() AND ${a}.preorder_capacity>0 AND EXISTS(SELECT 1 FROM listing_variants pv WHERE pv.listing_id=${a}.id AND pv.active))))`;
 
 export const visibleListing = `SELECT l.*,(SELECT m.thumbnail_url FROM media m WHERE m.url=l.image_url) AS thumbnail_url,
-  s.business_name,s.city,s.area,s.business_type,
+  s.business_name,s.city,s.area,s.business_type,s.fulfilment_pct,s.fulfilment_orders,
+  l.catalogue_photo_id IS NOT NULL AS representative_photo,
   ${bookableSql('l')} AS in_stock
   FROM listings l JOIN sellers s ON s.user_id=l.seller_id
   WHERE s.status='APPROVED' AND l.status='ACTIVE' AND NOT EXISTS(SELECT 1 FROM catalogue_categories cc WHERE cc.name=l.category AND (NOT cc.active OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(cc.prohibited_terms) term WHERE strpos(lower(l.title || ' ' || l.description),lower(term))>0))) AND EXISTS(SELECT 1 FROM users su WHERE su.id=s.user_id AND su.status='ACTIVE')`;
@@ -78,7 +79,7 @@ export function createRetentionService(deps: AppDeps) {
   async function getListing(user: any, input: RequestInput) {
     const u = user;
     const rows = await db.query(
-      `SELECT * FROM (${visibleListing} UNION ALL SELECT l.*,(SELECT m.thumbnail_url FROM media m WHERE m.url=l.image_url),s.business_name,s.city,s.area,s.business_type,FALSE FROM listings l JOIN sellers s ON s.user_id=l.seller_id WHERE l.seller_id=$2) x WHERE x.id=$1 LIMIT 1`,
+      `SELECT * FROM (${visibleListing} UNION ALL SELECT l.*,(SELECT m.thumbnail_url FROM media m WHERE m.url=l.image_url),s.business_name,s.city,s.area,s.business_type,s.fulfilment_pct,s.fulfilment_orders,l.catalogue_photo_id IS NOT NULL,FALSE FROM listings l JOIN sellers s ON s.user_id=l.seller_id WHERE l.seller_id=$2) x WHERE x.id=$1 LIMIT 1`,
       [input.params.id, u.id],
     );
     ensure(rows[0], 404, 'NOT_FOUND', 'This listing is no longer available.');

@@ -6,6 +6,7 @@ import { ensure } from '../lib/errors.js';
 import type { RequestInput } from '../lib/http.js';
 import type { AppDeps } from '../types/deps.js';
 import { listingSchema, sellerSchema } from '../validators/marketplace.validators.js';
+import { sharePhoto } from './catalogue-products.service.js';
 import { audit } from './audit.service.js';
 import { attachVariants, saveVariants } from './catalog.service.js';
 import { setLocation } from './geography.service.js';
@@ -107,7 +108,13 @@ export function createMarketplaceService(deps: AppDeps) {
     );
     return await attachVariants(db, rows, mine);
   }
-  async function createListing(q: Query, u: any, input: RequestInput) {
+  /** `quiet`: don't announce to followers (adding many catalogue products at once). */
+  async function createListing(
+    q: Query,
+    u: any,
+    input: RequestInput,
+    opts: { quiet?: boolean } = {},
+  ) {
     const d = listingSchema.parse(input.body);
     ensure(
       (d.pickup_available ?? true) || (d.delivery_available ?? true),
@@ -158,7 +165,7 @@ export function createMarketplaceService(deps: AppDeps) {
     l.variants = await saveVariants(q, l, d.variants);
     requirePreorders(deps, d);
     await savePreorder(q, l.id, d);
-    await announceNewListing(q, l);
+    if (!opts.quiet) await announceNewListing(q, l);
     await audit(q, u.id, 'listing.create', l.id);
     return l;
   }
@@ -186,7 +193,15 @@ export function createMarketplaceService(deps: AppDeps) {
     const images =
       d.image_urls ||
       (d.image_url !== undefined ? (d.image_url ? [d.image_url] : []) : l.image_urls || []);
-    await validateImages(q, u.id, images);
+    // A shared catalogue photo isn't the seller's own upload; only their own photos are checked.
+    const [shared] = l.catalogue_photo_id
+      ? await q.query('SELECT url FROM catalogue_photos WHERE id=$1', [l.catalogue_photo_id])
+      : [];
+    await validateImages(
+      q,
+      u.id,
+      images.filter((x: string) => x !== shared?.url),
+    );
     // stock represents AVAILABLE stock; existing reservations are separate and preserved.
     const [updated] = await q.query(
       'UPDATE listings SET title=$1,description=$2,category=$3,unit=$4,price_kobo=$5,stock=$6,status=$7,image_url=$8,condition=$9,confirmed_at=now() WHERE id=$10 RETURNING *',
@@ -208,6 +223,17 @@ export function createMarketplaceService(deps: AppDeps) {
       JSON.stringify(images),
       l.id,
     ]);
+    // The seller's own photo replaces the shared one (freeing it for others), and is shared for
+    // the same catalogue product unless they said no.
+    if (shared && images[0] !== shared.url)
+      await q.query('UPDATE listings SET catalogue_photo_id=NULL WHERE id=$1', [l.id]);
+    if (
+      l.catalogue_product_id &&
+      images[0] &&
+      images[0] !== shared?.url &&
+      input.body?.share_photo !== false
+    )
+      await sharePhoto(q, l.catalogue_product_id, images[0], u.id);
     await q.query('UPDATE listings SET pickup_available=$1,delivery_available=$2 WHERE id=$3', [
       merged.pickup_available,
       merged.delivery_available,

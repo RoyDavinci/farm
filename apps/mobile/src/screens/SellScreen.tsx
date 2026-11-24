@@ -7,6 +7,9 @@ import { useApp } from '../AppContext';
 import { featureOn } from '../features';
 import { useI18n } from '../i18n';
 import { LocationPicker, SellerLocationPanel } from '../LocationEditor';
+import CatalogueAdd from '../CatalogueAdd';
+import PriceStock from '../PriceStock';
+import { SellerRequests } from '../Deals';
 import { request } from '../request';
 import SellerAnalytics from '../SellerAnalytics';
 import { VerificationDocuments } from '../SellerTools';
@@ -27,6 +30,7 @@ export default function SellScreen({
   const { seller, settings, busy, run, refresh, openSeller } = useApp();
   const { t } = useI18n();
   const [docVersion, setDocVersion] = useState(0);
+  const [panel, setPanel] = useState<'catalogue' | 'prices' | null>(null);
   const [profile, setProfile] = useState({
     business_name: '',
     state: '',
@@ -155,7 +159,23 @@ export default function SellScreen({
           </View>
           {featureOn(settings, 'local_status') && <LocalStatusPublisher />}
           <SellerAnalytics refreshVersion={incoming.length + mine.length} />
-          <Button title={t('sell.addProduce')} onPress={() => onEditListing(null)} />
+          <Button
+            title="📦 Add from catalogue (no photos needed)"
+            onPress={() => setPanel(panel === 'catalogue' ? null : 'catalogue')}
+          />
+          <View style={s.inlineActions}>
+            <Button secondary title={t('sell.addProduce')} onPress={() => onEditListing(null)} />
+            {!!mine.length && (
+              <Button
+                secondary
+                title="💲 Prices & stock"
+                onPress={() => setPanel(panel === 'prices' ? null : 'prices')}
+              />
+            )}
+          </View>
+          {panel === 'catalogue' && <CatalogueAdd onDone={() => setPanel(null)} />}
+          {panel === 'prices' && <PriceStock listings={mine} onDone={() => setPanel(null)} />}
+          <SellerRequests listings={mine} />
           <Text style={s.sectionTitle}>{t('sell.listings')}</Text>
           <Text style={s.fine}>
             Archived listings stay in your history. Restore them, then edit and publish when ready.

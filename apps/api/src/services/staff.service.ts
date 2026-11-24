@@ -40,6 +40,8 @@ export const permissions: Record<string, StaffRole[]> = {
   payouts: ['finance'],
   risk: ['operations', 'finance', 'support'],
   'payout-accounts': ['finance'],
+  'catalogue-products': ['operations'],
+  'catalogue-photos': ['operations'],
   refunds: ['finance'],
   reconciliation: ['finance'],
   funding: ['finance'],

@@ -34,6 +34,8 @@ import { AppError } from '../lib/errors.js';
 import { accountRoutes } from './account.routes.js';
 import { adminRoutes } from './admin.routes.js';
 import { adminRiskRoutes, riskRoutes } from './risk.routes.js';
+import { adminCatalogueRoutes, catalogueRoutes } from './catalogue.routes.js';
+import { dealsRoutes } from './deals.routes.js';
 import { authRoutes } from './auth.routes.js';
 import { bookingsRoutes } from './bookings.routes.js';
 import { communicationRoutes } from './communications.routes.js';
@@ -117,6 +119,8 @@ export function apiRoutes(
   r.use(partnerRoutes(deps));
   r.use(walletRoutes(deps));
   r.use(riskRoutes(deps));
+  r.use(catalogueRoutes(deps));
+  r.use(dealsRoutes(deps));
 
   r.use('/admin', adminMarketOperationsRoutes(deps));
   r.use('/admin', adminDiscoveryOperationsRoutes(deps));
@@ -133,6 +137,7 @@ export function apiRoutes(
   r.use('/admin', adminPayoutRoutes(deps));
   r.use('/admin', adminRefundRoutes(deps));
   r.use('/admin', adminRiskRoutes(deps));
+  r.use('/admin', adminCatalogueRoutes(deps));
   r.use(adminRoutes(deps));
   return r;
 }

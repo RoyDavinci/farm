@@ -687,3 +687,14 @@ label.inline {
   border-radius: 10px;
   margin-bottom: 6px;
 }
+
+/* A file picker styled like a compact button (catalogue photo uploads). */
+label.button-like {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}

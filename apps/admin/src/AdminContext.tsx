@@ -19,6 +19,7 @@ export type Page =
   | 'Settings'
   | 'Users'
   | 'Risk'
+  | 'Product catalogue'
   | 'Reports'
   | 'Email queue'
   | 'Markets'

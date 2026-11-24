@@ -55,7 +55,7 @@ export async function stockFreshnessReminders(db: Database) {
     const days = Number(p.approved.stock_reminder_days || 0);
     if (!days) return;
     const rows = await q.query(
-      "SELECT * FROM listings WHERE status='ACTIVE' AND archived_at IS NULL AND confirmed_at<now()-$1*interval '1 day' AND (stock_reminded_at IS NULL OR stock_reminded_at<confirmed_at) ORDER BY id LIMIT 100 FOR UPDATE SKIP LOCKED",
+      "SELECT * FROM listings WHERE status='ACTIVE' AND archived_at IS NULL AND stock_mode<>'ALWAYS' AND confirmed_at<now()-$1*interval '1 day' AND (stock_reminded_at IS NULL OR stock_reminded_at<confirmed_at) ORDER BY id LIMIT 100 FOR UPDATE SKIP LOCKED",
       [days],
     );
     for (const l of rows) {

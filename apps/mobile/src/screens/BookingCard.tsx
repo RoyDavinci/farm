@@ -157,9 +157,15 @@ export default function BookingCard({
               />
               <Button
                 secondary
+                title="Out of stock"
+                disabled={busy}
+                onPress={() => void bookingAction(b, 'decline', { reason: 'OUT_OF_STOCK' })}
+              />
+              <Button
+                secondary
                 title={t('booking.decline')}
                 disabled={busy}
-                onPress={() => void bookingAction(b, 'decline')}
+                onPress={() => void bookingAction(b, 'decline', { reason: 'OTHER' })}
               />
             </>
           )}

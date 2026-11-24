@@ -2,6 +2,7 @@ import { MembershipCard, MyTeams } from './BusinessHubScreen';
 import DiscoveryPreferencesPanel from '../DiscoveryPreferencesPanel';
 import { Text, View } from 'react-native';
 import AccountPanel from '../AccountPanel';
+import { DealsInbox } from '../Deals';
 import { saveToken } from '../api';
 import { useApp } from '../AppContext';
 import { languages, useI18n } from '../i18n';
@@ -10,7 +11,7 @@ import { request } from '../request';
 import { Button, Chip, s } from '../ui';
 
 export default function AccountScreen({ onSignedOut }: { onSignedOut: () => void }) {
-  const { me, settings, busy, run, refresh } = useApp();
+  const { me, settings, busy, run, refresh, openListing } = useApp();
   const { t, language, setLanguage } = useI18n();
   return (
     <>
@@ -30,6 +31,13 @@ export default function AccountScreen({ onSignedOut }: { onSignedOut: () => void
           ))}
         </View>
       </View>
+      <DealsInbox
+        onOpenListing={(id) =>
+          void run(async () =>
+            openListing((await request('get', '/listings/{id}', { params: { id } })) as any),
+          )
+        }
+      />
       <DiscoveryPreferencesPanel />
       <AccountPanel user={me} onUpdate={refresh} />
       <View style={s.orderCard}>

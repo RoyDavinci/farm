@@ -83,6 +83,7 @@ import { SellerReviewModal, TimelineModal } from './pages/Modals';
 import OverviewPage from './pages/OverviewPage';
 import PayoutsPage from './pages/PayoutsPage';
 import RiskPage from './pages/RiskPage';
+import CatalogueProductsPage from './pages/CatalogueProductsPage';
 import RefundsPage from './pages/RefundsPage';
 import { AllergenReportsPage, PlannerUsagePage } from './pages/PlannerPages';
 import {
@@ -135,6 +136,7 @@ const pageArea: Record<Page, string> = {
   Reconciliation: 'reconciliation',
   Payouts: 'payouts',
   Risk: 'risk',
+  'Product catalogue': 'catalogue-products',
   Refunds: 'refunds',
   Planner: 'planner',
   'Allergen reports': 'allergen-reports',
@@ -208,6 +210,7 @@ const navGroups: { label: string; items: (readonly [Page, LucideIcon])[] }[] = [
     label: 'Trust & community',
     items: [
       ['Risk', ShieldAlert],
+      ['Product catalogue', Boxes],
       ['Users', Users],
       ['Verifications', BadgeCheck],
       ['Reports', Flag],
@@ -493,6 +496,8 @@ function App() {
                       Disputes: 'Review evidence, returns and wallet refunds.',
                       Reconciliation: 'Verify provider funding and review exceptions.',
                       Payouts: 'Review seller withdrawals and send bank transfers.',
+                      'Product catalogue':
+                        'Standard products sellers pick from, and the shared photos rotated across their listings.',
                       Risk: 'Fraud signals to check: linked accounts, odd money patterns and identity problems.',
                       Refunds: 'Refunds sent back to buyers’ cards, and any that need a check.',
                       Planner: 'How customers plan: types, products matched, orders and budgets.',
@@ -565,6 +570,7 @@ function App() {
             {page === 'Ledger' && <LedgerPage ledger={ledger} />}
             {page === 'Payouts' && <PayoutsPage />}
             {page === 'Risk' && <RiskPage />}
+            {page === 'Product catalogue' && <CatalogueProductsPage />}
             {page === 'Refunds' && <RefundsPage />}
             {page === 'Planner' && <PlannerUsagePage />}
             {page === 'Verifications' && <VerificationsPage />}

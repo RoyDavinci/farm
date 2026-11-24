@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import MapPanel from './MapPanel';
 import { request } from './request';
+import { WantIt } from './Deals';
 export default function DiscoveryPanel({
   onSelect,
   refreshVersion,
@@ -543,6 +544,7 @@ export default function DiscoveryPanel({
           No products match these filters. Try another area, category or distance.
         </Text>
       )}
+      {!busy && <WantIt query={q} few={items.length < 3} point={point} />}
 
       {!!featured.length && (
         <>

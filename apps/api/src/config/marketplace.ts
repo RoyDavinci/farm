@@ -43,5 +43,8 @@ export const productUnits = [
   'bag',
   'basket',
   'carton',
+  'tin',
+  'can',
+  'bunch',
 ] as const;
 export const productConditions = ['NEW', 'USED', 'REFURBISHED'] as const;

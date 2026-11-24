@@ -308,6 +308,70 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/admin/catalogue-photos/{id}/remove': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['catalogue.removePhoto'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/catalogue-products': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['catalogue.adminCatalogue'];
+    put?: never;
+    post: operations['catalogue.adminAddProduct'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/catalogue-products/{id}/active': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['catalogue.setProductActive'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/admin/catalogue-products/{id}/photos': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['catalogue.addStaffPhoto'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/admin/deliveries': {
     parameters: {
       query?: never;
@@ -2052,6 +2116,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/catalogue/products': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['catalogue.searchCatalogue'];
+    put?: never;
+    post: operations['catalogue.addProduct'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/conversations': {
     parameters: {
       query?: never;
@@ -2676,6 +2756,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/listings/{id}/out-today': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['catalogue.setOutToday'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/listings/{id}/promote': {
     parameters: {
       query?: never;
@@ -2686,6 +2782,22 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['promotions.promoteListing'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/listings/{id}/sale': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['deals.setSale'];
     delete?: never;
     options?: never;
     head?: never;
@@ -2703,6 +2815,22 @@ export interface paths {
     put: operations['retention.addStockAlert'];
     post?: never;
     delete: operations['retention.removeStockAlert'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/listings/{id}/stock-mode': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations['catalogue.setStockMode'];
+    post?: never;
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -3828,6 +3956,118 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/price-watches': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['deals.listWatches'];
+    put?: never;
+    post: operations['deals.watchPrice'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/price-watches/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['deals.unwatchPrice'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/product-requests': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['deals.createRequest'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/product-requests/{id}/close': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['deals.closeRequest'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/product-requests/{id}/offer': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['deals.offer'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/product-requests/mine': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['deals.myRequests'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/product-requests/suggest': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['deals.suggest'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/promotion-packages': {
     parameters: {
       query?: never;
@@ -4260,6 +4500,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/sellers/me/listings/from-catalogue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['catalogue.addFromCatalogue'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/sellers/me/listings/import': {
     parameters: {
       query?: never;
@@ -4270,6 +4526,22 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['growth.importListings'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/sellers/me/listings/prices': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['catalogue.updatePrices'];
     delete?: never;
     options?: never;
     head?: never;
@@ -4300,6 +4572,22 @@ export interface paths {
       cookie?: never;
     };
     get: operations['growth.marketInsights'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/sellers/me/product-requests': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['deals.sellerRequests'];
     put?: never;
     post?: never;
     delete?: never;
@@ -6099,6 +6387,174 @@ export interface operations {
         content: {
           'application/json': {
             ok: boolean;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'catalogue.removePhoto': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'catalogue.adminCatalogue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            name: string;
+            brand: string;
+            category: string;
+            unit: string;
+            active: boolean;
+            listings: number;
+            photos: {
+              id: string;
+              url: string;
+              source: string;
+              uses: number;
+            }[];
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'catalogue.adminAddProduct': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            name: string;
+            brand: string;
+            category: string;
+            unit: string;
+          } & {
+            [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'catalogue.setProductActive': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'catalogue.addStaffPhoto': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            filled: number;
           };
         };
       };
@@ -10931,6 +11387,76 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'catalogue.searchCatalogue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            name: string;
+            brand: string;
+            category: string;
+            unit: string;
+            photos: number;
+            photo: string | null;
+            sellers: number;
+            min_price_kobo: number | null;
+            max_price_kobo: number | null;
+            listed: boolean;
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'catalogue.addProduct': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            name: string;
+            brand: string;
+            category: string;
+            unit: string;
+          } & {
+            [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'communications.listConversations': {
     parameters: {
       query?: never;
@@ -12398,7 +12924,10 @@ export interface operations {
             | 'crate'
             | 'bag'
             | 'basket'
-            | 'carton';
+            | 'carton'
+            | 'tin'
+            | 'can'
+            | 'bunch';
           price_kobo: number;
           /**
            * @default NEW
@@ -12432,7 +12961,10 @@ export interface operations {
               | 'crate'
               | 'bag'
               | 'basket'
-              | 'carton';
+              | 'carton'
+              | 'tin'
+              | 'can'
+              | 'bunch';
             price_kobo: number;
             stock: number;
             /** @default 1 */
@@ -12556,7 +13088,10 @@ export interface operations {
             | 'crate'
             | 'bag'
             | 'basket'
-            | 'carton';
+            | 'carton'
+            | 'tin'
+            | 'can'
+            | 'bunch';
           price_kobo?: number;
           /**
            * @default NEW
@@ -12590,7 +13125,10 @@ export interface operations {
               | 'crate'
               | 'bag'
               | 'basket'
-              | 'carton';
+              | 'carton'
+              | 'tin'
+              | 'can'
+              | 'bunch';
             price_kobo: number;
             stock: number;
             /** @default 1 */
@@ -12771,6 +13309,38 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'catalogue.setOutToday': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            out_until: string | null;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'promotions.promoteListing': {
     parameters: {
       query?: never;
@@ -12808,6 +13378,42 @@ export interface operations {
             seller_id: string;
             starts_at: string;
             status: string;
+          } & {
+            [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.setSale': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            price_kobo: number;
+            was_price_kobo: number | null;
+            sale_until: string | null;
           } & {
             [key: string]: unknown;
           };
@@ -12876,6 +13482,40 @@ export interface operations {
             stock_alert: boolean;
           } & {
             [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'catalogue.setStockMode': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            /** @enum {string} */
+            stock_mode: 'ALWAYS' | 'COUNTED';
+            stock: number;
           };
         };
       };
@@ -16201,6 +16841,284 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'deals.listWatches': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            label: string;
+            /** @enum {string} */
+            kind: 'LISTING' | 'PRODUCT' | 'SEARCH';
+            listing_id: string | null;
+            catalogue_product_id: string | null;
+            query: string | null;
+            watched_price_kobo: number | null;
+            lowest: {
+              listing_id: string;
+              title: string;
+              business_name: string;
+              price_kobo: number;
+              on_sale: boolean;
+            } | null;
+            created_at: string;
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.watchPrice': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            label: string;
+            watched_price_kobo: number | null;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.unwatchPrice': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.createRequest': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            text: string;
+            category: string | null;
+            sellers: {
+              seller_id: string;
+              business_name: string;
+              area: string;
+              city: string;
+              verified: boolean;
+              rating: number | null;
+              reviews: number;
+              fulfilment_pct: number | null;
+              sales: number;
+              distance_km: number | null;
+              examples: string[];
+              reason: string;
+            }[];
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.closeRequest': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.offer': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.myRequests': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            text: string;
+            /** @enum {string} */
+            status: 'OPEN' | 'CLOSED';
+            sellers_alerted: number;
+            offers: ({
+              id: string;
+              listing_id: string;
+              title: string;
+              price_kobo: number;
+              business_name: string;
+            } & {
+              [key: string]: unknown;
+            })[];
+          } & {
+            [key: string]: unknown;
+          })[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.suggest': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            category: string | null;
+            sellers: {
+              seller_id: string;
+              business_name: string;
+              area: string;
+              city: string;
+              verified: boolean;
+              rating: number | null;
+              reviews: number;
+              fulfilment_pct: number | null;
+              sales: number;
+              distance_km: number | null;
+              examples: string[];
+              reason: string;
+            }[];
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'revenue.listPackages': {
     parameters: {
       query?: never;
@@ -17356,6 +18274,37 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'catalogue.addFromCatalogue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            created: number;
+            ids: string[];
+            skipped: string[];
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'growth.importListings': {
     parameters: {
       query?: never;
@@ -17389,6 +18338,35 @@ export interface operations {
           'application/json': {
             created: number;
             ids: string[];
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'catalogue.updatePrices': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            updated: number;
           };
         };
       };
@@ -17458,6 +18436,33 @@ export interface operations {
           } & {
             [key: string]: unknown;
           };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.sellerRequests': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': ({
+            id: string;
+            text: string;
+            offered_listing_id: string | null;
+          } & {
+            [key: string]: unknown;
+          })[];
         };
       };
       default: components['responses']['Error'];

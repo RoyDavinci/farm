@@ -13,7 +13,7 @@ import { ensureNotFrozen, flag, linkedAccounts } from './risk.service.js';
 import { notify } from './communications.service.js';
 import { cancelDelivery } from './deliveries.service.js';
 import { ledger, lockedBalance } from './ledger.service.js';
-import { listingAvailable, notifyIfRestocked } from './retention.service.js';
+import { bookableSql, listingAvailable, notifyIfRestocked } from './retention.service.js';
 
 const id = () => randomUUID();
 
@@ -491,9 +491,41 @@ export function createBookingsService(deps: AppDeps) {
           ? `Seller accepted the pre-order; ready from ${new Date(l.available_from).toDateString()}.`
           : 'Seller accepted; stock reserved.',
       );
-    } else if (action === 'decline')
-      await event(q, b, 'DECLINED', u.id, 'Seller declined the booking.');
-    else if (action === 'cancel')
+    } else if (action === 'decline') {
+      const why = z
+        .object({ reason: z.enum(['OUT_OF_STOCK', 'OTHER']).default('OTHER') })
+        .parse(input.body ?? {}).reason;
+      await q.query('UPDATE bookings SET decline_reason=$1 WHERE id=$2', [why, b.id]);
+      await event(
+        q,
+        b,
+        'DECLINED',
+        u.id,
+        why === 'OUT_OF_STOCK' ? 'Seller is out of stock.' : 'Seller declined the booking.',
+      );
+      if (why === 'OUT_OF_STOCK') {
+        // Out today: hidden until midnight, and the buyer is pointed to other sellers.
+        await q.query(
+          "UPDATE listings SET out_until=(date_trunc('day', now() AT TIME ZONE 'Africa/Lagos') + interval '1 day') AT TIME ZONE 'Africa/Lagos' WHERE id=$1",
+          [b.listing_id],
+        );
+        const [alt] = await q.query(
+          `SELECT COUNT(DISTINCT l.seller_id)::int AS n FROM listings l JOIN listings x ON x.id=$1
+           WHERE l.id<>x.id AND l.status='ACTIVE' AND l.seller_id<>x.seller_id AND ${bookableSql('l')}
+             AND (l.catalogue_product_id=x.catalogue_product_id OR lower(l.title)=lower(x.title))`,
+          [b.listing_id],
+        );
+        if (alt.n)
+          await notify(
+            q,
+            b.buyer_id,
+            'booking',
+            `${b.title} is available elsewhere`,
+            `This seller ran out, but ${alt.n} other seller${alt.n === 1 ? ' has' : 's have'} it. Search for “${b.title}” to order.`,
+            b.id,
+          );
+      }
+    } else if (action === 'cancel')
       await release(
         q,
         b,
