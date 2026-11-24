@@ -284,7 +284,7 @@ export default function StoryViewer({
                   <Image source={{ uri: story.thumbnail_url }} style={styles.headAvatar} />
                   <View style={{ flex: 1 }}>
                     <Text numberOfLines={1} style={styles.headName}>
-                      {story.business_name}
+                      {mine ? 'Your status' : story.business_name}
                     </Text>
                     <Text numberOfLines={1} style={styles.headMeta}>
                       {ago(story.created_at)} · {story.area}
@@ -292,6 +292,20 @@ export default function StoryViewer({
                       {story.sponsored ? ' · Sponsored' : ''}
                     </Text>
                   </View>
+                  {mine && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Delete this status"
+                      hitSlop={10}
+                      onPress={() => {
+                        setMenu(false);
+                        setConfirmDelete(true);
+                      }}
+                      style={styles.deleteChip}
+                    >
+                      <Text style={styles.deleteChipText}>🗑 Delete</Text>
+                    </Pressable>
+                  )}
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Story options"
@@ -495,6 +509,14 @@ export default function StoryViewer({
 }
 
 const styles = StyleSheet.create({
+  deleteChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(184,70,47,0.85)',
+    marginRight: 6,
+  },
+  deleteChipText: { color: '#fff', fontWeight: '800', fontSize: 13 },
   replyRow: { flexDirection: 'row', gap: 6 },
   quick: {
     borderRadius: 999,

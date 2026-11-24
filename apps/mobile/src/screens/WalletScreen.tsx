@@ -9,6 +9,7 @@ import PayoutPanel from '../PayoutPanel';
 import { TransactionPinCard } from '../TransactionPin';
 import { request } from '../request';
 import { Badge, Button, Chip, Field, s } from '../ui';
+import { BalanceEye, masked, useBalanceHidden } from '../balanceVisibility';
 import { AhiaIdCard, InviteCard, PromoCodeCard, SendMoneyPanel } from '../Rewards';
 
 export interface WalletData {
@@ -39,19 +40,27 @@ export default function WalletScreen({ wallet }: { wallet: WalletData }) {
   const field = (label: string, value: string, onChange: (v: string) => void, extra: any = {}) => (
     <Field label={label} value={value} onChangeText={onChange} {...extra} />
   );
+  const [hidden] = useBalanceHidden();
   if (!featureOn(settings, 'wallet')) return <PaymentsView wallet={wallet} />;
   return (
     <>
       <Text style={s.eyebrow}>{t('wallet.eyebrow')}</Text>
       <Text style={s.heading}>{t('wallet.heading')}</Text>
       <View style={s.balanceCard}>
-        <Text style={s.heroEyebrow}>
-          {settings?.payment_mode === 'demo' ? 'SIMULATED BALANCE' : 'AVAILABLE BALANCE'}
-        </Text>
-        <Text style={s.balance}>{money(wallet.balance_kobo)}</Text>
+        <View
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <Text style={s.heroEyebrow}>
+            {settings?.payment_mode === 'demo' ? 'SIMULATED BALANCE' : 'AVAILABLE BALANCE'}
+          </Text>
+          <BalanceEye />
+        </View>
+        <Text style={s.balance}>{masked(money(wallet.balance_kobo), hidden)}</Text>
         <Text style={s.heroText}>NGN · Pay for accepted bookings</Text>
         {!!seller && (
-          <Text style={s.heroText}>Sales earnings: {money(wallet.seller_payable_kobo)}</Text>
+          <Text style={s.heroText}>
+            Sales earnings: {masked(money(wallet.seller_payable_kobo), hidden)}
+          </Text>
         )}
       </View>
       <View style={styles.actions}>

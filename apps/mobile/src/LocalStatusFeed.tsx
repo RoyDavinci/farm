@@ -45,7 +45,7 @@ export default function LocalStatusFeed({
   /** Shown beside the featured story (a sponsored product), or full width without one. */
   aside?: ReactNode;
 }) {
-  const { seller, settings } = useApp();
+  const { seller, settings, me } = useApp();
   const [composing, setComposing] = useState(false);
   const [manual, setManual] = useState(false),
     [state, setState] = useState(''),
@@ -126,10 +126,7 @@ export default function LocalStatusFeed({
     [scopeKey],
   );
   useEffect(() => {
-    if (!local) {
-      setItems([]);
-      return;
-    }
+    // Without an area the feed still loads: it then holds your own statuses only.
     void load();
     return () => {
       sequence.current++;
@@ -159,7 +156,12 @@ export default function LocalStatusFeed({
         sponsored: stories.some((i) => i.sponsored),
       };
     })
-    .sort((a, b) => Number(b.unseen) - Number(a.unseen));
+    // Your own statuses first, then sellers you haven't watched yet.
+    .sort(
+      (a, b) =>
+        Number(b.first.seller_id === me?.id) - Number(a.first.seller_id === me?.id) ||
+        Number(b.unseen) - Number(a.unseen),
+    );
   // The viewer plays sellers in the same order as the row.
   const ordered = sellers.flatMap(({ first }) =>
     items.filter((i) => i.seller_id === first.seller_id),
@@ -266,7 +268,7 @@ export default function LocalStatusFeed({
                 )}
               </View>
               <Text numberOfLines={1} style={[styles.name, !unseen && styles.nameSeen]}>
-                {first.business_name}
+                {first.seller_id === me?.id ? 'Your status' : first.business_name}
               </Text>
             </Pressable>
           ))}

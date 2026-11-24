@@ -4571,6 +4571,25 @@ describe('growth modules', () => {
     expect(l.status).toBe('ACTIVE');
   });
 
+  it('always shows sellers their own status first, whatever area they look at', async () => {
+    const listing = await setup(10);
+    await db.query("UPDATE sellers SET state='Lagos',lga='Ikorodu' WHERE user_id='seller'");
+    await db.query(
+      `INSERT INTO local_statuses(id,seller_id,listing_id,caption,media_url,thumbnail_url,expires_at)
+       VALUES('st-own','seller',$1,'Just posted','https://example.com/a.webp','https://example.com/a-thumb.webp',now()+interval '1 day')`,
+      [listing],
+    );
+    // Far away (Abuja), or no area at all: the seller still sees their own status.
+    const far = '/local-status?state=FCT&lga=Gwagwalada';
+    expect((await call('seller', 'get', far)).body.items.map((i: any) => i.id)).toEqual([
+      'st-own',
+    ]);
+    expect((await call('seller', 'get', '/local-status')).body.items[0].id).toBe('st-own');
+    // Other people far away don't.
+    expect((await call('buyer', 'get', far)).body.items).toEqual([]);
+    expect((await call('buyer', 'get', '/local-status')).body.items).toEqual([]);
+  });
+
   it('shares a plan with family as viewer or editor', async () => {
     const plan = await call('buyer', 'post', '/plans', { template: 'groceries', people: 3 });
     const id = plan.body.id;

@@ -42,7 +42,7 @@ const eligible = `st.status='ACTIVE' AND st.expires_at>now() AND s.status='APPRO
  AND NOT EXISTS(SELECT 1 FROM user_blocks WHERE (blocker_id=$1 AND blocked_id=s.user_id) OR (blocked_id=$1 AND blocker_id=s.user_id))
  AND NOT EXISTS(SELECT 1 FROM local_status_mutes WHERE user_id=$1 AND ((kind='SELLER' AND target=s.user_id) OR (kind='CATEGORY' AND target=l.category)))
  AND ($6::text='' OR l.category=$6)
- AND (($4::text<>'' AND $5::text<>'' AND lower(s.state)=lower($4) AND lower(s.lga)=lower($5))
+ AND (st.seller_id=$1 OR ($4::text<>'' AND $5::text<>'' AND lower(s.state)=lower($4) AND lower(s.lga)=lower($5))
  OR ($2::float8 IS NOT NULL AND s.latitude IS NOT NULL AND 6371*acos(LEAST(1.0,GREATEST(-1.0,
  sin(radians(s.latitude))*sin(radians($2::float8))+cos(radians(s.latitude))*cos(radians($2::float8))*cos(radians(s.longitude-$3::float8))))) <= (SELECT status_radius_km FROM settings WHERE id=1)) OR ${matchedBoost} IS NOT NULL)`;
 function areaParams(user: any, input: RequestInput) {
@@ -75,13 +75,14 @@ export async function expireLocalStatuses(db: Database) {
 export function createLocalStatusService({ db, config }: AppDeps) {
   async function feed(user: any, input: RequestInput) {
     const { d, args } = areaParams(user, input);
-    const score = `(CASE WHEN COALESCE((SELECT categories ? l.category FROM discovery_preferences WHERE user_id=$1),false) THEN 4 ELSE 0 END + CASE WHEN EXISTS(SELECT 1 FROM favourites WHERE buyer_id=$1 AND seller_id=s.user_id) THEN 2 ELSE 0 END)`;
+    // Your own statuses always show, first, wherever you are looking.
+    const score = `(CASE WHEN st.seller_id=$1 THEN 10 ELSE 0 END + CASE WHEN COALESCE((SELECT categories ? l.category FROM discovery_preferences WHERE user_id=$1),false) THEN 4 ELSE 0 END + CASE WHEN EXISTS(SELECT 1 FROM favourites WHERE buyer_id=$1 AND seller_id=s.user_id) THEN 2 ELSE 0 END)`;
     let cursor: null | { score: number; time: string; id: string } = null;
     if (d.cursor) {
       try {
         cursor = z
           .object({
-            score: z.number().int().min(0).max(6),
+            score: z.number().int().min(0).max(20),
             time: z.iso.datetime({ offset: true }),
             id: z.uuid(),
           })

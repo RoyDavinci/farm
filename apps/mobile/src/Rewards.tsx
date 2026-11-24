@@ -1,6 +1,6 @@
 import { money } from '@ahia/shared';
 import { useCallback, useEffect, useState } from 'react';
-import { Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useApp } from './AppContext';
 import { request } from './request';
 import { PinField, pinReady, useTransactionPin } from './TransactionPin';
@@ -159,13 +159,7 @@ export function SendMoneyPanel({ onSent }: { onSent?: () => void }) {
             keyboardType="number-pad"
             placeholder="e.g. 5000"
           />
-          <Field
-            label="Note (optional)"
-            value={note}
-            onChangeText={setNote}
-            maxLength={100}
-            placeholder="What it's for"
-          />
+          <ProductNoteField value={note} onChange={setNote} />
           {pinStatus.state && !pinStatus.state.set ? (
             <Text style={styles.error}>
               Set a transaction PIN in Wallet first; it protects every transfer.
@@ -223,6 +217,126 @@ export function SendMoneyPanel({ onSent }: { onSent?: () => void }) {
           </Text>
         </View>
       ))}
+    </View>
+  );
+}
+
+type Suggestion = { name: string; photo: string | null; detail: string };
+
+/**
+ * "What it's for" on a transfer: searches product names in Ahia (the shared catalogue, then live
+ * listings) as you type; tap one to use it. Anything else typed is kept as a plain note.
+ */
+function ProductNoteField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [rows, setRows] = useState<Suggestion[]>([]),
+    [open, setOpen] = useState(false),
+    [picked, setPicked] = useState(false);
+  useEffect(() => {
+    const q = value.trim();
+    if (picked || q.length < 2) {
+      setRows([]);
+      return;
+    }
+    let current = true;
+    const t = setTimeout(async () => {
+      const [catalogue, listings] = await Promise.all([
+        request('get', '/catalogue/products', { query: { q } as any }).catch(() => []),
+        request('get', '/search', { query: { q, limit: '10' } as any })
+          .then((r: any) => r.items ?? [])
+          .catch(() => []),
+      ]);
+      if (!current) return;
+      const seen = new Set<string>();
+      const out: Suggestion[] = [];
+      for (const p of catalogue as any[])
+        if (!seen.has(p.name.toLowerCase())) {
+          seen.add(p.name.toLowerCase());
+          out.push({ name: p.name, photo: p.photo, detail: `${p.category} · per ${p.unit}` });
+        }
+      for (const l of listings as any[])
+        if (!seen.has(String(l.title).toLowerCase())) {
+          seen.add(String(l.title).toLowerCase());
+          out.push({
+            name: l.title,
+            photo: l.thumbnail_url || l.image_url || null,
+            detail: `${l.business_name ?? 'On Ahia'} · ${money(l.price_kobo)}/${l.unit}`,
+          });
+        }
+      setRows(out.slice(0, 8));
+      setOpen(true);
+    }, 300);
+    return () => {
+      current = false;
+      clearTimeout(t);
+    };
+  }, [value, picked]);
+  return (
+    <View style={{ gap: 6 }}>
+      <Text style={s.label}>What it’s for (optional)</Text>
+      <View style={styles.noteBox} {...({ dataSet: { focusring: 'pill' } } as any)}>
+        <Text style={{ fontSize: 16 }}>🔎</Text>
+        <TextInput
+          style={styles.noteInput}
+          value={value}
+          onChangeText={(v) => {
+            setPicked(false);
+            onChange(v);
+          }}
+          onFocus={() => rows.length && setOpen(true)}
+          maxLength={100}
+          placeholder="Search a product, e.g. rice, tomatoes"
+          placeholderTextColor="#8aa698"
+          accessibilityLabel="What the money is for: search a product"
+        />
+        {!!value && (
+          <Pressable
+            accessibilityLabel="Clear"
+            hitSlop={8}
+            onPress={() => {
+              setPicked(false);
+              onChange('');
+            }}
+          >
+            <Text style={styles.noteClear}>✕</Text>
+          </Pressable>
+        )}
+      </View>
+      {open && !picked && rows.length > 0 && (
+        <View style={styles.noteList}>
+          {rows.map((r) => (
+            <Pressable
+              key={r.name}
+              accessibilityRole="button"
+              style={styles.noteOption}
+              onPress={() => {
+                onChange(r.name);
+                setPicked(true);
+                setOpen(false);
+              }}
+            >
+              {r.photo ? (
+                <Image source={{ uri: r.photo }} style={styles.notePhoto} />
+              ) : (
+                <View style={[styles.notePhoto, styles.notePhotoEmpty]}>
+                  <Text>🛍️</Text>
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={s.bold} numberOfLines={1}>
+                  {r.name}
+                </Text>
+                <Text style={s.small} numberOfLines={1}>
+                  {r.detail}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      )}
+      {!picked && value.trim().length >= 2 && open && rows.length === 0 && (
+        <Text style={s.fine}>No product with that name yet; it’ll be sent as a note.</Text>
+      )}
+      {picked && <Text style={s.fine}>✓ For: {value}</Text>}
     </View>
   );
 }
@@ -397,6 +511,36 @@ export function InviteCard() {
 }
 
 const styles = StyleSheet.create({
+  noteBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#d1e9dd',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+  },
+  noteInput: { flex: 1, minWidth: 0, paddingVertical: 13, fontSize: 15, color: '#184730' },
+  noteClear: { fontSize: 16, color: '#5f8471', paddingHorizontal: 4 },
+  noteList: {
+    borderWidth: 1,
+    borderColor: '#d9ebe2',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
+  noteOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eef4f0',
+  },
+  notePhoto: { width: 36, height: 36, borderRadius: 8 },
+  notePhotoEmpty: { backgroundColor: '#eef6f1', alignItems: 'center', justifyContent: 'center' },
   idCard: {
     padding: 18,
     borderRadius: 20,

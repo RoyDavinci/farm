@@ -57,6 +57,7 @@ import SellScreen from './src/screens/SellScreen';
 import WalletScreen, { type WalletData } from './src/screens/WalletScreen';
 import { sellerFromUrl } from './src/share';
 import { Alert, Brand, Button, FadeIn, s } from './src/ui';
+import { useBalanceHidden } from './src/balanceVisibility';
 
 // Web: keyboard focus rings in the brand green instead of the browser's default blue.
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -90,6 +91,7 @@ export default function App() {
 
 function Main() {
   const scrollY = useRef(0);
+  const [balanceHidden] = useBalanceHidden();
   const scrollRef = useRef<{ scrollTo: (o: { y: number; animated: boolean }) => void } | null>(
     null,
   );
@@ -440,13 +442,17 @@ function Main() {
             {!actingAs() && wallet && (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Wallet balance ${money(wallet.balance_kobo)}. Open wallet`}
+                accessibilityLabel={
+                  balanceHidden
+                    ? 'Wallet. Open wallet'
+                    : `Wallet balance ${money(wallet.balance_kobo)}. Open wallet`
+                }
                 onPress={() => changeTab('Wallet')}
                 style={s.walletPill}
               >
                 <Text style={s.walletPillIcon}>👛</Text>
                 <Text style={s.walletPillText} numberOfLines={1}>
-                  {shortMoney(wallet.balance_kobo)}
+                  {balanceHidden ? '₦ ••••' : shortMoney(wallet.balance_kobo)}
                 </Text>
               </Pressable>
             )}
