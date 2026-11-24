@@ -22,6 +22,8 @@ import { bookableSql } from './retention.service.js';
 const naira = (kobo: number) => `₦${Math.round(kobo / 100).toLocaleString('en-NG')}`;
 /** A cut of at least this share counts as a price drop worth telling watchers about. */
 const DROP = 0.03;
+/** Fresh produce categories for the fresh offers rail. */
+const FRESH = ['Vegetables', 'Fruit', 'Tubers', 'Livestock', 'Grains'];
 const STOP = new Set([
   'and',
   'the',
@@ -75,18 +77,60 @@ async function lowestPrice(
   return r ?? null;
 }
 
+/** Days in the last 30 a listing was priced at exactly this amount (from its price history). */
+export async function daysAtPrice(q: Query, listingId: string, price: number) {
+  const [r] = await q.query(
+    `WITH h AS (
+       SELECT price_kobo,GREATEST(from_at,now()-interval '30 days') AS start,
+         COALESCE(LEAD(from_at) OVER (ORDER BY from_at,id),now()) AS stop
+       FROM listing_price_history WHERE listing_id=$1)
+     SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (stop-start)))/86400,0)::float8 AS days FROM h WHERE price_kobo=$2 AND stop>start`,
+    [listingId, price],
+  );
+  return Math.floor(Number(r.days));
+}
+
+/** Ends a sale: back to the usual price, deal stock cleared. */
+export async function endSale(q: Query, listingId: string) {
+  const [l] = await q.query(
+    'UPDATE listings SET price_kobo=was_price_kobo,was_price_kobo=NULL,sale_until=NULL,sale_kind=NULL,deal_stock_left=NULL WHERE id=$1 AND was_price_kobo IS NOT NULL RETURNING id,price_kobo',
+    [listingId],
+  );
+  if (l)
+    await q.query('UPDATE listing_variants SET price_kobo=$1 WHERE listing_id=$2 AND is_primary', [
+      l.price_kobo,
+      l.id,
+    ]);
+}
+
+/**
+ * After a seller accepts an order at the deal price: count it against the deal stock and end the
+ * deal when none is left (so buyers never see a deal the seller can't honour).
+ */
+export async function useDealStock(
+  q: Query,
+  listingId: string,
+  unitPriceKobo: number,
+  quantity: number,
+) {
+  const [l] = await q.query(
+    'SELECT price_kobo,deal_stock_left,sale_until FROM listings WHERE id=$1 FOR UPDATE',
+    [listingId],
+  );
+  if (!l?.sale_until || l.deal_stock_left == null || Number(l.price_kobo) !== unitPriceKobo) return;
+  const left = Math.max(0, l.deal_stock_left - quantity);
+  await q.query('UPDATE listings SET deal_stock_left=$1 WHERE id=$2', [left, listingId]);
+  if (left === 0) await endSale(q, listingId);
+}
+
 /** Every 10 minutes: tell watchers about price drops and sales; end sales that ran out. */
 export async function dealsSweep(db: Database) {
   await db.transaction(async (q) => {
     // Sales that ended go back to the usual price.
     const ended = await q.query(
-      'UPDATE listings SET price_kobo=was_price_kobo,was_price_kobo=NULL,sale_until=NULL WHERE sale_until<=now() AND was_price_kobo IS NOT NULL RETURNING id,price_kobo',
+      'SELECT id FROM listings WHERE sale_until<=now() AND was_price_kobo IS NOT NULL',
     );
-    for (const l of ended)
-      await q.query(
-        'UPDATE listing_variants SET price_kobo=$1 WHERE listing_id=$2 AND is_primary',
-        [l.price_kobo, l.id],
-      );
+    for (const l of ended) await endSale(q, l.id);
     const watches = await q.query(
       'SELECT * FROM price_watches WHERE active ORDER BY created_at LIMIT 2000 FOR UPDATE SKIP LOCKED',
     );
@@ -140,7 +184,7 @@ export interface SellerSuggestion {
 export async function suggestSellers(
   q: Query,
   text: string,
-  opts: { exclude?: string; lat?: number; lng?: number; limit?: number } = {},
+  opts: { exclude?: string; lat?: number; lng?: number; limit?: number; radiusKm?: number } = {},
 ): Promise<{ category: string | null; sellers: SellerSuggestion[] }> {
   const w = words(text);
   if (!w.length) return { category: null, sellers: [] };
@@ -153,7 +197,7 @@ export async function suggestSellers(
   );
   const category: string | null = cat?.category ?? null;
   const rows = await q.query(
-    `SELECT s.user_id,s.business_name,s.area,s.city,s.public_latitude AS lat,s.public_longitude AS lng,
+    `SELECT s.user_id,s.business_name,s.area,s.city,COALESCE(s.latitude,s.public_latitude) AS lat,COALESCE(s.longitude,s.public_longitude) AS lng,
        s.fulfilment_pct,${verifiedSql('s')} AS verified,
        (SELECT AVG(r.score)::float8 FROM ratings r WHERE r.seller_id=s.user_id) AS rating,
        (SELECT COUNT(*)::int FROM ratings r WHERE r.seller_id=s.user_id) AS reviews,
@@ -167,6 +211,13 @@ export async function suggestSellers(
   );
   const scored = rows
     .filter((r: any) => (r.similar?.length ?? 0) > 0 || r.same_category)
+    // A chosen location and radius: only sellers within reach of that spot.
+    .filter(
+      (r: any) =>
+        !opts.radiusKm ||
+        opts.lat == null ||
+        (r.lat != null && haversineKm(opts.lat, opts.lng!, r.lat, r.lng) <= opts.radiusKm),
+    )
     .map((r: any) => {
       const distance =
         opts.lat != null && opts.lng != null && r.lat != null
@@ -226,7 +277,11 @@ export function createDealsService(deps: AppDeps) {
         z.object({ end: z.literal(true) }),
         z.object({
           price_kobo: z.number().int().min(100).max(100000000),
-          days: z.number().int().min(1).max(30),
+          /** TODAY ends at midnight; WEEK runs 7 days; DAYS uses `days`. */
+          kind: z.enum(['TODAY', 'WEEK', 'DAYS']).default('DAYS'),
+          days: z.number().int().min(1).max(30).default(3),
+          /** Units really available at the deal price; the deal ends when they're gone. */
+          deal_stock: z.number().int().min(1).max(100000),
         }),
       ])
       .parse(input.body);
@@ -239,10 +294,7 @@ export function createDealsService(deps: AppDeps) {
     if ('end' in d) {
       ensure(l.was_price_kobo != null, 409, 'NOT_ON_SALE', 'This item isn’t on sale.');
       price = l.was_price_kobo;
-      await q.query(
-        'UPDATE listings SET price_kobo=$1,was_price_kobo=NULL,sale_until=NULL WHERE id=$2',
-        [price, l.id],
-      );
+      await endSale(q, l.id);
     } else {
       const usual = l.was_price_kobo ?? l.price_kobo;
       ensure(
@@ -251,10 +303,36 @@ export function createDealsService(deps: AppDeps) {
         'NOT_A_SALE',
         `A sale price must be below the usual ${naira(usual)}.`,
       );
+      const off = 1 - d.price_kobo / usual;
+      ensure(off >= 0.05, 400, 'DEAL_TOO_SMALL', 'A deal must be at least 5% off the usual price.');
+      // Genuine deals only: the usual price must be one the item really sold at for a week.
+      const days = await daysAtPrice(q, l.id, usual);
+      ensure(
+        days >= 7,
+        409,
+        'PRICE_NOT_ESTABLISHED',
+        `A deal’s “was” price must be a price you charged for at least 7 of the last 30 days (${naira(usual)} has been your price for ${days} day${days === 1 ? '' : 's'}).`,
+      );
+      // Accurate stock: the deal quantity must be stock the seller has.
+      const [v] = await q.query(
+        'SELECT stock FROM listing_variants WHERE listing_id=$1 AND is_primary',
+        [l.id],
+      );
+      ensure(
+        l.stock_mode === 'ALWAYS' || d.deal_stock <= Number(v?.stock ?? 0),
+        409,
+        'DEAL_STOCK',
+        `You have ${v?.stock ?? 0} in stock; the deal can’t offer more.`,
+      );
       price = d.price_kobo;
+      // TODAY ends at midnight in Lagos; WEEK and DAYS run whole days.
       await q.query(
-        'UPDATE listings SET price_kobo=$1,was_price_kobo=$2,sale_until=now()+make_interval(days=>$3),confirmed_at=now() WHERE id=$4',
-        [price, usual, d.days, l.id],
+        `UPDATE listings SET price_kobo=$1,was_price_kobo=$2,
+           sale_until=CASE WHEN $4::text='TODAY'
+             THEN (date_trunc('day', now() AT TIME ZONE 'Africa/Lagos') + interval '1 day') AT TIME ZONE 'Africa/Lagos'
+             ELSE now()+make_interval(days=>$3::int) END,
+           sale_kind=$4,deal_stock_left=$5,confirmed_at=now(),out_until=NULL WHERE id=$6`,
+        [price, usual, d.kind === 'WEEK' ? 7 : d.days, d.kind, d.deal_stock, l.id],
       );
     }
     await q.query('UPDATE listing_variants SET price_kobo=$1 WHERE listing_id=$2 AND is_primary', [
@@ -263,7 +341,7 @@ export function createDealsService(deps: AppDeps) {
     ]);
     await audit(q, user.id, 'end' in d ? 'listing.sale_end' : 'listing.sale', l.id, d);
     const [fresh] = await q.query(
-      'SELECT id,price_kobo,was_price_kobo,sale_until FROM listings WHERE id=$1',
+      'SELECT id,price_kobo,was_price_kobo,sale_until,sale_kind,deal_stock_left FROM listings WHERE id=$1',
       [l.id],
     );
     return fresh;
@@ -374,40 +452,82 @@ export function createDealsService(deps: AppDeps) {
     return await suggestSellers(db, d.q, { exclude: user.id, lat: d.lat, lng: d.lng });
   }
   /** Ask sellers for something; the best-matched ten are alerted. */
+  /**
+   * Ask sellers for something: what, how much, by when, a budget, and where. Sellers near that
+   * spot who sell it (or similar, or the same kind of thing) are alerted, best first.
+   */
   async function createRequest(q: Query, user: any, input: RequestInput) {
     const d = z
       .object({
         text: z.string().trim().min(2).max(200),
+        quantity: z.number().positive().max(1000000).optional(),
+        unit: z.string().trim().max(30).optional(),
+        budget_kobo: z.number().int().min(100).max(10000000000).optional(),
+        needed_by: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
         latitude: z.number().min(-90).max(90).optional(),
         longitude: z.number().min(-180).max(180).optional(),
+        area: z.string().trim().max(120).optional(),
+        radius_km: z.number().int().min(1).max(100).default(10),
       })
       .parse(input.body);
+    ensure(
+      (d.latitude == null) === (d.longitude == null),
+      400,
+      'INVALID_COORDINATES',
+      'Choose a location on the map, or leave it out.',
+    );
     const [recent] = await q.query(
       "SELECT COUNT(*)::int AS n FROM product_requests WHERE buyer_id=$1 AND created_at>now()-interval '1 day'",
       [user.id],
     );
     ensure(recent.n < 10, 429, 'TOO_MANY_REQUESTS', 'You can make up to 10 requests a day.');
+    const located = d.latitude != null;
     const { category, sellers } = await suggestSellers(q, d.text, {
       exclude: user.id,
       lat: d.latitude,
       lng: d.longitude,
+      radiusKm: located ? d.radius_km : undefined,
+      limit: located ? 25 : 10,
     });
     const id = randomUUID();
     await q.query(
-      'INSERT INTO product_requests(id,buyer_id,text,category,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6)',
-      [id, user.id, d.text, category, d.latitude ?? null, d.longitude ?? null],
+      `INSERT INTO product_requests(id,buyer_id,text,category,latitude,longitude,quantity,unit,budget_kobo,needed_by,area,radius_km)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [
+        id,
+        user.id,
+        d.text,
+        category,
+        d.latitude ?? null,
+        d.longitude ?? null,
+        d.quantity ?? null,
+        d.unit ?? null,
+        d.budget_kobo ?? null,
+        d.needed_by ?? null,
+        d.area ?? null,
+        d.radius_km,
+      ],
     );
-    for (const [i, s] of sellers.entries()) {
+    // "20 crates of eggs", without repeating a unit the buyer already wrote ("crates of eggs").
+    const unitInText = d.unit && d.text.toLowerCase().includes(d.unit.toLowerCase());
+    const what = d.quantity
+      ? `${d.quantity} ${unitInText || !d.unit ? d.text : `${d.unit} of ${d.text}`}`
+      : d.text;
+    const where = d.area ? ` near ${d.area}` : '';
+    for (const [i, x] of sellers.entries()) {
       await q.query(
-        'INSERT INTO product_request_sellers(request_id,seller_id,rank) VALUES($1,$2,$3)',
-        [id, s.seller_id, i + 1],
+        'INSERT INTO product_request_sellers(request_id,seller_id,rank,distance_km) VALUES($1,$2,$3,$4)',
+        [id, x.seller_id, i + 1, x.distance_km],
       );
       await notify(
         q,
-        s.seller_id,
+        x.seller_id,
         'request',
-        'A buyer is looking for something you might have',
-        `“${d.text}”. If you have it, open Sell → Buyer requests and offer it.`,
+        `Wanted${where}: ${what}`.slice(0, 120),
+        `${d.budget_kobo ? `Budget ${naira(d.budget_kobo)}. ` : ''}${d.needed_by ? `Needed by ${d.needed_by}. ` : ''}${x.distance_km != null ? `About ${Math.max(1, Math.round(x.distance_km))} km from you. ` : ''}Open Sell → Buyer requests to quote.`,
       );
     }
     return { id, text: d.text, category, sellers };
@@ -416,7 +536,8 @@ export function createDealsService(deps: AppDeps) {
     const rows = await db.query(
       `SELECT r.*,(SELECT COUNT(*)::int FROM product_request_sellers x WHERE x.request_id=r.id) AS sellers_alerted,
          (SELECT json_agg(json_build_object('id',o.id,'note',o.note,'created_at',o.created_at,'listing_id',l.id,'title',l.title,
-            'price_kobo',l.price_kobo,'unit',l.unit,'image_url',l.image_url,'business_name',s.business_name,'seller_id',s.user_id) ORDER BY o.created_at)
+            'price_kobo',COALESCE(o.price_kobo,l.price_kobo),'listed_price_kobo',l.price_kobo,'quoted',o.price_kobo IS NOT NULL,'available',o.quantity,
+            'unit',l.unit,'image_url',l.image_url,'business_name',s.business_name,'seller_id',s.user_id) ORDER BY COALESCE(o.price_kobo,l.price_kobo))
           FROM product_request_offers o JOIN listings l ON l.id=o.listing_id JOIN sellers s ON s.user_id=o.seller_id WHERE o.request_id=r.id) AS offers
        FROM product_requests r WHERE r.buyer_id=$1 ORDER BY r.created_at DESC LIMIT 50`,
       [user.id],
@@ -425,6 +546,11 @@ export function createDealsService(deps: AppDeps) {
       id: r.id,
       text: r.text,
       category: r.category,
+      quantity: r.quantity == null ? null : Number(r.quantity),
+      unit: r.unit ?? null,
+      budget_kobo: r.budget_kobo ?? null,
+      needed_by: r.needed_by ? new Date(r.needed_by).toISOString().slice(0, 10) : null,
+      area: r.area ?? null,
       status: r.status,
       created_at: r.created_at,
       expires_at: r.expires_at,
@@ -435,18 +561,32 @@ export function createDealsService(deps: AppDeps) {
   /** Requests a seller was alerted about and can still answer. */
   async function sellerRequests(user: any, _input: RequestInput) {
     const rows = await db.query(
-      `SELECT r.id,r.text,r.category,r.created_at,r.expires_at,
-         (SELECT o.listing_id FROM product_request_offers o WHERE o.request_id=r.id AND o.seller_id=$1) AS offered_listing_id
+      `SELECT r.id,r.text,r.category,r.created_at,r.expires_at,r.quantity,r.unit,r.budget_kobo,r.needed_by,r.area,x.distance_km,
+         (SELECT o.listing_id FROM product_request_offers o WHERE o.request_id=r.id AND o.seller_id=$1) AS offered_listing_id,
+         (SELECT o.price_kobo FROM product_request_offers o WHERE o.request_id=r.id AND o.seller_id=$1) AS quoted_price_kobo
        FROM product_request_sellers x JOIN product_requests r ON r.id=x.request_id
        WHERE x.seller_id=$1 AND r.status='OPEN' AND r.expires_at>now() ORDER BY r.created_at DESC LIMIT 50`,
       [user.id],
     );
-    return rows.map((r: any) => ({ ...r, offered_listing_id: r.offered_listing_id ?? null }));
+    return rows.map((r: any) => ({
+      ...r,
+      quantity: r.quantity == null ? null : Number(r.quantity),
+      needed_by: r.needed_by ? new Date(r.needed_by).toISOString().slice(0, 10) : null,
+      distance_km: r.distance_km == null ? null : Math.round(r.distance_km * 10) / 10,
+      offered_listing_id: r.offered_listing_id ?? null,
+    }));
   }
   /** A seller offers one of their listings for a request; the buyer is told. */
   async function offer(q: Query, user: any, input: RequestInput) {
     const d = z
-      .object({ listing_id: z.string().max(60), note: z.string().trim().max(300).optional() })
+      .object({
+        listing_id: z.string().max(60),
+        note: z.string().trim().max(300).optional(),
+        /** Price per unit for this buyer (e.g. a bulk price); the buyer can order at it. */
+        price_kobo: z.number().int().min(100).max(100000000).optional(),
+        /** How many the seller can supply. */
+        quantity: z.number().positive().max(1000000).optional(),
+      })
       .parse(input.body);
     const [r] = await q.query(
       `SELECT r.* FROM product_requests r JOIN product_request_sellers x ON x.request_id=r.id AND x.seller_id=$2
@@ -465,9 +605,9 @@ export function createDealsService(deps: AppDeps) {
       'Offer one of your active listings (add it first if needed).',
     );
     const [o] = await q.query(
-      `INSERT INTO product_request_offers(id,request_id,seller_id,listing_id,note) VALUES($1,$2,$3,$4,$5)
-       ON CONFLICT(request_id,seller_id) DO UPDATE SET listing_id=EXCLUDED.listing_id,note=EXCLUDED.note RETURNING id`,
-      [randomUUID(), r.id, user.id, l.id, d.note ?? null],
+      `INSERT INTO product_request_offers(id,request_id,seller_id,listing_id,note,price_kobo,quantity) VALUES($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT(request_id,seller_id) DO UPDATE SET listing_id=EXCLUDED.listing_id,note=EXCLUDED.note,price_kobo=EXCLUDED.price_kobo,quantity=EXCLUDED.quantity RETURNING id`,
+      [randomUUID(), r.id, user.id, l.id, d.note ?? null, d.price_kobo ?? null, d.quantity ?? null],
     );
     const [s] = await q.query('SELECT business_name FROM sellers WHERE user_id=$1', [user.id]);
     await notify(
@@ -475,7 +615,7 @@ export function createDealsService(deps: AppDeps) {
       r.buyer_id,
       'request',
       `${s.business_name} has what you asked for`,
-      `“${r.text}”: ${l.title} for ${naira(Number(l.price_kobo))}. See it in Buyer requests.`,
+      `“${r.text}”: ${l.title} for ${naira(d.price_kobo ?? Number(l.price_kobo))}${d.price_kobo ? ' each (quoted for you)' : ''}${d.quantity ? `, up to ${d.quantity} available` : ''}. See it in Account → Price alerts & requests.`,
     );
     return { id: o.id };
   }
@@ -487,7 +627,88 @@ export function createDealsService(deps: AppDeps) {
     ensure(r, 404, 'NOT_FOUND', 'Request not found or already closed.');
     return { ok: true as const };
   }
+  /**
+   * The Offers page: today-only and this-week deals, fresh produce offers and wholesale discounts.
+   * Only genuine deals appear: a real "was" price (checked when the sale starts), deal stock left,
+   * an approved, active seller and an orderable item.
+   */
+  async function offers(user: any, _input: RequestInput) {
+    const base = `SELECT l.id,l.title,l.category,l.unit,l.price_kobo,l.was_price_kobo,l.sale_until,l.sale_kind,l.deal_stock_left,
+         l.image_url,l.catalogue_photo_id IS NOT NULL AS representative_photo,
+         (SELECT m.thumbnail_url FROM media m WHERE m.url=l.image_url) AS thumbnail_url,
+         s.user_id AS seller_id,s.business_name,s.area,s.city,s.fulfilment_pct,${verifiedSql('s')} AS verified,
+         v.wholesale_tiers,v.price_kobo AS base_price_kobo
+       FROM listings l JOIN sellers s ON s.user_id=l.seller_id JOIN users u ON u.id=s.user_id
+       JOIN listing_variants v ON v.listing_id=l.id AND v.is_primary AND v.active
+       WHERE s.status='APPROVED' AND u.status='ACTIVE' AND u.frozen_at IS NULL AND l.status='ACTIVE'
+         AND l.seller_id<>$1 AND ${bookableSql('l')}`;
+    const sales = await db.query(
+      `${base} AND l.sale_until>now() AND l.was_price_kobo IS NOT NULL AND COALESCE(l.deal_stock_left,1)>0 LIMIT 300`,
+      [user.id],
+    );
+    const wholesale = await db.query(
+      `${base} AND jsonb_array_length(v.wholesale_tiers)>0 LIMIT 200`,
+      [user.id],
+    );
+    const card = (r: any, extra: Record<string, unknown>) => ({
+      id: r.id,
+      title: r.title,
+      category: r.category,
+      unit: r.unit,
+      price_kobo: Number(r.price_kobo),
+      image_url: r.thumbnail_url || r.image_url,
+      representative_photo: r.representative_photo,
+      seller_id: r.seller_id,
+      business_name: r.business_name,
+      area: r.area,
+      city: r.city,
+      verified: !!r.verified,
+      fulfilment_pct: r.fulfilment_pct ?? null,
+      ...extra,
+    });
+    // Verified and reliable sellers first, then the biggest saving.
+    const rank = (a: any, b: any) =>
+      Number(b.verified) - Number(a.verified) || b.off_pct - a.off_pct;
+    const deals = sales.map((r: any) =>
+      card(r, {
+        was_price_kobo: Number(r.was_price_kobo),
+        off_pct: Math.round((1 - Number(r.price_kobo) / Number(r.was_price_kobo)) * 100),
+        sale_until: r.sale_until,
+        kind: r.sale_kind,
+        left: r.deal_stock_left,
+      }),
+    );
+    const soon = (d: any) =>
+      d.kind === 'TODAY' || new Date(d.sale_until).getTime() - Date.now() < 24 * 3600_000;
+    return {
+      today: deals.filter(soon).sort(rank).slice(0, 30),
+      week: deals
+        .filter((d: any) => !soon(d))
+        .sort(rank)
+        .slice(0, 30),
+      fresh: deals
+        .filter((d: any) => FRESH.includes(d.category))
+        .sort(rank)
+        .slice(0, 30),
+      wholesale: wholesale
+        .map((r: any) => {
+          const tiers = [...(r.wholesale_tiers || [])].sort(
+            (a: any, b: any) => b.min_quantity - a.min_quantity,
+          );
+          const best = tiers[0];
+          return card(r, {
+            min_quantity: best.min_quantity,
+            tier_price_kobo: best.price_kobo,
+            off_pct: Math.round((1 - best.price_kobo / Number(r.base_price_kobo)) * 100),
+          });
+        })
+        .filter((w: any) => w.off_pct > 0)
+        .sort(rank)
+        .slice(0, 30),
+    };
+  }
   return {
+    offers,
     setSale,
     listWatches,
     watchPrice,

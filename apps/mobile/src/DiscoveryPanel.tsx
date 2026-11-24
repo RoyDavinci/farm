@@ -21,6 +21,9 @@ import {
 import MapPanel from './MapPanel';
 import { request } from './request';
 import { WantIt } from './Deals';
+import { GroupBuysPanel, OffersPanel } from './Offers';
+import RequestForm from './RequestForm';
+import ErrandPanel from './Errand';
 export default function DiscoveryPanel({
   onSelect,
   refreshVersion,
@@ -45,6 +48,7 @@ export default function DiscoveryPanel({
     [market, setMarket] = useState(''),
     [markets, setMarkets] = useState<any[]>([]),
     [point, setPoint] = useState<{ latitude: number; longitude: number } | null>(null),
+    [requesting, setRequesting] = useState(false),
     [radius, setRadius] = useState('25'),
     [sort, setSort] = useState('recent'),
     [min, setMin] = useState(''),
@@ -515,6 +519,22 @@ export default function DiscoveryPanel({
         </>
       )}
 
+      {!q.trim() && <ErrandPanel />}
+      {!q.trim() &&
+        (requesting ? (
+          <RequestForm onDone={() => setRequesting(false)} />
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setRequesting(true)}
+            style={s.sectionHead}
+          >
+            <Text style={s.sectionTitle}>🙋 Request what you need</Text>
+            <Text style={s.small}>Sellers near you quote ›</Text>
+          </Pressable>
+        ))}
+      {!q.trim() && <OffersPanel />}
+      <GroupBuysPanel query={q.trim() || undefined} />
       <View style={s.sectionHead}>
         <Text style={s.sectionTitle}>🔥 {point ? 'Hot deals near you' : 'Hot deals'}</Text>
         <Pressable

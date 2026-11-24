@@ -121,6 +121,7 @@ function Main() {
       variantId?: string;
       quantity?: number;
       attributionToken?: string;
+      quote?: { id: string; price_kobo: number; business_name: string };
     } | null>(null),
     [shop, setShop] = useState<string | null>(null),
     [editing, setEditing] = useState<{ listing: Listing | null } | null>(null),
@@ -317,6 +318,7 @@ function Main() {
         initialVariantId={selected.variantId}
         initialQuantity={selected.quantity}
         attributionToken={selected.attributionToken}
+        quote={selected.quote}
         onBack={() => setSelected(null)}
       />
     );

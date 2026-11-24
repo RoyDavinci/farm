@@ -2580,6 +2580,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/errands': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['errand.placeErrand'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/errands/ideas': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['errand.errandIdeas'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/errands/plan': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['errand.planErrand'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/evidence/{id}': {
     parameters: {
       query?: never;
@@ -2654,6 +2702,86 @@ export interface paths {
     get: operations['revenue.featuredSellers'];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/group-buys': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['deals.listGroups'];
+    put?: never;
+    post: operations['deals.startGroup'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/group-buys/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['deals.getGroup'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/group-buys/{id}/invite': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['deals.inviteToGroup'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/group-buys/{id}/join': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['deals.joinGroup'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/group-buys/{id}/leave': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['deals.leaveGroup'];
     delete?: never;
     options?: never;
     head?: never;
@@ -3342,6 +3470,22 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['communications.markNotificationsRead'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/offers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['deals.offers'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -12696,6 +12840,139 @@ export interface operations {
       default: components['responses']['Error'];
     };
   };
+  'errand.placeErrand': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            errand_id: string;
+            deliver_at: string;
+            orders: {
+              booking_id: string;
+              seller_id: string;
+              items: number;
+              total_kobo: number;
+            }[];
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'errand.errandIdeas': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            key: string;
+            name: string;
+            prompt: string;
+          }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'errand.planErrand': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            text: string;
+            servings: number;
+            recipes: {
+              key: string;
+              name: string;
+            }[];
+            items: {
+              key: string;
+              name: string;
+              from: string;
+              needed_quantity: number;
+              needed_unit: string;
+              listing: {
+                id: string;
+                title: string;
+                unit: string;
+                price_kobo: number;
+                image_url: string | null;
+                seller_id: string;
+                business_name: string;
+              } | null;
+              quantity: number;
+              line_kobo: number;
+              alternatives: number;
+              unit_differs: boolean;
+              oversized: boolean;
+              extra_trip_kobo: number | null;
+            }[];
+            sellers: {
+              seller_id: string;
+              business_name: string;
+              area: string;
+              verified: boolean;
+              rating: number | null;
+              distance_km: number;
+              subtotal_kobo: number;
+              delivery_kobo: number;
+            }[];
+            missing: string[];
+            goods_kobo: number;
+            delivery_kobo: number;
+            total_kobo: number;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
   'support.downloadEvidence': {
     parameters: {
       query?: never;
@@ -12866,6 +13143,288 @@ export interface operations {
             products: number;
             image_url: string | null;
           }[];
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.listGroups': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            open: ({
+              id: string;
+              listing_id: string;
+              title: string;
+              quantity: number;
+              shares: number;
+              taken: number;
+              spots_left: number;
+              full_price_kobo: number;
+              share_price_kobo: number;
+              discount_pct: number;
+              /** @enum {string} */
+              status: 'OPEN' | 'ORDERED' | 'DONE' | 'CANCELLED' | 'EXPIRED';
+              members: {
+                name: string;
+                shares: number;
+                you: boolean;
+              }[];
+              joined: boolean;
+              is_creator: boolean;
+              pickup_code: string | null;
+            } & {
+              [key: string]: unknown;
+            })[];
+            mine: ({
+              id: string;
+              listing_id: string;
+              title: string;
+              quantity: number;
+              shares: number;
+              taken: number;
+              spots_left: number;
+              full_price_kobo: number;
+              share_price_kobo: number;
+              discount_pct: number;
+              /** @enum {string} */
+              status: 'OPEN' | 'ORDERED' | 'DONE' | 'CANCELLED' | 'EXPIRED';
+              members: {
+                name: string;
+                shares: number;
+                you: boolean;
+              }[];
+              joined: boolean;
+              is_creator: boolean;
+              pickup_code: string | null;
+            } & {
+              [key: string]: unknown;
+            })[];
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.startGroup': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            listing_id: string;
+            title: string;
+            quantity: number;
+            shares: number;
+            taken: number;
+            spots_left: number;
+            full_price_kobo: number;
+            share_price_kobo: number;
+            discount_pct: number;
+            /** @enum {string} */
+            status: 'OPEN' | 'ORDERED' | 'DONE' | 'CANCELLED' | 'EXPIRED';
+            members: {
+              name: string;
+              shares: number;
+              you: boolean;
+            }[];
+            joined: boolean;
+            is_creator: boolean;
+            pickup_code: string | null;
+          } & {
+            [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.getGroup': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            listing_id: string;
+            title: string;
+            quantity: number;
+            shares: number;
+            taken: number;
+            spots_left: number;
+            full_price_kobo: number;
+            share_price_kobo: number;
+            discount_pct: number;
+            /** @enum {string} */
+            status: 'OPEN' | 'ORDERED' | 'DONE' | 'CANCELLED' | 'EXPIRED';
+            members: {
+              name: string;
+              shares: number;
+              you: boolean;
+            }[];
+            joined: boolean;
+            is_creator: boolean;
+            pickup_code: string | null;
+          } & {
+            [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.inviteToGroup': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.joinGroup': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            listing_id: string;
+            title: string;
+            quantity: number;
+            shares: number;
+            taken: number;
+            spots_left: number;
+            full_price_kobo: number;
+            share_price_kobo: number;
+            discount_pct: number;
+            /** @enum {string} */
+            status: 'OPEN' | 'ORDERED' | 'DONE' | 'CANCELLED' | 'EXPIRED';
+            members: {
+              name: string;
+              shares: number;
+              you: boolean;
+            }[];
+            joined: boolean;
+            is_creator: boolean;
+            pickup_code: string | null;
+          } & {
+            [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.leaveGroup': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            ok: true;
+          };
         };
       };
       default: components['responses']['Error'];
@@ -14877,6 +15436,68 @@ export interface operations {
             ok: boolean;
           } & {
             [key: string]: unknown;
+          };
+        };
+      };
+      default: components['responses']['Error'];
+    };
+  };
+  'deals.offers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            today: ({
+              id: string;
+              title: string;
+              price_kobo: number;
+              off_pct: number;
+              business_name: string;
+              verified: boolean;
+            } & {
+              [key: string]: unknown;
+            })[];
+            week: ({
+              id: string;
+              title: string;
+              price_kobo: number;
+              off_pct: number;
+              business_name: string;
+              verified: boolean;
+            } & {
+              [key: string]: unknown;
+            })[];
+            fresh: ({
+              id: string;
+              title: string;
+              price_kobo: number;
+              off_pct: number;
+              business_name: string;
+              verified: boolean;
+            } & {
+              [key: string]: unknown;
+            })[];
+            wholesale: ({
+              id: string;
+              title: string;
+              price_kobo: number;
+              off_pct: number;
+              business_name: string;
+              verified: boolean;
+            } & {
+              [key: string]: unknown;
+            })[];
           };
         };
       };
@@ -18459,6 +19080,12 @@ export interface operations {
           'application/json': ({
             id: string;
             text: string;
+            quantity: number | null;
+            unit: string | null;
+            budget_kobo: number | null;
+            needed_by: string | null;
+            area: string | null;
+            distance_km: number | null;
             offered_listing_id: string | null;
           } & {
             [key: string]: unknown;

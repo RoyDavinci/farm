@@ -59,6 +59,23 @@ export default function BookingCard({
       <Text style={s.muted}>
         {b.quantity} {b.unit} · {isSeller ? b.buyer_name : b.business_name}
       </Text>
+      {!!(b as any).errand && (
+        <Text style={s.small}>
+          🛵 Deliver{' '}
+          {new Date((b as any).errand.deliver_at).toLocaleString(undefined, {
+            weekday: 'short',
+            hour: 'numeric',
+            minute: '2-digit',
+          })}{' '}
+          to {(b as any).errand.dropoff_address}
+        </Text>
+      )}
+      {((b as any).lines || []).map((line: any, i: number) => (
+        <Text key={i} style={s.small}>
+          • {line.quantity} × {line.title} ({money(line.price_kobo)}/{line.unit})
+          {line.needed ? ` · needed: ${line.needed}` : ''}
+        </Text>
+      ))}
       <View style={s.orderSummary}>
         <Text style={s.price}>{money(b.total_kobo)}</Text>
         <Text style={[s.small, b.paid ? { color: '#27754e' } : { color: '#a17e41' }]}>

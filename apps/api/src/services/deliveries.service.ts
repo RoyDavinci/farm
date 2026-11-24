@@ -256,7 +256,13 @@ export function createDeliveriesService(deps: AppDeps) {
       pricing,
     };
   }
-  async function requestDelivery(q: Query, u: any, input: RequestInput) {
+  /** `acceptFare`: booked by Ahia on the buyer's behalf (errands), at the current fare. */
+  async function requestDelivery(
+    q: Query,
+    u: any,
+    input: RequestInput,
+    opts: { acceptFare?: boolean } = {},
+  ) {
     const d = z
       .object({
         vehicle_type: z.string().max(30),
@@ -293,12 +299,13 @@ export function createDeliveriesService(deps: AppDeps) {
     );
     await ensureNotFrozen(q, u.id);
     const qd = await quote(q, b, d.vehicle_type, d.dropoff, d);
-    ensure(
-      qd.fare_kobo === d.expected_fare_kobo,
-      409,
-      'FARE_CHANGED',
-      'The delivery fare changed. Please review the new quote.',
-    );
+    if (!opts.acceptFare)
+      ensure(
+        qd.fare_kobo === d.expected_fare_kobo,
+        409,
+        'FARE_CHANGED',
+        'The delivery fare changed. Please review the new quote.',
+      );
     if (d.pay_on_delivery && !b.paid)
       await payOnDeliveryAllowed(q, u.id, Number(b.total_kobo) + qd.fare_kobo);
     if (d.requested_driver_id) {

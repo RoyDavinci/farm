@@ -15,6 +15,7 @@ const spendableAccounts = new Set([
   'boost_escrow',
   'return_escrow',
   'parcel_escrow',
+  'group_escrow',
 ]);
 
 /**

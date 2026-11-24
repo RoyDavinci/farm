@@ -6,7 +6,14 @@ import type { AppDeps } from '../types/deps.js';
 export function dealsRoutes(deps: AppDeps) {
   const r = Router();
   const c = createDealsController(deps);
+  r.get('/offers', c.offers);
   r.post('/listings/:id/sale', c.setSale);
+  r.get('/group-buys', c.listGroups);
+  r.post('/group-buys', c.startGroup);
+  r.get('/group-buys/:id', c.getGroup);
+  r.post('/group-buys/:id/join', c.joinGroup);
+  r.post('/group-buys/:id/leave', c.leaveGroup);
+  r.post('/group-buys/:id/invite', c.inviteToGroup);
   r.get('/price-watches', c.listWatches);
   r.post('/price-watches', c.watchPrice);
   r.delete('/price-watches/:id', c.unwatchPrice);

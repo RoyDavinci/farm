@@ -10,12 +10,44 @@ import type { AppDeps } from '../types/deps.js';
 import { audit } from './audit.service.js';
 import { syncPrimary, unitPrice } from './catalog.service.js';
 import { ensureNotFrozen, flag, linkedAccounts } from './risk.service.js';
+import { useDealStock } from './deals.service.js';
+import { fundGroupBooking, refundGroupBooking } from './group-buy.service.js';
+import { scheduleErrandDelivery } from './errand.service.js';
 import { notify } from './communications.service.js';
 import { cancelDelivery } from './deliveries.service.js';
 import { ledger, lockedBalance } from './ledger.service.js';
 import { bookableSql, listingAvailable, notifyIfRestocked } from './retention.service.js';
 
 const id = () => randomUUID();
+
+/** Reserves every line of a basket order, or fails if any product ran out. */
+async function reserveLines(q: Query, lines: any[]) {
+  for (const line of lines) {
+    const [v] = await q.query(
+      `SELECT v.*,l.status AS listing_status FROM listing_variants v JOIN listings l ON l.id=v.listing_id
+       WHERE v.id=$1 FOR UPDATE OF v`,
+      [line.variant_id],
+    );
+    ensure(
+      v && v.active && v.listing_status === 'ACTIVE' && v.stock >= line.quantity,
+      409,
+      'OUT_OF_STOCK',
+      `${line.title} is out of stock. Decline the order, or ask the buyer to change it.`,
+    );
+    await q.query('UPDATE listing_variants SET stock=stock-$1 WHERE id=$2', [line.quantity, v.id]);
+    await syncPrimary(q, line.listing_id);
+  }
+}
+/** Gives a basket order's stock back (cancelled, declined or expired after acceptance). */
+async function returnLines(q: Query, lines: any[]) {
+  for (const line of lines) {
+    await q.query('UPDATE listing_variants SET stock=stock+$1 WHERE id=$2', [
+      line.quantity,
+      line.variant_id,
+    ]);
+    await syncPrimary(q, line.listing_id);
+  }
+}
 
 /** Moves a booking to a new status, records the event and notifies the other party. */
 export async function event(q: Query, b: any, to: string, actor: string | null, reason: string) {
@@ -25,6 +57,8 @@ export async function event(q: Query, b: any, to: string, actor: string | null, 
     [id(), b.id, b.status || null, to, actor, reason],
   );
   const [booking] = await q.query('SELECT * FROM bookings WHERE id=$1', [b.id]);
+  if (to === 'COMPLETED' && booking.group_buy_id)
+    await q.query("UPDATE group_buys SET status='DONE' WHERE id=$1", [booking.group_buy_id]);
   for (const uid of new Set<string>([booking.buyer_id, booking.seller_id])) {
     if (uid === actor) continue;
     await notify(
@@ -67,14 +101,18 @@ export async function release(q: Query, b: any, to: string, actor: string | null
         b.listing_id,
       ]);
     else {
-      await q.query('UPDATE listing_variants SET stock=stock+$1 WHERE id=$2', [
-        b.quantity,
-        b.variant_id,
-      ]);
-      await syncPrimary(q, b.listing_id);
+      const lines = await q.query('SELECT * FROM booking_lines WHERE booking_id=$1', [b.id]);
+      if (lines.length) await returnLines(q, lines);
+      else {
+        await q.query('UPDATE listing_variants SET stock=stock+$1 WHERE id=$2', [
+          b.quantity,
+          b.variant_id,
+        ]);
+        await syncPrimary(q, b.listing_id);
+      }
     }
     await notifyIfRestocked(q, b.listing_id, wasAvailable);
-    if (b.paid) {
+    if (b.paid && !b.group_buy_id) {
       await ledger(q, b.id, [
         { account: 'escrow', owner: b.id, amount: -b.total_kobo },
         { account: 'wallet', owner: b.buyer_id, amount: b.total_kobo },
@@ -82,6 +120,8 @@ export async function release(q: Query, b: any, to: string, actor: string | null
       await q.query('UPDATE bookings SET paid=FALSE WHERE id=$1', [b.id]);
     }
   }
+  // Group orders refund every member, not just the starter.
+  if (b.group_buy_id) await refundGroupBooking(q, b, `The group order was ${to.toLowerCase()}.`);
   await event(q, b, to, actor, reason);
 }
 
@@ -109,7 +149,9 @@ export async function expireReservations(db: Database, now = new Date()) {
  */
 export async function readBookings(db: Database, u: any, bookingId?: string) {
   const rows = await db.query(
-    `SELECT b.*,EXISTS(SELECT 1 FROM ledger pl WHERE pl.account='escrow' AND pl.owner_id=b.id AND pl.amount_kobo>0) AS payment_recorded,(SELECT d.status FROM disputes d WHERE d.booking_id=b.id) AS dispute_status,s.business_name,s.address,buyer.name AS buyer_name FROM bookings b JOIN sellers s ON s.user_id=b.seller_id JOIN users buyer ON buyer.id=b.buyer_id WHERE ${bookingId ? 'b.id=$2 AND ' : ''}(b.buyer_id=$1 OR b.seller_id=$1 ${u.admin ? 'OR TRUE' : ''}) ORDER BY b.created_at DESC LIMIT 100`,
+    `SELECT b.*,EXISTS(SELECT 1 FROM ledger pl WHERE pl.account='escrow' AND pl.owner_id=b.id AND pl.amount_kobo>0) AS payment_recorded,(SELECT d.status FROM disputes d WHERE d.booking_id=b.id) AS dispute_status,
+       (SELECT json_agg(json_build_object('title',bl.title,'quantity',bl.quantity,'unit',bl.unit,'price_kobo',bl.price_kobo,'needed',bl.needed)) FROM booking_lines bl WHERE bl.booking_id=b.id) AS lines,
+       (SELECT json_build_object('deliver_at',e.deliver_at,'dropoff_address',e.dropoff_address,'text',e.text) FROM errands e WHERE e.id=b.errand_id) AS errand,s.business_name,s.address,buyer.name AS buyer_name FROM bookings b JOIN sellers s ON s.user_id=b.seller_id JOIN users buyer ON buyer.id=b.buyer_id WHERE ${bookingId ? 'b.id=$2 AND ' : ''}(b.buyer_id=$1 OR b.seller_id=$1 ${u.admin ? 'OR TRUE' : ''}) ORDER BY b.created_at DESC LIMIT 100`,
     bookingId ? [u.id, bookingId] : [u.id],
   );
   return rows.map((b) => {
@@ -165,6 +207,8 @@ export function createBookingsService(deps: AppDeps) {
         variant_id: z.uuid().optional(),
         quantity: z.number().int().min(1).max(100000),
         source_status_click_id: z.uuid().optional(),
+        /** Ordering from a seller's quote on the buyer's request: the quoted unit price applies. */
+        request_offer_id: z.uuid().optional(),
       })
       .parse(input.body);
     const [l] = await q.query(
@@ -216,7 +260,26 @@ export function createBookingsService(deps: AppDeps) {
         ? 'Not enough pre-order places left for this item.'
         : 'Not enough stock for this variant.',
     );
-    const price = unitPrice(variant as any, d.quantity);
+    let price = unitPrice(variant as any, d.quantity);
+    let quote: string | null = null;
+    if (d.request_offer_id) {
+      const [o] = await q.query(
+        `SELECT o.id,o.price_kobo FROM product_request_offers o JOIN product_requests r ON r.id=o.request_id
+         WHERE o.id=$1 AND o.listing_id=$2 AND r.buyer_id=$3 AND r.status='OPEN'`,
+        [d.request_offer_id, l.id, u.id],
+      );
+      ensure(o, 400, 'QUOTE_UNAVAILABLE', 'That quote is no longer available.');
+      if (o.price_kobo) price = Math.min(price, o.price_kobo);
+      quote = o.id;
+    }
+    // A deal has a set number of units at the deal price.
+    if (l.sale_until && new Date(l.sale_until) > new Date() && l.deal_stock_left != null)
+      ensure(
+        d.quantity <= l.deal_stock_left,
+        409,
+        'DEAL_LIMIT',
+        `Only ${l.deal_stock_left} left at the deal price.`,
+      );
     const [s] = await q.query('SELECT * FROM settings WHERE id=1');
     // Commission: the category's own rate when set, else the default; none while switched off.
     const [category] = await q.query(
@@ -230,7 +293,7 @@ export function createBookingsService(deps: AppDeps) {
     const total = price * d.quantity;
     ensure(total <= 100000000, 400, 'ORDER_LIMIT', 'Order exceeds the current ₦1,000,000 limit.');
     const [b] = await q.query(
-      'INSERT INTO bookings(id,buyer_id,seller_id,listing_id,title,unit,quantity,price_kobo,total_kobo,commission_bps,commission_kobo,pickup_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *',
+      'INSERT INTO bookings(id,buyer_id,seller_id,listing_id,title,unit,quantity,price_kobo,total_kobo,commission_bps,commission_kobo,pickup_code,request_offer_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *',
       [
         id(),
         u.id,
@@ -244,6 +307,7 @@ export function createBookingsService(deps: AppDeps) {
         commissionBps,
         Math.round((total * commissionBps) / 10000),
         String(randomInt(100000, 1000000)),
+        quote,
       ],
     );
     await q.query('UPDATE bookings SET variant_id=$1,variant_name=$2,preorder=$3 WHERE id=$4', [
@@ -441,30 +505,41 @@ export function createBookingsService(deps: AppDeps) {
         'Your seller account is not approved.',
       );
       const [l] = await q.query('SELECT * FROM listings WHERE id=$1 FOR UPDATE', [b.listing_id]);
-      const [v] = await q.query('SELECT * FROM listing_variants WHERE id=$1 FOR UPDATE', [
-        b.variant_id,
-      ]);
-      ensure(
-        l.status === 'ACTIVE' &&
-          v?.active &&
-          (b.preorder ? l.preorder_capacity : v.stock) >= b.quantity &&
-          b.quantity >= v.min_quantity,
-        409,
-        'OUT_OF_STOCK',
-        b.preorder
-          ? 'Pre-order places are no longer available for this item.'
-          : 'Stock is no longer available for this variant.',
-      );
-      if (b.preorder)
-        await q.query('UPDATE listings SET preorder_capacity=preorder_capacity-$1 WHERE id=$2', [
-          b.quantity,
-          l.id,
-        ]);
+      const lines = await q.query('SELECT * FROM booking_lines WHERE booking_id=$1', [b.id]);
+      // A basket (several products) reserves each line's stock; a single product, its own.
+      if (lines.length) await reserveLines(q, lines);
       else {
-        await q.query('UPDATE listing_variants SET stock=stock-$1 WHERE id=$2', [b.quantity, v.id]);
-        await syncPrimary(q, l.id);
+        const [v] = await q.query('SELECT * FROM listing_variants WHERE id=$1 FOR UPDATE', [
+          b.variant_id,
+        ]);
+        ensure(
+          l.status === 'ACTIVE' &&
+            v?.active &&
+            (b.preorder ? l.preorder_capacity : v.stock) >= b.quantity &&
+            b.quantity >= v.min_quantity,
+          409,
+          'OUT_OF_STOCK',
+          b.preorder
+            ? 'Pre-order places are no longer available for this item.'
+            : 'Stock is no longer available for this variant.',
+        );
+        if (b.preorder)
+          await q.query('UPDATE listings SET preorder_capacity=preorder_capacity-$1 WHERE id=$2', [
+            b.quantity,
+            l.id,
+          ]);
+        else {
+          await q.query('UPDATE listing_variants SET stock=stock-$1 WHERE id=$2', [
+            b.quantity,
+            v.id,
+          ]);
+          await syncPrimary(q, l.id);
+        }
       }
       await q.query('UPDATE listings SET confirmed_at=now() WHERE id=$1', [l.id]);
+      await useDealStock(q, l.id, Number(b.price_kobo), b.quantity);
+      // A group order is paid from the members' shares (plus Ahia's discount) once accepted.
+      if (b.group_buy_id) await fundGroupBooking(q, b);
       const [pickup] = await q.query(
         'SELECT address,latitude,longitude,market_id FROM sellers WHERE user_id=$1',
         [b.seller_id],
@@ -491,11 +566,15 @@ export function createBookingsService(deps: AppDeps) {
           ? `Seller accepted the pre-order; ready from ${new Date(l.available_from).toDateString()}.`
           : 'Seller accepted; stock reserved.',
       );
+      // Errand baskets get their rider booked for the customer's chosen time.
+      if (b.errand_id) await scheduleErrandDelivery(deps, q, b);
     } else if (action === 'decline') {
       const why = z
         .object({ reason: z.enum(['OUT_OF_STOCK', 'OTHER']).default('OTHER') })
         .parse(input.body ?? {}).reason;
       await q.query('UPDATE bookings SET decline_reason=$1 WHERE id=$2', [why, b.id]);
+      if (b.group_buy_id)
+        await refundGroupBooking(q, b, 'The seller couldn’t take the group order.');
       await event(
         q,
         b,

@@ -13,6 +13,7 @@ import { plannerResponses } from './planner.js';
 import { riskResponses } from './risk.js';
 import { catalogueResponses } from './catalogue.js';
 import { dealsResponses } from './deals.js';
+import { errandResponses } from './errand.js';
 import { businessResponses } from './business.js';
 import { growthResponses } from './growth.js';
 import type { z } from 'zod';
@@ -41,6 +42,7 @@ export const responses: Record<string, z.ZodType> = {
   ...riskResponses,
   ...catalogueResponses,
   ...dealsResponses,
+  ...errandResponses,
   ...businessResponses,
   ...growthResponses,
   ...localStatusResponses,

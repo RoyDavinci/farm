@@ -4,6 +4,7 @@ import { Image, Pressable, Text, View } from 'react-native';
 import { useApp } from './AppContext';
 import { request } from './request';
 import { Button, Chip, Field, s } from './ui';
+import RequestForm from './RequestForm';
 
 /** "Tell me when it's cheaper" for a listing, catalogue product or search. */
 export function WatchPrice({
@@ -63,7 +64,8 @@ export function WantIt({
 }) {
   const { busy, run, openSeller } = useApp();
   const [hint, setHint] = useState<any>(null),
-    [asked, setAsked] = useState<any>(null);
+    [asked, setAsked] = useState<any>(null),
+    [form, setForm] = useState(false);
   const q = query.trim();
   useEffect(() => {
     setAsked(null);
@@ -110,24 +112,15 @@ export function WantIt({
                   <Text style={s.small}>{x.reason}</Text>
                 </Pressable>
               ))}
-              <Button
-                title={`Ask sellers for “${q}”`}
-                disabled={busy}
-                onPress={() =>
-                  void run(async () =>
-                    setAsked(
-                      await request('post', '/product-requests', {
-                        body: {
-                          text: q,
-                          ...(point
-                            ? { latitude: point.latitude, longitude: point.longitude }
-                            : {}),
-                        },
-                      }),
-                    ),
-                  )
-                }
-              />
+              {form ? (
+                <RequestForm initialText={q} onDone={() => setForm(false)} />
+              ) : (
+                <Button
+                  title={`Ask sellers for “${q}”`}
+                  disabled={busy}
+                  onPress={() => setForm(true)}
+                />
+              )}
             </>
           )}
         </View>
@@ -137,7 +130,14 @@ export function WantIt({
 }
 
 /** Account: price watches and requests (with sellers' offers). */
-export function DealsInbox({ onOpenListing }: { onOpenListing?: (id: string) => void }) {
+export function DealsInbox({
+  onOpenListing,
+}: {
+  onOpenListing?: (
+    id: string,
+    quote?: { id: string; price_kobo: number; business_name: string },
+  ) => void;
+}) {
   const { busy, run } = useApp();
   const [watches, setWatches] = useState<any[]>([]),
     [requests, setRequests] = useState<any[]>([]);
@@ -179,12 +179,21 @@ export function DealsInbox({ onOpenListing }: { onOpenListing?: (id: string) => 
       {requests.map((r) => (
         <View key={r.id} style={{ gap: 6, paddingTop: 6 }}>
           <Text style={s.bold}>
-            🙋 “{r.text}” · {r.status === 'OPEN' ? `asked ${r.sellers_alerted} sellers` : 'closed'}
+            🙋 “{r.quantity ? `${r.quantity} ${r.unit ?? ''} ` : ''}
+            {r.text}”{r.area ? ` near ${r.area}` : ''} ·{' '}
+            {r.status === 'OPEN' ? `asked ${r.sellers_alerted} sellers` : 'closed'}
           </Text>
           {r.offers.map((o: any) => (
             <Pressable
               key={o.id}
-              onPress={() => onOpenListing?.(o.listing_id)}
+              onPress={() =>
+                onOpenListing?.(
+                  o.listing_id,
+                  r.status === 'OPEN'
+                    ? { id: o.id, price_kobo: o.price_kobo, business_name: o.business_name }
+                    : undefined,
+                )
+              }
               style={s.walletEntry}
             >
               {o.image_url ? (
@@ -197,6 +206,8 @@ export function DealsInbox({ onOpenListing }: { onOpenListing?: (id: string) => 
                 <Text style={s.bold}>{o.title}</Text>
                 <Text style={s.small}>
                   {o.business_name} · {money(o.price_kobo)} / {o.unit}
+                  {o.quoted ? ` (quoted; usually ${money(o.listed_price_kobo)})` : ''}
+                  {o.available ? ` · ${o.available} available` : ''}
                   {o.note ? ` · “${o.note}”` : ''}
                 </Text>
               </View>
@@ -214,7 +225,9 @@ export function SellerRequests({ listings }: { listings: any[] }) {
   const { busy, run } = useApp();
   const [rows, setRows] = useState<any[]>([]),
     [open, setOpen] = useState<string | null>(null),
-    [note, setNote] = useState('');
+    [note, setNote] = useState(''),
+    [quote, setQuote] = useState(''),
+    [available, setAvailable] = useState('');
   const load = useCallback(
     () =>
       request('get', '/sellers/me/product-requests')
@@ -231,17 +244,44 @@ export function SellerRequests({ listings }: { listings: any[] }) {
     <View style={s.orderCard}>
       <Text style={s.sectionTitle}>🙋 Buyers are looking for</Text>
       <Text style={s.small}>
-        You sell similar things, so we asked you first. Offer something you have.
+        Buyers near you want these. Pick the listing, add a price per unit if you’ll do a deal, and
+        send.
       </Text>
       {rows.map((r) => (
         <View key={r.id} style={{ gap: 6, paddingTop: 6 }}>
-          <Text style={s.bold}>“{r.text}”</Text>
+          <Text style={s.bold}>
+            “{r.quantity ? `${r.quantity} ${r.unit ?? ''} · ` : ''}
+            {r.text}”
+          </Text>
+          <Text style={s.small}>
+            {[
+              r.area && `near ${r.area}`,
+              r.distance_km != null && `${Math.max(1, Math.round(r.distance_km))} km from you`,
+              r.budget_kobo && `budget ${money(r.budget_kobo)}`,
+              r.needed_by && `needed by ${r.needed_by}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </Text>
           {r.offered_listing_id ? (
             <Text style={s.small}>
               ✅ You offered {live.find((l) => l.id === r.offered_listing_id)?.title ?? 'an item'}.
             </Text>
           ) : open === r.id ? (
             <>
+              <Field
+                label="Your price per unit (₦, optional)"
+                value={quote}
+                keyboardType="number-pad"
+                onChangeText={(v: string) => setQuote(v.replace(/[^0-9]/g, ''))}
+                placeholder="A bulk price just for this buyer"
+              />
+              <Field
+                label="How many can you supply? (optional)"
+                value={available}
+                keyboardType="decimal-pad"
+                onChangeText={(v: string) => setAvailable(v.replace(/[^0-9.]/g, ''))}
+              />
               <Field
                 label="Note (optional)"
                 value={note}
@@ -258,10 +298,19 @@ export function SellerRequests({ listings }: { listings: any[] }) {
                       void run(async () => {
                         await request('post', '/product-requests/{id}/offer', {
                           params: { id: r.id },
-                          body: { listing_id: l.id, ...(note ? { note } : {}) },
+                          body: {
+                            listing_id: l.id,
+                            ...(note ? { note } : {}),
+                            ...(Number(quote) > 0
+                              ? { price_kobo: Math.round(Number(quote) * 100) }
+                              : {}),
+                            ...(Number(available) > 0 ? { quantity: Number(available) } : {}),
+                          },
                         });
                         setOpen(null);
                         setNote('');
+                        setQuote('');
+                        setAvailable('');
                         await load();
                       }, 'Offer sent to the buyer.')
                     }
@@ -285,7 +334,9 @@ export function SellerRequests({ listings }: { listings: any[] }) {
 export function SaleEditor({ listing, onDone }: { listing: any; onDone: () => void }) {
   const { busy, run } = useApp();
   const [price, setPrice] = useState(''),
-    [days, setDays] = useState(3);
+    [kind, setKind] = useState<'TODAY' | 'WEEK' | 'DAYS'>('TODAY'),
+    [days, setDays] = useState(3),
+    [left, setLeft] = useState('');
   const onSale = listing.sale_until && new Date(listing.sale_until) > new Date();
   if (onSale)
     return (
@@ -318,23 +369,43 @@ export function SaleEditor({ listing, onDone }: { listing: any; onDone: () => vo
         onChangeText={(v: string) => setPrice(v.replace(/[^0-9]/g, ''))}
       />
       <View style={s.chipWrap}>
-        {[1, 3, 7, 14].map((d) => (
+        <Chip title="Today only" active={kind === 'TODAY'} onPress={() => setKind('TODAY')} />
+        <Chip title="This week" active={kind === 'WEEK'} onPress={() => setKind('WEEK')} />
+        {[3, 14].map((d) => (
           <Chip
             key={d}
-            title={`${d} day${d === 1 ? '' : 's'}`}
-            active={days === d}
-            onPress={() => setDays(d)}
+            title={`${d} days`}
+            active={kind === 'DAYS' && days === d}
+            onPress={() => {
+              setKind('DAYS');
+              setDays(d);
+            }}
           />
         ))}
       </View>
+      <Field
+        label="How many can you sell at this price?"
+        value={left}
+        keyboardType="number-pad"
+        onChangeText={(v: string) => setLeft(v.replace(/[^0-9]/g, ''))}
+        placeholder="The deal ends when these are sold"
+      />
+      <Text style={s.fine}>
+        Deals must be genuine: at least 5% off a price you’ve charged for a week or more.
+      </Text>
       <Button
         title="Start sale · watchers get told"
-        disabled={busy || !(Number(price) > 0)}
+        disabled={busy || !(Number(price) > 0) || !(Number(left) > 0)}
         onPress={() =>
           void run(async () => {
             await request('post', '/listings/{id}/sale', {
               params: { id: listing.id },
-              body: { price_kobo: Math.round(Number(price) * 100), days },
+              body: {
+                price_kobo: Math.round(Number(price) * 100),
+                kind,
+                days,
+                deal_stock: Number(left),
+              },
             });
             onDone();
           }, 'Sale started.')

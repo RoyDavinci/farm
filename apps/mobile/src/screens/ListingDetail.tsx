@@ -6,6 +6,7 @@ import { useApp } from '../AppContext';
 import { useI18n } from '../i18n';
 import { request } from '../request';
 import { WasPrice, WatchPrice } from '../Deals';
+import { GroupBuyForListing } from '../Offers';
 import { SellerTrust } from '../TrustPanels';
 import AllergenReport, { isFood } from '../AllergenReport';
 import { Back, Button, Chip, produceIcon, s } from '../ui';
@@ -16,12 +17,14 @@ export default function ListingDetail({
   initialVariantId,
   initialQuantity,
   attributionToken,
+  quote,
 }: {
   listing: Listing;
   onBack: () => void;
   initialVariantId?: string;
   initialQuantity?: number;
   attributionToken?: string;
+  quote?: { id: string; price_kobo: number; business_name: string };
 }) {
   const { me, busy, run, openConversation, openSeller, setTab } = useApp();
   const initial =
@@ -120,7 +123,14 @@ export default function ListingDetail({
         <Text style={s.muted}>/ {selectedVariant?.unit || selected.unit}</Text>
       </Text>
       <WasPrice listing={selected} />
+      {quote && (
+        <Text style={s.small}>
+          🙋 Quoted for you by {quote.business_name}: {money(quote.price_kobo)} each when you order
+          here.
+        </Text>
+      )}
       {!own && <WatchPrice target={{ listing_id: selected.id }} />}
+      {!own && <GroupBuyForListing listing={selected} />}
       <Text style={s.body}>{selected.description}</Text>
       <View style={s.sellerInfo}>
         <Text style={s.bold}>{selected.business_name}</Text>
@@ -259,6 +269,7 @@ export default function ListingDetail({
                 variant_id: selectedVariant?.id,
                 quantity: Number(quantity),
                 ...(attributionToken ? { source_status_click_id: attributionToken } : {}),
+                ...(quote ? { request_offer_id: quote.id } : {}),
               },
             });
             setTab('Bookings');

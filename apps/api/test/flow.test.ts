@@ -2819,14 +2819,26 @@ describe('deals and buyer requests', () => {
     expect(drops).toHaveLength(2);
     expect(drops[0].body).toMatch(/now ₦1,440 at Mama Tomato \(was ₦1,600\)/);
     // A sale: was-price shown, watchers told, and it ends by itself.
-    expect(
-      (await call('seller', 'post', `/listings/${tomatoes}/sale`, { price_kobo: 150000, days: 2 }))
-        .body.error.code,
-    ).toBe('NOT_A_SALE');
-    const sale = (
-      await call('seller', 'post', `/listings/${tomatoes}/sale`, { price_kobo: 120000, days: 2 })
-    ).body;
-    expect(sale).toMatchObject({ price_kobo: 120000, was_price_kobo: 144000 });
+    const saleOf = (body: any) => call('seller', 'post', `/listings/${tomatoes}/sale`, body);
+    expect((await saleOf({ price_kobo: 150000, days: 2, deal_stock: 5 })).body.error.code).toBe(
+      'NOT_A_SALE',
+    );
+    // Genuine deals only: ₦1,440 has only just become the price.
+    expect((await saleOf({ price_kobo: 120000, days: 2, deal_stock: 5 })).body.error.code).toBe(
+      'PRICE_NOT_ESTABLISHED',
+    );
+    await db.query(
+      "UPDATE listing_price_history SET from_at=from_at-interval '10 days' WHERE listing_id=$1",
+      [tomatoes],
+    );
+    expect((await saleOf({ price_kobo: 140000, days: 2, deal_stock: 5 })).body.error.code).toBe(
+      'DEAL_TOO_SMALL',
+    );
+    expect((await saleOf({ price_kobo: 120000, days: 2, deal_stock: 500 })).body.error.code).toBe(
+      'DEAL_STOCK',
+    );
+    const sale = (await saleOf({ price_kobo: 120000, days: 2, deal_stock: 5 })).body;
+    expect(sale).toMatchObject({ price_kobo: 120000, was_price_kobo: 144000, deal_stock_left: 5 });
     await dealsSweep(db);
     expect((await alerts('On sale%')).length).toBeGreaterThan(0);
     expect((await call('buyer', 'get', '/price-watches')).body[0].lowest).toMatchObject({
@@ -2867,7 +2879,7 @@ describe('deals and buyer requests', () => {
     const [asked] = await db.query(
       "SELECT title FROM notifications WHERE user_id='seller' AND kind='request'",
     );
-    expect(asked.title).toMatch(/looking for something you might have/);
+    expect(asked.title).toBe('Wanted: Bell peppers, 2kg');
     const open = (await call('seller', 'get', '/sellers/me/product-requests')).body;
     expect(open[0]).toMatchObject({
       id: req.id,
@@ -2895,6 +2907,370 @@ describe('deals and buyer requests', () => {
     expect((await alerts('Ada Vegetables has what you asked for')).length).toBe(1);
     await call('buyer', 'post', `/product-requests/${req.id}/close`, {});
     expect((await call('seller', 'get', '/sellers/me/product-requests')).body).toEqual([]);
+  });
+});
+describe('buy it and bring it', () => {
+  async function foodShop(
+    actor: 'seller' | 'other',
+    name: string,
+    lat: number,
+    lng: number,
+    items: [string, string, number, string][],
+  ) {
+    await call(actor, 'post', '/sellers', {
+      business_name: name,
+      business_type: 'market_stall',
+      city: 'Lagos',
+      area: 'Ikeja',
+      address: 'PRIVATE 6 Market Road',
+    });
+    await call('admin', 'post', `/admin/sellers/${actor}/review`, {
+      status: 'APPROVED',
+      reason: 'Checked',
+    });
+    await db.query('UPDATE sellers SET latitude=$1,longitude=$2 WHERE user_id=$3', [
+      lat,
+      lng,
+      actor,
+    ]);
+    const ids: Record<string, string> = {};
+    for (const [title, category, naira, unit] of items)
+      ids[title] = (
+        await call(actor, 'post', '/listings', {
+          title,
+          description: `${title} from the market`,
+          category,
+          unit,
+          price_kobo: naira * 100,
+          stock: 30,
+        })
+      ).body.id;
+    return ids;
+  }
+  it('turns "I want to make egusi" into a basket from the fewest nearby shops and books delivery on acceptance', async () => {
+    const a = await foodShop('seller', 'Mama Ngozi Foodstuff', 6.6, 3.35, [
+      ['Ground egusi', 'Food & groceries', 5000, 'kg'],
+      ['Palm oil', 'Food & groceries', 2800, 'litre'],
+      ['Ugu leaves', 'Vegetables', 400, 'bunch'],
+      ['Ijebu garri', 'Grains', 1200, 'kg'],
+      ['Beef', 'Food & groceries', 6500, 'kg'],
+    ]);
+    // A shop with only one of the items: not needed when one shop covers them.
+    await foodShop('other', 'Iya Bisi', 6.61, 3.36, [
+      ['Ground egusi', 'Food & groceries', 4800, 'kg'],
+    ]);
+    const ideas = (await call('buyer', 'get', '/errands/ideas')).body;
+    expect(ideas.map((i: any) => i.key)).toContain('egusi-soup');
+    const plan = (
+      await call('buyer', 'post', '/errands/plan', {
+        text: 'I want to make egusi for 6',
+        latitude: 6.59,
+        longitude: 3.34,
+      })
+    ).body;
+    expect(plan.recipes.map((r: any) => r.key)).toEqual(['egusi-soup']);
+    expect(plan.servings).toBe(6);
+    expect(plan.sellers.map((s: any) => s.business_name)).toEqual(['Mama Ngozi Foodstuff']);
+    const egusi = plan.items.find((i: any) => i.name === 'Ground egusi');
+    expect(egusi.listing).toMatchObject({
+      title: 'Ground egusi',
+      business_name: 'Mama Ngozi Foodstuff',
+    });
+    expect(plan.items.find((i: any) => i.from.includes('Eba'))).toBeTruthy();
+    expect(plan.missing.length).toBeGreaterThan(0);
+    expect(plan.delivery_kobo).toBeGreaterThan(0);
+    // Too soon is refused.
+    const chosen = plan.items
+      .filter((i: any) => i.listing)
+      .map((i: any) => ({ listing_id: i.listing.id, quantity: i.quantity }));
+    const body = {
+      text: 'I want to make egusi for 6',
+      dropoff: { latitude: 6.59, longitude: 3.34 },
+      dropoff_address: '12 Office Close, Ikeja, Lagos',
+      items: chosen,
+    };
+    expect(
+      (
+        await call('buyer', 'post', '/errands', {
+          ...body,
+          deliver_at: new Date(Date.now() + 30 * 60000).toISOString(),
+        })
+      ).body.error.code,
+    ).toBe('INVALID_TIME');
+    const at = new Date(Date.now() + 4 * 3600000).toISOString();
+    const placed = (await call('buyer', 'post', '/errands', { ...body, deliver_at: at })).body;
+    expect(placed.orders).toHaveLength(1);
+    const [order] = await db.query('SELECT * FROM bookings WHERE id=$1', [
+      placed.orders[0].booking_id,
+    ]);
+    expect(order).toMatchObject({
+      seller_id: 'seller',
+      unit: 'basket',
+      errand_id: placed.errand_id,
+    });
+    const lines = await db.query('SELECT * FROM booking_lines WHERE booking_id=$1', [order.id]);
+    expect(lines.length).toBe(chosen.length);
+    const seen = (await call('seller', 'get', `/bookings/${order.id}`)).body;
+    expect(seen.lines.length).toBe(chosen.length);
+    expect(seen.errand.dropoff_address).toBe('12 Office Close, Ikeja, Lagos');
+    // Seller accepts: every line's stock is reserved and a rider delivery is booked for the time.
+    expect((await call('seller', 'post', `/bookings/${order.id}/accept`, {})).status).toBe(200);
+    const [stock] = await db.query('SELECT stock FROM listing_variants WHERE listing_id=$1', [
+      a['Ground egusi'],
+    ]);
+    expect(stock.stock).toBe(
+      30 - lines.find((l: any) => l.listing_id === a['Ground egusi'])!.quantity,
+    );
+    const [d] = await db.query('SELECT * FROM deliveries WHERE booking_id=$1', [order.id]);
+    expect(d).toMatchObject({
+      status: 'OPEN',
+      pay_on_delivery: true,
+      dropoff_address: '12 Office Close, Ikeja, Lagos',
+    });
+    expect(Math.round((new Date(at).getTime() - new Date(d.scheduled_at).getTime()) / 60000)).toBe(
+      40,
+    );
+    // Cancelling returns every line's stock.
+    await call('buyer', 'post', `/bookings/${order.id}/cancel`, {});
+    const [back] = await db.query('SELECT stock FROM listing_variants WHERE listing_id=$1', [
+      a['Ground egusi'],
+    ]);
+    expect(back.stock).toBe(30);
+  });
+  it('reads explicit items with quantities', async () => {
+    await foodShop('seller', 'Ikeja Poultry', 6.6, 3.35, [
+      ['Eggs crate', 'Livestock', 5000, 'crate'],
+    ]);
+    const plan = (
+      await call('buyer', 'post', '/errands/plan', {
+        text: '2 crates of eggs and some tomatoes',
+        latitude: 6.59,
+        longitude: 3.34,
+      })
+    ).body;
+    const eggs = plan.items.find((i: any) => /egg/i.test(i.name));
+    expect(eggs).toMatchObject({ needed_quantity: 2, quantity: 2, line_kobo: 1000000 });
+    expect(plan.missing.some((m: string) => /tomato/i.test(m))).toBe(true);
+  });
+});
+describe('request with a location and quotes', () => {
+  it('alerts sellers near the chosen spot and lets the buyer order at the quoted price', async () => {
+    const egg = async (actor: 'seller' | 'other', name: string, lat: number, lng: number) => {
+      await call(actor, 'post', '/sellers', {
+        business_name: name,
+        business_type: 'farm',
+        city: 'Lagos',
+        area: 'Ikeja',
+        address: 'PRIVATE 4 Poultry Close',
+      });
+      await call('admin', 'post', `/admin/sellers/${actor}/review`, {
+        status: 'APPROVED',
+        reason: 'Checked',
+      });
+      await db.query('UPDATE sellers SET latitude=$1,longitude=$2 WHERE user_id=$3', [
+        lat,
+        lng,
+        actor,
+      ]);
+      return (
+        await call(actor, 'post', '/listings', {
+          title: 'Eggs (crate of 30)',
+          description: 'Fresh farm eggs, crate of 30',
+          category: 'Livestock',
+          unit: 'crate',
+          price_kobo: 500000,
+          stock: 100,
+        })
+      ).body.id as string;
+    };
+    const near = await egg('seller', 'Ikeja Poultry', 6.6, 3.35);
+    await egg('other', 'Abuja Farms', 9.07, 7.4);
+    const req = (
+      await call('buyer', 'post', '/product-requests', {
+        text: 'crates of eggs',
+        quantity: 20,
+        unit: 'crates',
+        budget_kobo: 9500000,
+        needed_by: '2026-12-01',
+        latitude: 6.59,
+        longitude: 3.34,
+        area: 'Ikeja',
+        radius_km: 10,
+      })
+    ).body;
+    expect(req.sellers.map((x: any) => x.seller_id)).toEqual(['seller']);
+    const [n] = await db.query(
+      "SELECT title,body FROM notifications WHERE user_id='seller' AND kind='request'",
+    );
+    expect(n.title).toBe('Wanted near Ikeja: 20 crates of eggs');
+    expect(n.body).toMatch(/Budget ₦95,000\. Needed by 2026-12-01\. About 2 km from you\./);
+    expect(
+      (await db.query("SELECT 1 FROM notifications WHERE user_id='other' AND kind='request'"))
+        .length,
+    ).toBe(0);
+    const seen = (await call('seller', 'get', '/sellers/me/product-requests')).body[0];
+    expect(seen).toMatchObject({
+      quantity: 20,
+      unit: 'crates',
+      budget_kobo: 9500000,
+      area: 'Ikeja',
+    });
+    await call('seller', 'post', `/product-requests/${req.id}/offer`, {
+      listing_id: near,
+      price_kobo: 450000,
+      quantity: 30,
+    });
+    const offer = (await call('buyer', 'get', '/product-requests/mine')).body[0].offers[0];
+    expect(offer).toMatchObject({ price_kobo: 450000, listed_price_kobo: 500000, quoted: true });
+    const b = (
+      await call('buyer', 'post', '/bookings', {
+        listing_id: near,
+        quantity: 20,
+        request_offer_id: offer.id,
+      })
+    ).body;
+    expect(b).toMatchObject({ price_kobo: 450000, total_kobo: 9000000 });
+    // Someone else can't use the quote.
+    expect(
+      (
+        await call('other', 'post', '/bookings', {
+          listing_id: near,
+          quantity: 1,
+          request_offer_id: offer.id,
+        })
+      ).body.error.code,
+    ).toBe('QUOTE_UNAVAILABLE');
+  });
+});
+describe('offers and group buying', () => {
+  async function shop(
+    actor: 'seller' | 'other',
+    name: string,
+    title: string,
+    naira: number,
+    category = 'Livestock',
+  ) {
+    await call(actor, 'post', '/sellers', {
+      business_name: name,
+      business_type: 'market_stall',
+      city: 'Lagos',
+      area: 'Oko Oba',
+      address: 'PRIVATE 9 Abattoir Road',
+    });
+    await call('admin', 'post', `/admin/sellers/${actor}/review`, {
+      status: 'APPROVED',
+      reason: 'Checked',
+    });
+    const r = await call(actor, 'post', '/listings', {
+      title,
+      description: `${title}, fresh from the market`,
+      category,
+      unit: 'piece',
+      price_kobo: naira * 100,
+      stock: 20,
+    });
+    await db.query(
+      "UPDATE listing_price_history SET from_at=from_at-interval '14 days' WHERE listing_id=$1",
+      [r.body.id],
+    );
+    return r.body.id as string;
+  }
+  it('shows only genuine deals with stock left, and ends a deal when its stock is gone', async () => {
+    const goat = await shop('seller', 'Oko Oba Meats', 'Whole goat', 90000);
+    await call('seller', 'post', `/listings/${goat}/sale`, {
+      price_kobo: 8000000,
+      kind: 'TODAY',
+      deal_stock: 2,
+    });
+    const offers = (await call('buyer', 'get', '/offers')).body;
+    expect(offers.today[0]).toMatchObject({
+      title: 'Whole goat',
+      off_pct: 11,
+      left: 2,
+      kind: 'TODAY',
+    });
+    expect(offers.fresh.map((o: any) => o.id)).toContain(goat);
+    // Can't order more than the deal has.
+    expect(
+      (await call('buyer', 'post', '/bookings', { listing_id: goat, quantity: 3 })).body.error.code,
+    ).toBe('DEAL_LIMIT');
+    const b = (await call('buyer', 'post', '/bookings', { listing_id: goat, quantity: 2 })).body;
+    await call('seller', 'post', `/bookings/${b.id}/accept`, {});
+    const [l] = await db.query(
+      'SELECT price_kobo,was_price_kobo,deal_stock_left FROM listings WHERE id=$1',
+      [goat],
+    );
+    expect(l).toEqual({ price_kobo: 9000000, was_price_kobo: null, deal_stock_left: null });
+    expect((await call('buyer', 'get', '/offers')).body.today).toEqual([]);
+  });
+  it('shares a goat between three people with an Ahia-funded discount, and refunds if declined', async () => {
+    const goat = await shop('seller', 'Oko Oba Meats', 'Whole goat', 90000);
+    for (const u of ['buyer', 'other', 'admin'])
+      await call(u as any, 'post', '/wallet/demo-fund', { amount_kobo: 10000000 });
+    // Someone searched for goat recently: they hear about the group.
+    await call('other', 'get', '/search?q=goat meat');
+    const g = (
+      await call('buyer', 'post', '/group-buys', {
+        listing_id: goat,
+        shares: 3,
+        note: 'Sharing for Sallah',
+      })
+    ).body;
+    // 3 people: 2% off ₦90,000 = ₦88,200, so ₦29,400 each.
+    expect(g).toMatchObject({
+      shares: 3,
+      taken: 1,
+      spots_left: 2,
+      discount_pct: 2,
+      share_price_kobo: 2940000,
+      status: 'OPEN',
+    });
+    const [heard] = await db.query(
+      "SELECT title FROM notifications WHERE user_id='other' AND kind='group_buy'",
+    );
+    expect(heard.title).toBe('Share Whole goat and save 2%');
+    expect((await call('other', 'get', '/group-buys')).body.open[0].id).toBe(g.id);
+    expect((await call('seller', 'post', `/group-buys/${g.id}/join`, {})).body.error.code).toBe(
+      'OWN_LISTING',
+    );
+    await call('buyer', 'post', `/group-buys/${g.id}/invite`, { contact: 'admin@test.com' });
+    await call('other', 'post', `/group-buys/${g.id}/join`, {});
+    const full = (await call('admin', 'post', `/group-buys/${g.id}/join`, {})).body;
+    expect(full.status).toBe('ORDERED');
+    const [order] = await db.query('SELECT * FROM bookings WHERE group_buy_id=$1', [g.id]);
+    expect(order).toMatchObject({ buyer_id: 'buyer', total_kobo: 9000000, status: 'REQUESTED' });
+    // Seller accepts: paid from the shares plus Ahia's ₦1,800 discount.
+    await call('seller', 'post', `/bookings/${order.id}/accept`, {});
+    const [paid] = await db.query('SELECT paid FROM bookings WHERE id=$1', [order.id]);
+    expect(paid.paid).toBe(true);
+    const [escrow] = await db.query(
+      "SELECT SUM(amount_kobo)::int AS n FROM ledger WHERE account='escrow' AND owner_id=$1",
+      [order.id],
+    );
+    expect(escrow.n).toBe(9000000);
+    // Cancelled after acceptance: everyone gets their share back, Ahia gets its discount back.
+    await call('buyer', 'post', `/bookings/${order.id}/cancel`, {});
+    for (const u of ['buyer', 'other', 'admin'])
+      expect((await call(u as any, 'get', '/wallet')).body.balance_kobo).toBe(10000000);
+    expect(await ledgerBalances()).toBe(0);
+  });
+  it('refunds everyone when a group doesn’t fill, or the starter leaves', async () => {
+    const goat = await shop('seller', 'Oko Oba Meats', 'Whole goat', 90000);
+    for (const u of ['buyer', 'other'])
+      await call(u as any, 'post', '/wallet/demo-fund', { amount_kobo: 10000000 });
+    const g = (await call('buyer', 'post', '/group-buys', { listing_id: goat, shares: 4 })).body;
+    expect(g.discount_pct).toBe(3);
+    await call('other', 'post', `/group-buys/${g.id}/join`, {});
+    await call('other', 'post', `/group-buys/${g.id}/leave`, {});
+    expect((await call('other', 'get', '/wallet')).body.balance_kobo).toBe(10000000);
+    await db.query("UPDATE group_buys SET expires_at=now()-interval '1 minute' WHERE id=$1", [
+      g.id,
+    ]);
+    const { expireGroupBuys } = await import('../src/services/group-buy.service.js');
+    await expireGroupBuys(db);
+    expect((await call('buyer', 'get', '/wallet')).body.balance_kobo).toBe(10000000);
+    expect((await call('buyer', 'get', `/group-buys/${g.id}`)).body.status).toBe('EXPIRED');
+    expect(await ledgerBalances()).toBe(0);
   });
 });
 describe('fraud controls', () => {

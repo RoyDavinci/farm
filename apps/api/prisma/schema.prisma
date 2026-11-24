@@ -70,6 +70,9 @@ model Booking {
   notifications           Notification[]
   ratings                 Rating[]
   decline_reason          String?
+  group_buy_id            String?
+  request_offer_id        String?
+  errand_id               String?
 
   @@index([buyer_id], map: "bookings_buyer_idx")
   @@index([created_at(sort: Desc), id(sort: Desc)], map: "bookings_created_idx")
@@ -399,6 +402,8 @@ model Listing {
   out_until                DateTime?            @db.Timestamptz(6)
   was_price_kobo           Int?
   sale_until               DateTime?            @db.Timestamptz(6)
+  deal_stock_left          Int?
+  sale_kind                String?
 
   @@index([seller_id], map: "listings_seller_idx")
   @@map("listings")
@@ -1929,15 +1934,21 @@ model PriceWatch {
 }
 
 model ProductRequest {
-  id         String   @id
-  buyer_id   String
-  text       String
-  category   String?
-  latitude   Float?
-  longitude  Float?
-  status     String   @default("OPEN")
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  expires_at DateTime @default(dbgenerated("(now() + '7 days'::interval)")) @db.Timestamptz(6)
+  id          String    @id
+  buyer_id    String
+  text        String
+  category    String?
+  latitude    Float?
+  longitude   Float?
+  status      String    @default("OPEN")
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at  DateTime  @default(dbgenerated("(now() + '7 days'::interval)")) @db.Timestamptz(6)
+  quantity    Decimal?
+  unit        String?
+  budget_kobo Int?
+  needed_by   DateTime? @db.Date
+  area        String?
+  radius_km   Int       @default(10)
 
   @@map("product_requests")
 }
@@ -1947,6 +1958,7 @@ model ProductRequestSeller {
   seller_id   String
   rank        Int
   notified_at DateTime @default(now()) @db.Timestamptz(6)
+  distance_km Float?
 
   @@id([request_id, seller_id])
   @@map("product_request_sellers")
@@ -1959,7 +1971,100 @@ model ProductRequestOffer {
   listing_id String
   note       String?
   created_at DateTime @default(now()) @db.Timestamptz(6)
+  price_kobo Int?
+  quantity   Decimal?
 
   @@unique([request_id, seller_id])
   @@map("product_request_offers")
+}
+
+model ListingPriceHistory {
+  id         BigInt   @id @default(autoincrement())
+  listing_id String
+  price_kobo Int
+  from_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([listing_id, from_at], map: "listing_price_history_idx")
+  @@map("listing_price_history")
+}
+
+model SearchQuery {
+  user_id String
+  q       String
+  day     DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+
+  @@id([user_id, q, day])
+  @@map("search_queries")
+}
+
+model GroupBuy {
+  id               String   @id
+  listing_id       String
+  variant_id       String
+  creator_id       String
+  quantity         Int
+  shares           Int
+  full_price_kobo  Int
+  discount_bps     Int
+  share_price_kobo Int
+  note             String?
+  status           String   @default("OPEN")
+  booking_id       String?
+  expires_at       DateTime @db.Timestamptz(6)
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("group_buys")
+}
+
+model GroupBuyMember {
+  group_id   String
+  user_id    String
+  shares     Int      @default(1)
+  paid_kobo  Int
+  invited_by String?
+  joined_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([group_id, user_id])
+  @@map("group_buy_members")
+}
+
+model GroupBuyInvite {
+  group_id   String
+  user_id    String
+  invited_by String?
+  reason     String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([group_id, user_id])
+  @@map("group_buy_invites")
+}
+
+model Errand {
+  id                String   @id
+  buyer_id          String
+  text              String
+  servings          Int?
+  dropoff_latitude  Float
+  dropoff_longitude Float
+  dropoff_address   String
+  deliver_at        DateTime @db.Timestamptz(6)
+  note              String?
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("errands")
+}
+
+model BookingLine {
+  id         String  @id
+  booking_id String
+  listing_id String
+  variant_id String
+  title      String
+  unit       String
+  quantity   Int
+  price_kobo Int
+  needed     String?
+
+  @@index([booking_id], map: "booking_lines_booking_idx")
+  @@map("booking_lines")
 }

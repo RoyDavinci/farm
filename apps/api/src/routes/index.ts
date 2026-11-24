@@ -36,6 +36,7 @@ import { adminRoutes } from './admin.routes.js';
 import { adminRiskRoutes, riskRoutes } from './risk.routes.js';
 import { adminCatalogueRoutes, catalogueRoutes } from './catalogue.routes.js';
 import { dealsRoutes } from './deals.routes.js';
+import { errandRoutes } from './errand.routes.js';
 import { authRoutes } from './auth.routes.js';
 import { bookingsRoutes } from './bookings.routes.js';
 import { communicationRoutes } from './communications.routes.js';
@@ -121,6 +122,7 @@ export function apiRoutes(
   r.use(riskRoutes(deps));
   r.use(catalogueRoutes(deps));
   r.use(dealsRoutes(deps));
+  r.use(errandRoutes(deps));
 
   r.use('/admin', adminMarketOperationsRoutes(deps));
   r.use('/admin', adminDiscoveryOperationsRoutes(deps));

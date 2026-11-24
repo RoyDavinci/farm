@@ -263,6 +263,15 @@ export function createGeographyService(deps: AppDeps) {
   async function search(user: any, input: RequestInput) {
     const d = searchInput.parse(input.query);
     await discoveryEvent(db, user.id, 'SEARCH', undefined, d.category);
+    // Remembered for a while so people looking for the same thing can be invited to group buys.
+    const words = (d.q || '').trim().toLowerCase().slice(0, 100);
+    if (words.length >= 3)
+      await db
+        .query('INSERT INTO search_queries(user_id,q) VALUES($1,$2) ON CONFLICT DO NOTHING', [
+          user.id,
+          words,
+        ])
+        .catch(() => {});
     return await searchListings(db, d);
   }
   async function createMarket(q: Query, u: any, input: RequestInput) {

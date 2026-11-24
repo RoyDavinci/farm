@@ -28,7 +28,13 @@ export interface AppState {
   openConversation: (conversationId: string) => void;
   openListing: (
     listing: Listing,
-    options?: { variantId?: string; quantity?: number; attributionToken?: string },
+    options?: {
+      variantId?: string;
+      quantity?: number;
+      attributionToken?: string;
+      /** Ordering from a seller's quote on the buyer's request. */
+      quote?: { id: string; price_kobo: number; business_name: string };
+    },
   ) => void;
   /** Opens a seller's shop page (their listings, reviews and share link). */
   openSeller: (sellerId: string) => void;

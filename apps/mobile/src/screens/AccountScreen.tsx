@@ -32,9 +32,11 @@ export default function AccountScreen({ onSignedOut }: { onSignedOut: () => void
         </View>
       </View>
       <DealsInbox
-        onOpenListing={(id) =>
+        onOpenListing={(id, quote) =>
           void run(async () =>
-            openListing((await request('get', '/listings/{id}', { params: { id } })) as any),
+            openListing((await request('get', '/listings/{id}', { params: { id } })) as any, {
+              quote,
+            }),
           )
         }
       />
