@@ -184,10 +184,18 @@ export interface SellerSuggestion {
 export async function suggestSellers(
   q: Query,
   text: string,
-  opts: { exclude?: string; lat?: number; lng?: number; limit?: number; radiusKm?: number } = {},
+  opts: {
+    exclude?: string;
+    lat?: number;
+    lng?: number;
+    limit?: number;
+    radiusKm?: number;
+    /** The kind of thing, when the person chose it (else guessed from the catalogue). */
+    category?: string;
+  } = {},
 ): Promise<{ category: string | null; sellers: SellerSuggestion[] }> {
   const w = words(text);
-  if (!w.length) return { category: null, sellers: [] };
+  if (!w.length && !opts.category) return { category: null, sellers: [] };
   // The catalogue tells us what kind of thing it is ("bell peppers" → Vegetables).
   const [cat] = await q.query(
     `SELECT category,COUNT(*)::int AS n FROM catalogue_products
@@ -195,7 +203,7 @@ export async function suggestSellers(
      GROUP BY category ORDER BY n DESC LIMIT 1`,
     [w],
   );
-  const category: string | null = cat?.category ?? null;
+  const category: string | null = opts.category || cat?.category || null;
   const rows = await q.query(
     `SELECT s.user_id,s.business_name,s.area,s.city,COALESCE(s.latitude,s.public_latitude) AS lat,COALESCE(s.longitude,s.public_longitude) AS lng,
        s.fulfilment_pct,${verifiedSql('s')} AS verified,
@@ -264,6 +272,84 @@ export async function suggestSellers(
     .slice(0, opts.limit ?? 10)
     .map((x: any) => x.s);
   return { category, sellers: scored };
+}
+
+/** What sellers are told about a request: "Wanted near Ikeja: 2 pair of Nike sneakers". */
+function requestMessage(r: {
+  text: string;
+  quantity?: number | null;
+  unit?: string | null;
+  area?: string | null;
+  details?: string | null;
+  condition?: string | null;
+  budget_kobo?: number | null;
+  needed_by?: string | null;
+}) {
+  // "20 crates of eggs", without repeating a unit the buyer already wrote ("crates of eggs").
+  const unitInText = r.unit && r.text.toLowerCase().includes(r.unit.toLowerCase());
+  const what = r.quantity
+    ? `${r.quantity} ${unitInText || !r.unit ? r.text : `${r.unit} of ${r.text}`}`
+    : r.text;
+  return {
+    title: `Wanted${r.area ? ` near ${r.area}` : ''}: ${what}`.slice(0, 120),
+    body:
+      (r.details ? `Details: ${r.details}. ` : '') +
+      (r.condition ? `${r.condition === 'NEW' ? 'New' : 'Used is fine'}. ` : '') +
+      (r.budget_kobo ? `Budget ${naira(Number(r.budget_kobo))}. ` : '') +
+      (r.needed_by ? `Needed by ${r.needed_by}. ` : ''),
+  };
+}
+
+/**
+ * A seller just listed something: open requests for it (that this seller wasn't alerted about)
+ * now reach them, and the person who asked hears it's on Ahia. Keeps a request working for
+ * its whole week, not only at the moment it was sent.
+ */
+export async function alertRequestsForListing(q: Query, listing: any) {
+  const title = String(listing.title || '').toLowerCase();
+  const rows = await q.query(
+    `SELECT r.* ,COALESCE(s.latitude,s.public_latitude) AS slat,COALESCE(s.longitude,s.public_longitude) AS slng,s.business_name
+     FROM product_requests r JOIN sellers s ON s.user_id=$1
+     WHERE r.status='OPEN' AND r.expires_at>now() AND r.buyer_id<>$1
+       AND NOT EXISTS(SELECT 1 FROM product_request_sellers x WHERE x.request_id=r.id AND x.seller_id=$1)
+     ORDER BY r.created_at DESC LIMIT 300`,
+    [listing.seller_id],
+  );
+  let alerted = 0;
+  for (const r of rows) {
+    const w = words(r.text);
+    if (!w.length || !w.some((x) => new RegExp(`\\b${x}`).test(title))) continue;
+    const reach = r.reach_km ?? (r.latitude == null ? null : Math.max(r.radius_km, 50));
+    const km =
+      r.latitude != null && r.slat != null
+        ? haversineKm(r.latitude, r.longitude, r.slat, r.slng)
+        : null;
+    if (reach != null && km != null && km > reach) continue;
+    await q.query(
+      'INSERT INTO product_request_sellers(request_id,seller_id,rank,distance_km,late) VALUES($1,$2,999,$3,TRUE) ON CONFLICT DO NOTHING',
+      [r.id, listing.seller_id, km],
+    );
+    const m = requestMessage({
+      ...(r as any),
+      budget_kobo: r.budget_kobo,
+      needed_by: r.needed_by ? new Date(r.needed_by).toISOString().slice(0, 10) : null,
+    });
+    await notify(
+      q,
+      listing.seller_id,
+      'request',
+      m.title,
+      `${m.body}You just listed “${listing.title}”. Open Sell → Buyer requests to quote.`,
+    );
+    await notify(
+      q,
+      r.buyer_id,
+      'request',
+      `Now on Ahia: ${listing.title}`.slice(0, 120),
+      `${r.business_name} just listed something that matches your request “${r.text}”. We've asked them to quote; you'll see it in Account → Price alerts & requests.`,
+    );
+    if (++alerted >= 20) break;
+  }
 }
 
 export function createDealsService(deps: AppDeps) {
@@ -460,6 +546,11 @@ export function createDealsService(deps: AppDeps) {
     const d = z
       .object({
         text: z.string().trim().min(2).max(200),
+        /** Brand, model, size, colour: whatever narrows it down. */
+        details: z.string().trim().max(300).optional(),
+        condition: z.enum(['NEW', 'USED']).optional(),
+        /** The kind of thing (a catalogue category), when the person picked one. */
+        category: z.string().trim().max(50).optional(),
         quantity: z.number().positive().max(1000000).optional(),
         unit: z.string().trim().max(30).optional(),
         budget_kobo: z.number().int().min(100).max(10000000000).optional(),
@@ -471,6 +562,8 @@ export function createDealsService(deps: AppDeps) {
         longitude: z.number().min(-180).max(180).optional(),
         area: z.string().trim().max(120).optional(),
         radius_km: z.number().int().min(1).max(100).default(10),
+        /** Search all of Nigeria, not just around the spot. */
+        anywhere: z.boolean().default(false),
       })
       .parse(input.body);
     ensure(
@@ -484,18 +577,33 @@ export function createDealsService(deps: AppDeps) {
       [user.id],
     );
     ensure(recent.n < 10, 429, 'TOO_MANY_REQUESTS', 'You can make up to 10 requests a day.');
-    const located = d.latitude != null;
-    const { category, sellers } = await suggestSellers(q, d.text, {
-      exclude: user.id,
-      lat: d.latitude,
-      lng: d.longitude,
-      radiusKm: located ? d.radius_km : undefined,
-      limit: located ? 25 : 10,
-    });
+    const located = d.latitude != null && !d.anywhere;
+    const find = (radiusKm?: number) =>
+      suggestSellers(q, d.text, {
+        exclude: user.id,
+        lat: d.latitude,
+        lng: d.longitude,
+        radiusKm,
+        category: d.category,
+        limit: 25,
+      });
+    // Nobody close by sells it: look further (50 km, then all of Nigeria) so the request
+    // reaches someone who can help, and say how far it went.
+    let reach: number | null = located ? d.radius_km : null;
+    let found = await find(reach ?? undefined);
+    for (const next of [50, null] as const) {
+      if (!located || found.sellers.length > 0 || (next != null && next <= (reach ?? 0))) continue;
+      const wider = await find(next ?? undefined);
+      if (wider.sellers.length > found.sellers.length) {
+        found = wider;
+        reach = next;
+      }
+    }
+    const { category, sellers } = found;
     const id = randomUUID();
     await q.query(
-      `INSERT INTO product_requests(id,buyer_id,text,category,latitude,longitude,quantity,unit,budget_kobo,needed_by,area,radius_km)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      `INSERT INTO product_requests(id,buyer_id,text,category,latitude,longitude,quantity,unit,budget_kobo,needed_by,area,radius_km,details,condition,reach_km)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [
         id,
         user.id,
@@ -509,14 +617,12 @@ export function createDealsService(deps: AppDeps) {
         d.needed_by ?? null,
         d.area ?? null,
         d.radius_km,
+        d.details ?? null,
+        d.condition ?? null,
+        reach,
       ],
     );
-    // "20 crates of eggs", without repeating a unit the buyer already wrote ("crates of eggs").
-    const unitInText = d.unit && d.text.toLowerCase().includes(d.unit.toLowerCase());
-    const what = d.quantity
-      ? `${d.quantity} ${unitInText || !d.unit ? d.text : `${d.unit} of ${d.text}`}`
-      : d.text;
-    const where = d.area ? ` near ${d.area}` : '';
+    const message = requestMessage(d);
     for (const [i, x] of sellers.entries()) {
       await q.query(
         'INSERT INTO product_request_sellers(request_id,seller_id,rank,distance_km) VALUES($1,$2,$3,$4)',
@@ -526,11 +632,19 @@ export function createDealsService(deps: AppDeps) {
         q,
         x.seller_id,
         'request',
-        `Wanted${where}: ${what}`.slice(0, 120),
-        `${d.budget_kobo ? `Budget ${naira(d.budget_kobo)}. ` : ''}${d.needed_by ? `Needed by ${d.needed_by}. ` : ''}${x.distance_km != null ? `About ${Math.max(1, Math.round(x.distance_km))} km from you. ` : ''}Open Sell → Buyer requests to quote.`,
+        message.title,
+        `${message.body}${x.distance_km != null ? `About ${Math.max(1, Math.round(x.distance_km))} km from you. ` : ''}Open Sell → Buyer requests to quote.`,
       );
     }
-    return { id, text: d.text, category, sellers };
+    return {
+      id,
+      text: d.text,
+      category,
+      sellers,
+      /** km searched; null = all of Nigeria. Larger than asked when too few were close. */
+      reach_km: reach,
+      widened: located && reach !== d.radius_km,
+    };
   }
   async function myRequests(user: any, _input: RequestInput) {
     const rows = await db.query(
@@ -551,6 +665,9 @@ export function createDealsService(deps: AppDeps) {
       budget_kobo: r.budget_kobo ?? null,
       needed_by: r.needed_by ? new Date(r.needed_by).toISOString().slice(0, 10) : null,
       area: r.area ?? null,
+      details: r.details ?? null,
+      condition: r.condition ?? null,
+      reach_km: r.reach_km ?? null,
       status: r.status,
       created_at: r.created_at,
       expires_at: r.expires_at,

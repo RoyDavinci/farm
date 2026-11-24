@@ -1965,6 +1965,12 @@ model ProductRequest {
   needed_by   DateTime? @db.Date
   area        String?
   radius_km   Int       @default(10)
+  /// Brand, model, size, colour: whatever narrows it down.
+  details     String?
+  /// NEW, USED or null (either).
+  condition   String?
+  /// How far the search went (km) to find sellers; null = nationwide.
+  reach_km    Int?
 
   @@map("product_requests")
 }
@@ -1975,6 +1981,8 @@ model ProductRequestSeller {
   rank        Int
   notified_at DateTime @default(now()) @db.Timestamptz(6)
   distance_km Float?
+  /// Alerted later, when they listed a matching product.
+  late        Boolean  @default(false)
 
   @@id([request_id, seller_id])
   @@map("product_request_sellers")

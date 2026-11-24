@@ -8,6 +8,7 @@ import type { AppDeps } from '../types/deps.js';
 import { listingSchema, sellerSchema } from '../validators/marketplace.validators.js';
 import { sharePhoto } from './catalogue-products.service.js';
 import { audit } from './audit.service.js';
+import { alertRequestsForListing } from './deals.service.js';
 import { attachVariants, saveVariants } from './catalog.service.js';
 import { setLocation } from './geography.service.js';
 import {
@@ -166,6 +167,8 @@ export function createMarketplaceService(deps: AppDeps) {
     requirePreorders(deps, d);
     await savePreorder(q, l.id, d);
     if (!opts.quiet) await announceNewListing(q, l);
+    // Someone may already be asking for this: they and the seller are told.
+    await alertRequestsForListing(q, l);
     await audit(q, u.id, 'listing.create', l.id);
     return l;
   }

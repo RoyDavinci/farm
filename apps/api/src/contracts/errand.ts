@@ -34,6 +34,7 @@ export const errandResponses: Record<string, z.ZodType> = {
         alternatives: z.number().int(),
         unit_differs: z.boolean(),
         oversized: z.boolean(),
+        similar: z.boolean(),
         extra_trip_kobo: z.number().int().nullable(),
         diet: z.object({ status: z.enum(['AVOID', 'CAUTION']), reason: z.string() }).nullable(),
       }),

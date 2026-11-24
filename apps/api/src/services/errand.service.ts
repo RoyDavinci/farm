@@ -67,6 +67,8 @@ export interface WantedItem {
   from: string;
   /** What the amount needed should roughly cost (recipe ingredients only), to spot oversized packs. */
   est_kobo?: number | null;
+  /** Typed by the person and not a known ingredient ("phone charger"): every word must match. */
+  free?: boolean;
 }
 
 /**
@@ -137,9 +139,13 @@ export function readErrand(text: string, content: PlannerContent, servingsGiven?
     const ws = tokens(name);
     if (!ws.length || ws.every((w) => covered.has(w))) continue;
     // Known ingredient? Use its details; otherwise search by the words given.
-    const known = Object.entries(content.ingredients).find(([k, x]) =>
-      ws.some((w) => k.includes(w) || x.keywords.split(' ').includes(w)),
-    );
+    // A known ingredient only when every word typed fits it: "milk" is milk, but "groundnut
+    // oil" is neither groundnuts nor vegetable oil.
+    const typed = ws.filter((w) => !DESCRIPTORS.has(w));
+    const known = Object.entries(content.ingredients).find(([k, x]) => {
+      const own = new Set([...k.split('_'), ...x.keywords.split(' '), ...tokens(x.name)]);
+      return typed.length > 0 && typed.every((w) => own.has(w) || own.has(w.replace(/s$/, '')));
+    });
     const amount = m ? Number(m[1]) : 1;
     const unit = m?.[2]?.replace(/(ch|x)es$/, '$1').replace(/s$/, '') ?? known?.[1].unit ?? 'piece';
     if (known) {
@@ -163,6 +169,7 @@ export function readErrand(text: string, content: PlannerContent, servingsGiven?
         unit,
         amount,
         from: 'You asked',
+        free: true,
       });
     }
   }
@@ -189,6 +196,29 @@ const singular = (u: string) =>
 const sameUnit = (a: string, b: string) => singular(a) === singular(b);
 /** Units a market seller weighs or measures out, so a part of one can be bought. */
 const isLoose = (u: string) => ['kg', 'kilo', 'litre', 'liter'].includes(singular(u));
+/** Words that describe a thing rather than name it ("size 3 diapers", "big pack"). */
+const DESCRIPTORS = new Set([
+  'size',
+  'pack',
+  'packs',
+  'big',
+  'small',
+  'large',
+  'medium',
+  'new',
+  'original',
+  'quality',
+  'brand',
+  'good',
+  'nice',
+  'cheap',
+  'piece',
+  'pieces',
+  'tin',
+  'tins',
+  'bottle',
+  'bottles',
+]);
 /** Words many unrelated products share; never enough on their own to call it a match. */
 const WEAK = new Set([
   'pepper',
@@ -222,23 +252,46 @@ async function candidates(q: Query, item: WantedItem, lat: number, lng: number, 
   // bonnet, or vegetable oil for palm oil. Match on the item's own words; when it has none
   // ("pepper soup spice"), every word must be in the product name.
   const strong = all.filter((w) => !WEAK.has(w));
-  const ws = strong.length ? strong : all;
-  const need = strong.length ? 1 : all.length;
-  const rows = await q.query(
-    `SELECT * FROM (SELECT l.id,l.title,v.unit,l.category,l.image_url,l.seller_id,v.id AS variant_id,v.name AS variant_name,v.is_primary,v.price_kobo,v.stock,v.min_quantity,v.wholesale_tiers,
+  // whole=true: a whole word only ("wipes" never matches "wiper"); otherwise a word start.
+  const search = (ws: string[], need: number, whole = false): Promise<any[]> =>
+    q.query(
+      `SELECT * FROM (SELECT l.id,l.title,v.unit,l.category,l.image_url,l.seller_id,v.id AS variant_id,v.name AS variant_name,v.is_primary,v.price_kobo,v.stock,v.min_quantity,v.wholesale_tiers,
        s.business_name,s.area,COALESCE(s.latitude,s.public_latitude) AS lat,COALESCE(s.longitude,s.public_longitude) AS lng,s.fulfilment_pct,
        ${verifiedSql('s')} AS verified,
        (SELECT AVG(r.score)::float8 FROM ratings r WHERE r.seller_id=s.user_id) AS rating,
-       (SELECT COUNT(*)::int FROM unnest($1::text[]) x WHERE l.title ~* ('\\m'||x)) AS hits
+       (SELECT COUNT(*)::int FROM unnest($1::text[]) x WHERE l.title ~* ('\\m'||x||$4)) AS hits
      FROM listings l JOIN sellers s ON s.user_id=l.seller_id JOIN users u ON u.id=s.user_id
      JOIN listing_variants v ON v.listing_id=l.id AND v.active
      WHERE l.status='ACTIVE' AND s.status='APPROVED' AND u.status='ACTIVE' AND u.frozen_at IS NULL
        AND l.delivery_available AND l.seller_id<>$2 AND s.latitude IS NOT NULL AND ${bookableSql('l')}
-       AND EXISTS(SELECT 1 FROM unnest($1::text[]) x WHERE l.title ~* ('\\m'||x))) m
+       AND EXISTS(SELECT 1 FROM unnest($1::text[]) x WHERE l.title ~* ('\\m'||x||$4))) m
      WHERE m.hits >= $3
      LIMIT 200`,
-    [ws, buyerId, need],
-  );
+      [ws, buyerId, need, whole ? '(s|es)?\\M' : ''],
+    );
+  let rows: any[];
+  let similar = false;
+  if (item.free) {
+    // Typed by the person ("phone charger"): every word that names the thing must match, so a
+    // phone isn't offered for a charger. Nothing? The closest by its last word, marked similar.
+    const required = [
+      ...new Set(
+        all.filter((w) => !DESCRIPTORS.has(w)).map((w) => (w.length > 4 ? w.replace(/s$/, '') : w)),
+      ),
+    ];
+    const ws = required.length ? required : all;
+    rows = await search(ws, ws.length);
+    if (!rows.length && ws.length > 1) {
+      rows = await search([ws[ws.length - 1]], 1, true);
+      similar = rows.length > 0;
+    }
+  } else {
+    // Shared words ("pepper", "oil", "fish") alone would match pepper soup spice for scotch
+    // bonnet, or vegetable oil for palm oil. Match on the item's own words; when it has none
+    // ("pepper soup spice"), every word must be in the product name.
+    const ws = strong.length ? strong : all;
+    rows = await search(ws, strong.length ? 1 : all.length);
+  }
   const picked = rows
     .map((r: any) => {
       const km = haversineKm(lat, lng, r.lat, r.lng);
@@ -266,6 +319,7 @@ async function candidates(q: Query, item: WantedItem, lat: number, lng: number, 
       const sized = ratio > 4 ? -8 - Math.min(6, ratio / 10) : 0;
       return {
         ...r,
+        similar,
         km,
         quantity,
         portion,
@@ -504,6 +558,8 @@ export async function buildBasket(
       alternatives: Math.max(0, (options.get(i.key)?.length ?? 0) - 1),
       unit_differs: c ? !sameUnit(c.unit, i.unit) : false,
       oversized: !!c?.oversized,
+      /** Not exactly what was asked for, but the closest product nearby: check it. */
+      similar: !!c?.similar,
       extra_trip_kobo: null as number | null,
       diet: flag,
     };

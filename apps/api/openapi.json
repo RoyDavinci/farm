@@ -17481,6 +17481,9 @@
                           "oversized": {
                             "type": "boolean"
                           },
+                          "similar": {
+                            "type": "boolean"
+                          },
                           "extra_trip_kobo": {
                             "anyOf": [
                               {
@@ -17534,6 +17537,7 @@
                           "alternatives",
                           "unit_differs",
                           "oversized",
+                          "similar",
                           "extra_trip_kobo",
                           "diet"
                         ],
@@ -29188,13 +29192,30 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "reach_km": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "widened": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "id",
                     "text",
                     "category",
-                    "sellers"
+                    "sellers",
+                    "reach_km",
+                    "widened"
                   ],
                   "additionalProperties": false
                 }

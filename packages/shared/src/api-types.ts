@@ -13701,6 +13701,7 @@ export interface operations {
               alternatives: number;
               unit_differs: boolean;
               oversized: boolean;
+              similar: boolean;
               extra_trip_kobo: number | null;
               diet: {
                 /** @enum {string} */
@@ -18539,6 +18540,8 @@ export interface operations {
               examples: string[];
               reason: string;
             }[];
+            reach_km: number | null;
+            widened: boolean;
           };
         };
       };

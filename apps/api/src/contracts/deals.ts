@@ -113,6 +113,8 @@ export const dealsResponses: Record<string, z.ZodType> = {
     text: z.string(),
     category: z.string().nullable(),
     sellers: z.array(suggestion),
+    reach_km: z.number().int().nullable(),
+    widened: z.boolean(),
   }),
   'deals.myRequests': z.array(
     z.looseObject({

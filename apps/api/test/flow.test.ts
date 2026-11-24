@@ -642,13 +642,11 @@ describe('phone-number accounts and fingerprint sign-in', () => {
     expect(login.status).toBe(202);
     expect(login.body.channel).toBe('sms');
     // A known device signs straight in; email accounts still sign in with "email".
-    const again = await request(app)
-      .post('/v1/auth/login')
-      .send({
-        login: '08035551234',
-        password: person.password,
-        device_token: ok.body.device_token,
-      });
+    const again = await request(app).post('/v1/auth/login').send({
+      login: '08035551234',
+      password: person.password,
+      device_token: ok.body.device_token,
+    });
     expect(again.status).toBe(200);
     expect(
       (
@@ -722,13 +720,11 @@ describe('phone-number accounts and fingerprint sign-in', () => {
     const reset = await request(app)
       .post('/v1/auth/password/forgot')
       .send({ email: 'buyer@test.com' });
-    await request(app)
-      .post('/v1/auth/otp/verify')
-      .send({
-        challenge_id: reset.body.challenge_id,
-        code: latestCode(),
-        new_password: 'buyer-password-2',
-      });
+    await request(app).post('/v1/auth/otp/verify').send({
+      challenge_id: reset.body.challenge_id,
+      code: latestCode(),
+      new_password: 'buyer-password-2',
+    });
     expect((await signIn(made.body.key)).status).toBe(401);
   });
 });
@@ -3598,6 +3594,44 @@ describe('buy it and bring it', () => {
     expect(promoted.trip_lead_id).toBeNull();
     expect(Number(promoted.fare_kobo)).toBeGreaterThan(Number(extra.fare_kobo));
   });
+  it('reads any shopping list, matching typed items by all their words', async () => {
+    await foodShop('seller', 'Ikeja Everything Store', 6.6, 3.35, [
+      ['Refurbished Android phone', 'Phones & electronics', 85000, 'piece'],
+      ['Groundnut oil', 'Food & groceries', 14000, 'bottle'],
+      ['Baby diapers (jumbo pack)', 'Baby & kids', 14000, 'pack'],
+      ['Earphones (wired)', 'Phones & electronics', 3000, 'piece'],
+      ['Vegetable oil', 'Food & groceries', 3200, 'litre'],
+      ['Wiper blades', 'Auto & spare parts', 7000, 'pair'],
+    ]);
+    const plan = (
+      await call('buyer', 'post', '/errands/plan', {
+        text: 'diapers size 3, phone charger, groundnut oil, baby wipes and bluetooth earbuds',
+        latitude: 6.59,
+        longitude: 3.34,
+      })
+    ).body;
+    const item = (name: string) => plan.items.find((i: any) => i.name.toLowerCase() === name);
+    expect(item('diapers size 3').listing.title).toBe('Baby diapers (jumbo pack)');
+    // A phone is not a phone charger.
+    expect(item('phone charger').listing).toBeNull();
+    expect(plan.missing).toContain('Phone charger');
+    // Groundnut oil is neither groundnuts nor vegetable oil.
+    expect(item('groundnut oil').listing.title).toBe('Groundnut oil');
+    // "Wipes" is not "wiper": no car wiper blades for baby wipes.
+    expect(item('baby wipes').listing).toBeNull();
+    // No earbuds: the closest by its last word… none for "earbuds" either, so it's missing.
+    expect(item('bluetooth earbuds').listing).toBeNull();
+    const near = (
+      await call('buyer', 'post', '/errands/plan', {
+        text: 'wireless earphones',
+        latitude: 6.59,
+        longitude: 3.34,
+      })
+    ).body;
+    // "wireless earphones": not an exact match, so the closest earphones, marked similar.
+    expect(near.items[0]).toMatchObject({ similar: true });
+    expect(near.items[0].listing.title).toBe('Earphones (wired)');
+  });
   it('reads explicit items with quantities', async () => {
     await foodShop('seller', 'Ikeja Poultry', 6.6, 3.35, [
       ['Eggs crate', 'Livestock', 5000, 'crate'],
@@ -3615,6 +3649,75 @@ describe('buy it and bring it', () => {
   });
 });
 describe('request with a location and quotes', () => {
+  it('widens a request when nobody near sells it, and alerts later sellers', async () => {
+    const shop = async (actor: 'seller' | 'other', name: string, lat: number, lng: number) => {
+      await call(actor, 'post', '/sellers', {
+        business_name: name,
+        business_type: 'shop',
+        city: 'Lagos',
+        area: 'Ikeja',
+        address: 'PRIVATE 1 Shop Road',
+      });
+      await call('admin', 'post', `/admin/sellers/${actor}/review`, {
+        status: 'APPROVED',
+        reason: 'Checked',
+      });
+      await db.query('UPDATE sellers SET latitude=$1,longitude=$2 WHERE user_id=$3', [
+        lat,
+        lng,
+        actor,
+      ]);
+    };
+    const list = (actor: 'seller' | 'other', title: string) =>
+      call(actor, 'post', '/listings', {
+        title,
+        description: `${title}, good condition`,
+        category: 'Phones & electronics',
+        unit: 'piece',
+        price_kobo: 30000000,
+        stock: 3,
+      });
+    await shop('seller', 'Abuja Phones', 9.07, 7.4);
+    await list('seller', 'iPhone 13 128GB');
+    const req = (
+      await call('buyer', 'post', '/product-requests', {
+        text: 'iPhone 13',
+        details: '128GB, blue',
+        condition: 'USED',
+        category: 'Phones & electronics',
+        latitude: 6.59,
+        longitude: 3.34,
+        area: 'Ikeja',
+        radius_km: 10,
+      })
+    ).body;
+    // Nobody within 10 km: the search went nationwide and found the Abuja shop.
+    expect(req).toMatchObject({ reach_km: null, widened: true });
+    expect(req.sellers.map((x: any) => x.seller_id)).toEqual(['seller']);
+    const [n] = await db.query(
+      "SELECT body FROM notifications WHERE user_id='seller' AND kind='request'",
+    );
+    expect(n.body).toContain('Details: 128GB, blue. Used is fine.');
+    // A seller who lists a match later is alerted, and the buyer hears it's on Ahia.
+    await shop('other', 'Ikeja Gadgets', 6.6, 3.35);
+    await list('other', 'iPhone 13 Pro');
+    expect(
+      (
+        await db.query("SELECT title FROM notifications WHERE user_id='other' AND kind='request'")
+      )[0].title,
+    ).toBe('Wanted near Ikeja: iPhone 13');
+    expect(
+      (
+        await db.query(
+          "SELECT title FROM notifications WHERE user_id='buyer' AND kind='request' AND title LIKE 'Now on Ahia%'",
+        )
+      )[0].title,
+    ).toBe('Now on Ahia: iPhone 13 Pro');
+    const seen = (await call('other', 'get', '/sellers/me/product-requests')).body;
+    expect(seen.map((r: any) => r.id)).toContain(req.id);
+    const mine = (await call('buyer', 'get', '/product-requests/mine')).body[0];
+    expect(mine).toMatchObject({ details: '128GB, blue', condition: 'USED', reach_km: null });
+  });
   it('alerts sellers near the chosen spot and lets the buyer order at the quoted price', async () => {
     const egg = async (actor: 'seller' | 'other', name: string, lat: number, lng: number) => {
       await call(actor, 'post', '/sellers', {
@@ -4581,9 +4684,7 @@ describe('growth modules', () => {
     );
     // Far away (Abuja), or no area at all: the seller still sees their own status.
     const far = '/local-status?state=FCT&lga=Gwagwalada';
-    expect((await call('seller', 'get', far)).body.items.map((i: any) => i.id)).toEqual([
-      'st-own',
-    ]);
+    expect((await call('seller', 'get', far)).body.items.map((i: any) => i.id)).toEqual(['st-own']);
     expect((await call('seller', 'get', '/local-status')).body.items[0].id).toBe('st-own');
     // Other people far away don't.
     expect((await call('buyer', 'get', far)).body.items).toEqual([]);

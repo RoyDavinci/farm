@@ -42,6 +42,16 @@ function slots() {
  * 3. Each shop packs its part, a rider brings it at the chosen time, and you pay on delivery.
  * Things no shop nearby sells can be sent to sellers as a request, or bought by a rider.
  */
+/** Ready-made shopping lists: Buy it & bring it is for anything, not just cooking. */
+const LISTS: [string, string][] = [
+  ['🍼 Baby things', 'diapers size 3, baby wipes, 2 tins of baby milk'],
+  ['🧴 Toiletries', 'toothpaste, bathing soap, toilet roll, detergent'],
+  ['🍞 Breakfast', 'bread, 12 eggs, tin of milk, Milo'],
+  ['🥤 Party drinks', '2 packs of soft drinks, 12 bottles of water, disposable cups'],
+  ['🧹 Cleaning', 'bleach, detergent, mop, dishwashing liquid'],
+  ['🔌 Phone bits', 'phone charger, earphones, power bank'],
+];
+
 export default function ErrandPanel({
   startOpen = false,
   onClose,
@@ -162,24 +172,26 @@ export default function ErrandPanel({
       : address.trim().length < 8
         ? 'Add the address for the rider.'
         : '';
+  // One request per missing item (up to 5), so each reaches the sellers of that thing; if
+  // nobody close sells it, the request goes further, and sellers who list it later are told.
   const askSellers = () =>
     void run(async () => {
-      const names = notFound.map((i) => i.name).join(', ');
-      await request('post', '/product-requests', {
-        body: {
-          text: `${plan.recipes.length ? `For ${plan.recipes[0].name.toLowerCase()}: ` : ''}${names}`.slice(
-            0,
-            200,
-          ),
-          latitude: point!.latitude,
-          longitude: point!.longitude,
-          radius_km: 15,
-          ...(when ? { needed_by: when.slice(0, 10) } : {}),
-          ...(budgetKobo >= 10000 ? { budget_kobo: budgetKobo } : {}),
-        } as any,
-      });
+      for (const i of notFound.slice(0, 5))
+        await request('post', '/product-requests', {
+          body: {
+            text: i.name.slice(0, 200),
+            ...(i.needed_quantity >= 1 ? { quantity: i.needed_quantity, unit: i.needed_unit } : {}),
+            ...(plan.recipes.length
+              ? { details: `For ${plan.recipes[0].name.toLowerCase()}` }
+              : {}),
+            latitude: point!.latitude,
+            longitude: point!.longitude,
+            radius_km: 15,
+            ...(when ? { needed_by: when.slice(0, 10) } : {}),
+          } as any,
+        });
       setAsked(true);
-    }, 'Sent. Sellers near you will quote; quotes show in Account → Price alerts & requests.');
+    }, 'Sent. Sellers will quote; quotes show in Account → Price alerts & requests.');
   const row = (i: any) => {
     const need = marketMeasure(i.name, i.needed_quantity, i.needed_unit);
     const q = amountOf(i);
@@ -209,11 +221,21 @@ export default function ErrandPanel({
             <Text style={s.small}>
               {i.listing.title} · {money(i.listing.price_kobo)}/{i.listing.unit} ·{' '}
               {i.listing.business_name}
-              {i.oversized ? ' · big pack' : i.unit_differs ? ' · check the size' : ''}
+              {i.oversized
+                ? ' · big pack'
+                : i.unit_differs && !i.similar
+                  ? ' · check the size'
+                  : ''}
               {part ? ` · you pay for ${q} ${i.listing.unit}` : ''}
             </Text>
           ) : (
             i.diet?.status !== 'AVOID' && <Text style={s.fine}>Not sold by shops near you yet</Text>
+          )}
+          {!out && i.similar && (
+            <Text style={styles.caution}>
+              ≈ Closest match nearby, not exactly “{i.name}”. Check it’s what you want, or remove
+              it.
+            </Text>
           )}
           {!out && i.oversized && (
             <Text style={s.fine}>Only sold nearby as a big pack, more than this needs.</Text>
@@ -267,7 +289,7 @@ export default function ErrandPanel({
       <Text style={s.bold}>🛵 Buy it & bring it</Text>
       <View style={styles.how}>
         {[
-          ['1', 'Say what you’re cooking'],
+          ['1', 'Say what you need: a meal or any list'],
           ['2', 'Remove what you have'],
           ['3', 'Rider brings it · pay on arrival'],
         ].map(([n, label]) => (
@@ -284,17 +306,35 @@ export default function ErrandPanel({
           setText(v);
           setPlan(null);
         }}
-        placeholder="I want to make egusi for 6 · 2 crates of eggs and 5kg rice"
+        placeholder="Ogbono soup for 2 · or a list: diapers size 3, 2 tins of milk, toothpaste"
         placeholderTextColor="#8aa698"
         multiline
         accessibilityLabel="What do you want"
       />
-      {!plan && !!ideas.length && (
-        <View style={s.chipWrap}>
-          {ideas.map((i) => (
-            <Chip key={i.key} title={i.name} active={false} onPress={() => setText(i.prompt)} />
-          ))}
-        </View>
+      {!plan && (
+        <>
+          <Text style={s.fine}>A shopping list</Text>
+          <View style={s.chipWrap}>
+            {LISTS.map(([label, list]) => (
+              <Chip key={label} title={label} active={false} onPress={() => setText(list)} />
+            ))}
+          </View>
+          {!!ideas.length && (
+            <>
+              <Text style={s.fine}>Or a meal to cook</Text>
+              <View style={s.chipWrap}>
+                {ideas.map((i) => (
+                  <Chip
+                    key={i.key}
+                    title={i.name}
+                    active={false}
+                    onPress={() => setText(i.prompt)}
+                  />
+                ))}
+              </View>
+            </>
+          )}
+        </>
       )}
       <View style={styles.twoCol}>
         <View style={{ flex: 1, minWidth: 150 }}>
@@ -311,7 +351,7 @@ export default function ErrandPanel({
         </View>
         <View style={{ flex: 1, minWidth: 150 }}>
           <Field
-            label="Leave out (allergies, don’t want)"
+            label="Leave out (allergies, things you don’t want)"
             value={avoid}
             onChangeText={(v: string) => {
               setAvoid(v);
@@ -431,11 +471,14 @@ export default function ErrandPanel({
               </Text>
               <Text style={s.small}>{notFound.map((i) => i.name).join(', ')}</Text>
               {asked ? (
-                <Text style={s.small}>✅ Sent to sellers near you. Quotes come to Account.</Text>
+                <Text style={s.small}>
+                  ✅ Sent. If nobody close sells them, we ask further away, and tell you when a
+                  seller lists them. Quotes come to Account.
+                </Text>
               ) : (
                 <Button
                   secondary
-                  title="📣 Ask sellers near me for these"
+                  title="📣 Ask sellers for these"
                   disabled={busy}
                   onPress={askSellers}
                 />
