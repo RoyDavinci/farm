@@ -35,7 +35,11 @@ export function createAuthController(deps: AppDeps) {
   const biometricSignIn: RequestHandler = async (req, res) => {
     res.json(await service.biometricSignIn(requestInput(req)));
   };
+  const clientReport: RequestHandler = async (req, res) => {
+    res.json(await service.clientReport(requestInput(req)));
+  };
   return {
+    clientReport,
     register,
     login,
     forgotPassword,

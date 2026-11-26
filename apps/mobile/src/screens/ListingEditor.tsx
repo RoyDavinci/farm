@@ -60,6 +60,9 @@ function draftFrom(l: Listing): typeof blankListing {
     preorder: l.preorder_capacity ? String(l.preorder_capacity) : '',
   };
 }
+/** Enough to show a car or a sofa from every side. */
+const MAX_PHOTOS = 10;
+
 export default function ListingEditor({
   listing,
   onDone,
@@ -96,20 +99,20 @@ export default function ListingEditor({
         mediaTypes: ['images'],
         quality: 0.8,
         allowsMultipleSelection: !camera,
-        selectionLimit: Math.max(1, 6 - draft.image_urls.length),
+        selectionLimit: Math.max(1, MAX_PHOTOS - draft.image_urls.length),
       };
       const result = camera
         ? await ImagePicker.launchCameraAsync(options)
         : await ImagePicker.launchImageLibraryAsync(options);
       if (result.canceled) return;
       const urls: string[] = [];
-      for (const asset of result.assets.slice(0, 6 - draft.image_urls.length)) {
+      for (const asset of result.assets.slice(0, MAX_PHOTOS - draft.image_urls.length)) {
         const uploaded = await withRetry(() => uploadPhoto(asset));
         urls.push(uploaded.url);
       }
       setDraft((current) => ({
         ...current,
-        image_urls: [...current.image_urls, ...urls].slice(0, 6),
+        image_urls: [...current.image_urls, ...urls].slice(0, MAX_PHOTOS),
       }));
     });
   }
@@ -118,13 +121,13 @@ export default function ListingEditor({
       <Button
         secondary
         title="📷 Take photo"
-        disabled={busy || draft.image_urls.length >= 6}
+        disabled={busy || draft.image_urls.length >= MAX_PHOTOS}
         onPress={() => void choosePhotos(true)}
       />
       <Button
         secondary
         title="🖼 Choose from phone"
-        disabled={busy || draft.image_urls.length >= 6}
+        disabled={busy || draft.image_urls.length >= MAX_PHOTOS}
         onPress={() => void choosePhotos()}
       />
     </View>
@@ -142,28 +145,85 @@ export default function ListingEditor({
         </Text>
       </View>
 
-      <Section n={1} title="Photos" hint="Up to 6. The first photo is the one buyers see first.">
+      <Section
+        n={1}
+        title="Photos"
+        hint={`Up to ${MAX_PHOTOS}: show it from every side (a car: front, back, sides, inside). The main photo is the one buyers see first.`}
+      >
         {draft.image_urls.length > 0 && (
-          <ScrollView horizontal contentContainerStyle={{ gap: 12 }}>
-            {draft.image_urls.map((url, i) => (
-              <View key={url} style={{ gap: 6, alignItems: 'center' }}>
-                <Image source={{ uri: url }} style={f.photo} />
-                <Pressable
-                  disabled={busy}
-                  onPress={() =>
-                    setDraft((current) => ({
-                      ...current,
-                      image_urls: current.image_urls.filter((u) => u !== url),
-                    }))
-                  }
-                >
-                  <Text style={s.link}>{i === 0 ? 'Main · Remove' : 'Remove'}</Text>
-                </Pressable>
-              </View>
-            ))}
+          <ScrollView horizontal contentContainerStyle={{ gap: 12, paddingVertical: 4 }}>
+            {draft.image_urls.map((url, i) => {
+              const move = (to: number) =>
+                setDraft((current) => {
+                  const list = [...current.image_urls];
+                  const [item] = list.splice(i, 1);
+                  list.splice(Math.max(0, Math.min(list.length, to)), 0, item);
+                  return { ...current, image_urls: list };
+                });
+              return (
+                <View key={url} style={f.photoTile}>
+                  <View>
+                    <Image source={{ uri: url }} style={[f.photo, i === 0 && f.photoMain]} />
+                    {i === 0 && <Text style={f.mainBadge}>MAIN</Text>}
+                  </View>
+                  {i > 0 ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Make photo ${i + 1} the main photo`}
+                      disabled={busy}
+                      onPress={() => move(0)}
+                    >
+                      <Text style={f.makeMain}>★ Make main</Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={f.isMain}>Shown first</Text>
+                  )}
+                  <View style={f.photoActions}>
+                    <Pressable
+                      accessibilityLabel="Move left"
+                      disabled={busy || i === 0}
+                      onPress={() => move(i - 1)}
+                      hitSlop={6}
+                    >
+                      <Text style={[f.photoAction, i === 0 && f.photoActionOff]}>‹</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityLabel="Move right"
+                      disabled={busy || i === draft.image_urls.length - 1}
+                      onPress={() => move(i + 1)}
+                      hitSlop={6}
+                    >
+                      <Text
+                        style={[
+                          f.photoAction,
+                          i === draft.image_urls.length - 1 && f.photoActionOff,
+                        ]}
+                      >
+                        ›
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityLabel="Remove photo"
+                      disabled={busy}
+                      onPress={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          image_urls: current.image_urls.filter((u) => u !== url),
+                        }))
+                      }
+                      hitSlop={6}
+                    >
+                      <Text style={[f.photoAction, { color: '#b3261e' }]}>✕</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              );
+            })}
           </ScrollView>
         )}
-        <Text style={s.fine}>{draft.image_urls.length}/6 photos added</Text>
+        <Text style={s.fine}>
+          {draft.image_urls.length}/{MAX_PHOTOS} photos added
+        </Text>
         {photoButtons}
         {field(
           'Or paste a photo link (optional, https://…)',
@@ -371,5 +431,25 @@ const f = StyleSheet.create({
     fontWeight: '700',
   },
   title: { fontSize: 17, fontWeight: '700', color: '#184730' },
-  photo: { width: 96, height: 96, borderRadius: 10 },
+  photo: { width: 104, height: 104, borderRadius: 12 },
+  photoMain: { borderWidth: 3, borderColor: '#1f754a' },
+  photoTile: { gap: 6, alignItems: 'center', width: 112 },
+  mainBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#1f754a',
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  makeMain: { fontSize: 12, fontWeight: '700', color: '#1f754a' },
+  isMain: { fontSize: 12, color: '#5f8471' },
+  photoActions: { flexDirection: 'row', gap: 14, alignItems: 'center' },
+  photoAction: { fontSize: 20, fontWeight: '700', color: '#1f754a', paddingHorizontal: 4 },
+  photoActionOff: { color: '#c9d9d0' },
 });

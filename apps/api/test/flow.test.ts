@@ -609,6 +609,29 @@ async function ledgerBalances() {
   const [r] = await db.query('SELECT COALESCE(SUM(amount_kobo),0)::text AS total FROM ledger');
   return Number(r.total);
 }
+describe('tracing failed requests', () => {
+  it('accepts the app’s reports of requests that got no reply', async () => {
+    const ok = await request(app)
+      .post('/v1/auth/client-report')
+      .set('User-Agent', 'Mozilla/5.0 (Linux; Android 13; SM-A145F) SamsungBrowser/27.0')
+      .send({
+        reports: [
+          {
+            at: new Date().toISOString(),
+            method: 'POST',
+            path: '/auth/register?x=secret',
+            error: 'TypeError: Network request failed',
+            platform: 'android 33',
+          },
+        ],
+      });
+    expect(ok.status).toBe(200);
+    expect(ok.body).toEqual({ ok: true });
+    expect((await request(app).post('/v1/auth/client-report').send({ reports: [] })).status).toBe(
+      400,
+    );
+  });
+});
 describe('phone-number accounts and fingerprint sign-in', () => {
   const latestSms = () => {
     const folder = join(mailDir, 'sms');
@@ -4691,6 +4714,48 @@ describe('growth modules', () => {
     expect((await call('buyer', 'get', '/local-status')).body.items).toEqual([]);
   });
 
+  it('stores where each notification leads when tapped', async () => {
+    const plan = (await call('buyer', 'post', '/plans', { template: 'groceries', people: 3 })).body;
+    const id = plan.id ?? plan.plan?.id;
+    await call('buyer', 'post', `/plans/${id}/members`, {
+      contact: 'other@test.com',
+      role: 'EDITOR',
+    });
+    const [shared] = await db.query(
+      "SELECT link FROM notifications WHERE user_id='other' AND kind='plan'",
+    );
+    expect(shared.link).toBe(`planner:${id}`);
+    // An order's notifications open the order.
+    const { b } = await accepted();
+    const [order] = await db.query(
+      'SELECT link FROM notifications WHERE booking_id=$1 ORDER BY created_at DESC LIMIT 1',
+      [b],
+    );
+    expect(order.link).toBe(`booking:${b}`);
+    const list = (await call('other', 'get', '/notifications')).body;
+    expect(list.find((n: any) => n.kind === 'plan').link).toBe(`planner:${id}`);
+  });
+  it('takes up to 10 photos for one product', async () => {
+    await setup(10);
+    const photos = (n: number) =>
+      Array.from({ length: n }, (_, i) => `https://example.com/car-${i + 1}.webp`);
+    const make = (n: number) =>
+      call('seller', 'post', '/listings', {
+        title: 'Toyota Corolla 2012',
+        description: 'Clean, Lagos cleared, photos from every side',
+        category: 'Auto & spare parts',
+        unit: 'piece',
+        price_kobo: 90000000,
+        stock: 1,
+        image_urls: photos(n),
+      });
+    const ok = await make(10);
+    expect(ok.body.error).toBeUndefined();
+    expect(ok.status).toBe(200);
+    expect(ok.body.image_urls).toHaveLength(10);
+    expect(ok.body.image_url).toBe('https://example.com/car-1.webp');
+    expect((await make(11)).status).toBe(400);
+  });
   it('shares a plan with family as viewer or editor', async () => {
     const plan = await call('buyer', 'post', '/plans', { template: 'groceries', people: 3 });
     const id = plan.body.id;

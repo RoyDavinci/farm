@@ -163,6 +163,7 @@ export function createParcelsService(deps: AppDeps) {
       'delivery',
       'Parcel delivery invitation',
       'Open Drive to review the parcel, route and expected earnings.',
+      { link: 'drive' },
     );
     return { id };
   }

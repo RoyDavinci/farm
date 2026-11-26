@@ -21,15 +21,12 @@ import {
 } from '../config/planner-wizards.js';
 import { checkRecipe, shoppingQuantity, type DietProfile, type Recipe } from '../config/recipes.js';
 import { plannerContent, type PlannerContent } from './planner-content.service.js';
+import { wizardAnswers } from '../validators/planner.validators.js';
 import { rebuildGroceryList } from './planner.service.js';
 import { notify } from './communications.service.js';
 import { translateSteps } from '../config/planner-i18n.js';
 
 const kobo = z.number().int().min(0).max(100_000_000_000);
-export const wizardAnswers = z.record(
-  z.string().max(40),
-  z.union([z.number().min(0).max(5000), z.string().max(40), z.array(z.string().max(120)).max(200)]),
-);
 export const wizardInput = z.object({
   template: z.string().max(40),
   answers: wizardAnswers.default({}),

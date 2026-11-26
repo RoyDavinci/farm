@@ -91,7 +91,10 @@ export async function cancelDelivery(q: Query, d: any, reason: string, actor: st
   );
   await audit(q, actor, 'delivery.cancel', d.id, { reason });
   if (d.driver_id && d.driver_id !== actor)
-    await notify(q, d.driver_id, 'delivery', 'Delivery cancelled', reason, d.booking_id);
+    await notify(q, d.driver_id, 'delivery', 'Delivery cancelled', reason, {
+      booking: d.booking_id,
+      link: 'drive',
+    });
   if (!d.trip_lead_id) await promoteTripStop(q, d);
 }
 
@@ -443,6 +446,7 @@ export function createDeliveriesService(deps: AppDeps) {
             (d.pay_on_delivery && !b.paid
               ? ` · you pay the seller ₦${Math.round(Number(b.total_kobo) / 100).toLocaleString()} at pickup; the buyer repays you on delivery`
               : ''),
+          { link: 'drive' },
         );
     return view({ ...delivery, booking_paid: b.paid }, u);
   }
@@ -896,7 +900,7 @@ export function createDeliveriesService(deps: AppDeps) {
           'delivery',
           'Buyer has paid',
           'Ask the buyer for their delivery PIN.',
-          b.id,
+          { booking: b.id, link: 'drive' },
         );
     } else if (action === 'handover' || action === 'deliver') {
       const handover = action === 'handover';
@@ -1096,6 +1100,7 @@ export function createAdminDeliveriesService(deps: AppDeps) {
       'verification',
       `Driver application ${d.status.toLowerCase()}`,
       d.reason,
+      { link: 'drive' },
     );
     return driver;
   }

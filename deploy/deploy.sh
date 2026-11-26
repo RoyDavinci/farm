@@ -76,10 +76,10 @@ sed -e "s/__PUBLIC_IP__/$PUBLIC_IP/" -e "s/__PRIVATE_IP__/$PRIVATE_IP/g" -e "s/_
   deploy/turnserver.conf.template > $BUILD/turnserver.conf
 chmod 600 $BUILD/turnserver.conf
 COPYFILE_DISABLE=1 tar --no-mac-metadata --no-xattrs -C $BUILD -czf - compose.yaml Caddyfile turnserver.conf api.env .env sites | "${SSH[@]}" 'rm -rf /opt/zuru/next && mkdir -p /opt/zuru/next && tar -C /opt/zuru/next -xzf - 2>/dev/null &&
-  cd /opt/zuru && mkdir -p sites && find sites -mindepth 1 -delete && cp -a next/sites/. sites/ && mv next/compose.yaml next/Caddyfile next/turnserver.conf next/api.env next/.env . && rm -rf next && chmod 600 api.env .env && chmod 644 turnserver.conf'
+  cd /opt/zuru && mkdir -p sites && find sites -mindepth 1 -delete && cp -a next/sites/. sites/ && cat next/Caddyfile > Caddyfile && mv next/compose.yaml next/turnserver.conf next/api.env next/.env . && rm -rf next && chmod 600 api.env .env && chmod 644 turnserver.conf'
 
 echo "▸ Starting release $RELEASE"
-"${SSH[@]}" 'cd /opt/zuru && docker compose up -d --remove-orphans --wait api worker caddy coturn && docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true
+"${SSH[@]}" 'cd /opt/zuru && docker compose up -d --remove-orphans --wait api worker caddy coturn && docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null
   docker image ls zuru-api --format "{{.Tag}}" | sort -r | tail -n +4 | xargs -r -I{} docker image rm zuru-api:{} >/dev/null 2>&1 || true
   docker builder prune -f --filter until=168h >/dev/null 2>&1 || true'
 

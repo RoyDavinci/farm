@@ -44,6 +44,7 @@ export async function notifyIfRestocked(q: Query, listingId: string, wasAvailabl
       'stock',
       'Back in stock',
       `${l.title} from ${l.business_name} is available to book again.`,
+      { link: `listing:${l.id}` },
     );
 }
 
@@ -70,6 +71,7 @@ export async function announceNewListing(q: Query, listing: Record<string, any>)
       'marketing',
       `New from ${l.business_name}`,
       `${l.title} is now available from a seller you follow.`,
+      { link: `listing:${l.id}` },
     );
 }
 

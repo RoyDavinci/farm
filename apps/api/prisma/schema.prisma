@@ -507,6 +507,8 @@ model Notification {
   title               String
   body                String
   booking_id          String?
+  /// Where tapping it leads, e.g. "booking:<id>", "planner:<plan id>", "drive", "sell:requests".
+  link                String?
   read_at             DateTime?           @db.Timestamptz(6)
   created_at          DateTime            @default(now()) @db.Timestamptz(6)
   notification_outbox NotificationOutbox?

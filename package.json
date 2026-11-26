@@ -17,6 +17,7 @@
     "db:seed": "npm run db:seed -w @ahia/api",
     "db:studio": "npm run db:studio -w @ahia/api -- --port 5555",
     "db:studio:test": "./deploy/studio.sh",
+    "logs:test": "./deploy/logs.sh",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test -w @ahia/api",
     "build": "npm run build -w @ahia/api && npm run build -w @ahia/admin",

@@ -1,6 +1,6 @@
 import PublicSellerInfo from '../PublicSellerInfo';
 import { money, type Listing } from '@ahia/shared';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useApp } from '../AppContext';
 import { useI18n } from '../i18n';
@@ -55,6 +55,12 @@ export default function ListingDetail({
   const own = selected.seller_id === me.id;
   const minimum = selectedVariant?.min_quantity || 1;
   const unit = selectedVariant?.unit || selected.unit;
+  // Every photo, main (first) photo first; older listings may only have image_url.
+  const photos: string[] = selected.image_urls?.length
+    ? selected.image_urls
+    : selected.image_url
+      ? [selected.image_url]
+      : [];
   const qty = Number(quantity);
   // Why ordering is blocked, shown under the buttons instead of a silently greyed-out button.
   const blocked = own
@@ -85,32 +91,20 @@ export default function ListingDetail({
       <Text style={s.small}>
         {(selected.condition || 'NEW').toLowerCase()} · {selected.category}
       </Text>
-      <View style={s.detailHero}>
-        {selected.image_url ? (
-          <Image
-            source={{ uri: selected.image_url }}
-            accessibilityLabel={selected.title}
-            style={{ width: '100%', height: 220, borderRadius: 10 }}
-            resizeMode="cover"
-          />
-        ) : (
+      {photos.length ? (
+        <View style={{ gap: 6 }}>
+          <Gallery images={photos} title={selected.title} />
+          {(selected as any).representative_photo && (
+            <Text style={s.small}>
+              Representative photo · the seller’s item may differ slightly
+            </Text>
+          )}
+        </View>
+      ) : (
+        <View style={s.detailHero}>
           <Text style={s.detailEmoji}>{produceIcon(selected.category)}</Text>
-        )}
-        {(selected as any).representative_photo && (
-          <Text style={s.small}>Representative photo · the seller’s item may differ slightly</Text>
-        )}
-        <Text style={s.eyebrow}>{selected.category.toUpperCase()} · AVAILABLE LOCALLY</Text>
-      </View>
-      {selected.image_urls && selected.image_urls.length > 1 && (
-        <ScrollView horizontal contentContainerStyle={{ gap: 10 }}>
-          {selected.image_urls.map((url) => (
-            <Image
-              key={url}
-              source={{ uri: url }}
-              style={{ width: 180, height: 150, borderRadius: 10 }}
-            />
-          ))}
-        </ScrollView>
+          <Text style={s.eyebrow}>{selected.category.toUpperCase()} · AVAILABLE LOCALLY</Text>
+        </View>
       )}
       <Text style={s.heading}>{selected.title}</Text>
       <Text style={s.small}>
@@ -360,4 +354,130 @@ const styles = StyleSheet.create({
     padding: 10,
     fontWeight: '600',
   },
+});
+
+/**
+ * The product's photos: one large photo (the main one first), swiped or picked from the
+ * thumbnails underneath, with a "2 / 6" counter. Arrows help on a computer.
+ */
+function Gallery({ images, title }: { images: string[]; title: string }) {
+  const [index, setIndex] = useState(0),
+    [width, setWidth] = useState(0);
+  const pager = useRef<{ scrollTo: (o: { x: number; animated: boolean }) => void } | null>(null);
+  const go = (i: number) => {
+    const next = Math.max(0, Math.min(images.length - 1, i));
+    setIndex(next);
+    pager.current?.scrollTo({ x: next * width, animated: true });
+  };
+  const many = images.length > 1;
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={g.frame} onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}>
+        {width > 0 && (
+          <ScrollView
+            ref={pager as any}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={32}
+            onScroll={(e) => {
+              const i = Math.round(e.nativeEvent.contentOffset.x / width);
+              if (i !== index && i >= 0 && i < images.length) setIndex(i);
+            }}
+          >
+            {images.map((url, i) => (
+              <Image
+                key={url}
+                source={{ uri: url }}
+                accessibilityLabel={`${title}, photo ${i + 1} of ${images.length}`}
+                style={{ width, height: 300 }}
+                resizeMode="cover"
+              />
+            ))}
+          </ScrollView>
+        )}
+        {many && (
+          <>
+            <Text style={g.counter}>
+              {index + 1} / {images.length}
+            </Text>
+            {index > 0 && (
+              <Pressable
+                accessibilityLabel="Previous photo"
+                style={[g.arrow, { left: 10 }]}
+                onPress={() => go(index - 1)}
+              >
+                <Text style={g.arrowText}>‹</Text>
+              </Pressable>
+            )}
+            {index < images.length - 1 && (
+              <Pressable
+                accessibilityLabel="Next photo"
+                style={[g.arrow, { right: 10 }]}
+                onPress={() => go(index + 1)}
+              >
+                <Text style={g.arrowText}>›</Text>
+              </Pressable>
+            )}
+          </>
+        )}
+      </View>
+      {many && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8 }}
+        >
+          {images.map((url, i) => (
+            <Pressable
+              key={url}
+              accessibilityRole="button"
+              accessibilityLabel={`Show photo ${i + 1}`}
+              accessibilityState={{ selected: i === index }}
+              onPress={() => go(i)}
+            >
+              <Image source={{ uri: url }} style={[g.thumb, i === index && g.thumbOn]} />
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
+const g = StyleSheet.create({
+  frame: {
+    width: '100%',
+    height: 300,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#eef6f1',
+  },
+  counter: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  arrow: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  arrowText: { fontSize: 26, fontWeight: '700', color: '#184730', marginTop: -3 },
+  thumb: { width: 64, height: 64, borderRadius: 10, opacity: 0.65 },
+  thumbOn: { opacity: 1, borderWidth: 3, borderColor: '#1f754a' },
 });

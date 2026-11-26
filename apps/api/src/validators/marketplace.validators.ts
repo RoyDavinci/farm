@@ -27,7 +27,7 @@ export const listingSchema = z.object({
   stock: z.number().int().min(0).max(100000),
   status: z.enum(['ACTIVE', 'PAUSED']).default('ACTIVE'),
   image_url: z.url().max(2000).nullable().optional(),
-  image_urls: z.array(z.url().max(2000)).max(6).optional(),
+  image_urls: z.array(z.url().max(2000)).max(10).optional(),
   variants: z.array(variantSchema).min(1).max(20).optional(),
   // Pre-orders: buyers may book up to preorder_capacity units before the harvest date.
   available_from: z.iso.datetime({ offset: true }).nullable().optional(),

@@ -150,6 +150,7 @@ export async function dealsSweep(db: Database) {
         'price_alert',
         onSale ? `On sale: ${w.label}` : `Price drop: ${w.label}`,
         `${low.title} is now ${naira(price)} at ${low.business_name} (was ${naira(onSale && low.was_price_kobo ? Number(low.was_price_kobo) : w.baseline_kobo)})${onSale ? ` until ${new Date(low.sale_until).toLocaleDateString('en-NG')}` : ''}.`,
+        { link: `listing:${low.id}` },
       );
       await q.query(
         'UPDATE price_watches SET baseline_kobo=$1,last_notified_at=now() WHERE id=$2',
@@ -340,6 +341,7 @@ export async function alertRequestsForListing(q: Query, listing: any) {
       'request',
       m.title,
       `${m.body}You just listed “${listing.title}”. Open Sell → Buyer requests to quote.`,
+      { link: 'sell:requests' },
     );
     await notify(
       q,
@@ -347,6 +349,7 @@ export async function alertRequestsForListing(q: Query, listing: any) {
       'request',
       `Now on Ahia: ${listing.title}`.slice(0, 120),
       `${r.business_name} just listed something that matches your request “${r.text}”. We've asked them to quote; you'll see it in Account → Price alerts & requests.`,
+      { link: 'account:requests' },
     );
     if (++alerted >= 20) break;
   }
@@ -634,6 +637,7 @@ export function createDealsService(deps: AppDeps) {
         'request',
         message.title,
         `${message.body}${x.distance_km != null ? `About ${Math.max(1, Math.round(x.distance_km))} km from you. ` : ''}Open Sell → Buyer requests to quote.`,
+        { link: 'sell:requests' },
       );
     }
     return {
@@ -733,6 +737,7 @@ export function createDealsService(deps: AppDeps) {
       'request',
       `${s.business_name} has what you asked for`,
       `“${r.text}”: ${l.title} for ${naira(d.price_kobo ?? Number(l.price_kobo))}${d.price_kobo ? ' each (quoted for you)' : ''}${d.quantity ? `, up to ${d.quantity} available` : ''}. See it in Account → Price alerts & requests.`,
+      { link: 'account:requests' },
     );
     return { id: o.id };
   }

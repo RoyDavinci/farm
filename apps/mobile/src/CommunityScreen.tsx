@@ -10,12 +10,15 @@ export default function CommunityScreen({
   initialConversation,
   onBooking,
   onShopping,
+  onLink,
   initialSection = 'messages',
 }: {
   user: any;
   initialConversation?: string | null;
   onBooking: (bookingId: string) => void;
   onShopping: () => void;
+  /** Opens where a notification came from (its stored link). */
+  onLink: (link: string) => void;
   initialSection?: 'messages' | 'updates';
 }) {
   const { settings } = useApp();
@@ -132,10 +135,12 @@ export default function CommunityScreen({
               onPress={() =>
                 void run(async () => {
                   await request('post', '/notifications/read', { body: { id: n.id } });
-                  if (n.kind === 'shopping') onShopping();
+                  // Every notification opens where it came from.
+                  if (n.link === 'messages' || (!n.link && n.kind === 'message'))
+                    setSection('messages');
+                  else if (n.link) onLink(n.link);
+                  else if (n.kind === 'shopping') onShopping();
                   else if (n.booking_id) onBooking(n.booking_id);
-                  // Only chat notifications open Messages; others are just marked read.
-                  else if (n.kind === 'message') setSection('messages');
                 })
               }
             >

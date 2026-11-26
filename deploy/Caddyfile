@@ -3,6 +3,20 @@
 {$API_HOSTS} {
 	encode gzip
 	reverse_proxy api:4000
+	# One line per request reaching the front door, so a phone whose requests never make it to
+	# the API can still be traced (time, status, user agent). Query strings (search terms,
+	# signed links) and the device id are dropped; Caddy already redacts Authorization.
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp \?.*$ ""
+				request>headers>X-Device-Id delete
+				request>headers>Idempotency-Key delete
+			}
+		}
+	}
 }
 
 {$ADMIN_HOSTS} {

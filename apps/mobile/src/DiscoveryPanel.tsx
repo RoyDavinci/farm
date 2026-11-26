@@ -29,7 +29,10 @@ export default function DiscoveryPanel({
   refreshVersion,
   category,
   onCategory: setCategory,
+  initialTool = '',
 }: {
+  /** Open one of the "New on Ahia" panels straight away (from a notification). */
+  initialTool?: '' | 'groups';
   refreshVersion: number;
   name: string;
   onSelect: (l: Listing) => void;
@@ -39,6 +42,13 @@ export default function DiscoveryPanel({
 }) {
   const { settings, setTab, openSeller, run, scrollToView } = useApp();
   const resultsRef = useRef<View>(null);
+  const toolsRef = useRef<View>(null);
+  // Opened from a notification: bring the panel into view once the page has laid out.
+  useEffect(() => {
+    if (!initialTool) return;
+    const t = setTimeout(() => scrollToView(toolsRef.current), 700);
+    return () => clearTimeout(t);
+  }, []);
   const [featured, setFeatured] = useState<any[]>([]),
     [ads, setAds] = useState<any[]>([]),
     [adPage, setAdPage] = useState(0),
@@ -49,7 +59,7 @@ export default function DiscoveryPanel({
     [market, setMarket] = useState(''),
     [markets, setMarkets] = useState<any[]>([]),
     [point, setPoint] = useState<{ latitude: number; longitude: number } | null>(null),
-    [tool, setTool] = useState<'' | 'errand' | 'request' | 'offers' | 'groups'>(''),
+    [tool, setTool] = useState<'' | 'errand' | 'request' | 'offers' | 'groups'>(initialTool),
     [radius, setRadius] = useState('25'),
     [sort, setSort] = useState('recent'),
     [min, setMin] = useState(''),
@@ -406,7 +416,7 @@ export default function DiscoveryPanel({
         </View>
       )}
 
-      <View style={s.sectionHead}>
+      <View style={s.sectionHead} ref={toolsRef as any}>
         <Text style={s.sectionTitle}>✨ New on Ahia</Text>
         <Text style={s.small}>Shop smarter</Text>
       </View>

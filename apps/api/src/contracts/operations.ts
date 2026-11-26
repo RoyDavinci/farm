@@ -363,6 +363,7 @@ export const operationResponses: Record<string, z.ZodType> = {
       user: z.looseObject({ id: z.string(), name: z.string(), phone: z.string() }),
     }),
   ]),
+  'auth.clientReport': z.object({ ok: z.literal(true) }),
   'auth.biometricSignIn': z.looseObject({
     expires_in: z.number(),
     refresh_token: z.string(),
@@ -528,6 +529,8 @@ export const operationResponses: Record<string, z.ZodType> = {
       created_at: z.string(),
       id: z.string(),
       kind: z.string(),
+      /** Where tapping it leads: "booking:<id>", "planner:<plan id>", "drive", "sell:requests"… */
+      link: z.string().nullable(),
       read_at: z.string().nullable(),
       title: z.string(),
       user_id: z.string(),

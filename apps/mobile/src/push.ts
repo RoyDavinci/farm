@@ -56,7 +56,9 @@ export async function unregisterPush() {
 }
 
 /** Calls back with the notification's data when the user taps one. */
-export function onNotificationTap(handler: (data: { kind?: string; booking_id?: string }) => void) {
+export function onNotificationTap(
+  handler: (data: { kind?: string; booking_id?: string; link?: string }) => void,
+) {
   if (Platform.OS === 'web') return () => {};
   const sub = Notifications.addNotificationResponseReceivedListener((response) =>
     handler((response.notification.request.content.data || {}) as any),

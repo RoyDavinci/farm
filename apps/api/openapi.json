@@ -11716,6 +11716,52 @@
         }
       }
     },
+    "/v1/auth/client-report": {
+      "post": {
+        "operationId": "auth.clientReport",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auth/login": {
       "post": {
         "operationId": "auth.login",
@@ -19201,7 +19247,7 @@
                     ]
                   },
                   "image_urls": {
-                    "maxItems": 6,
+                    "maxItems": 10,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -19564,7 +19610,7 @@
                     ]
                   },
                   "image_urls": {
-                    "maxItems": 6,
+                    "maxItems": 10,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -23419,6 +23465,12 @@
                       "kind": {
                         "type": "string"
                       },
+                      "link": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
                       "read_at": {
                         "type": [
                           "string",
@@ -23438,6 +23490,7 @@
                       "created_at",
                       "id",
                       "kind",
+                      "link",
                       "read_at",
                       "title",
                       "user_id"

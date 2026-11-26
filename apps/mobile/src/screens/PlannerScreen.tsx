@@ -66,14 +66,21 @@ const statusColor: Record<string, string> = {
 };
 
 /** My Planner: plans built from templates and recipes, linked to real products. No AI involved. */
-export default function PlannerScreen({ onCartChanged }: { onCartChanged: () => void }) {
+export default function PlannerScreen({
+  onCartChanged,
+  initialPlanId,
+}: {
+  onCartChanged: () => void;
+  /** Open this plan straight away (from a notification). */
+  initialPlanId?: string | null;
+}) {
   const [view, setView] = useState<
     | { name: 'list' }
     | { name: 'new'; template: string; prefill?: any; wizard?: boolean }
     | { name: 'plan'; id: string; fresh?: WizardResult }
     | { name: 'edit'; plan: any }
     | { name: 'diet' }
-  >({ name: 'list' });
+  >(initialPlanId ? { name: 'plan', id: initialPlanId } : { name: 'list' });
   if (view.name === 'edit')
     return (
       <PlanWizard

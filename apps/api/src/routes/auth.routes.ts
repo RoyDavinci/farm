@@ -12,5 +12,6 @@ export function authRoutes(deps: AppDeps) {
   r.post('/otp/verify', c.verifyCode);
   r.post('/refresh', c.refreshSession);
   r.post('/biometric', c.biometricSignIn);
+  r.post('/client-report', c.clientReport);
   return r;
 }

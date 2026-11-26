@@ -12,6 +12,7 @@ import {
 import { z } from 'zod';
 import type { Query } from '../database/client.js';
 import { ensure } from '../lib/errors.js';
+import { logger } from '../lib/logger.js';
 import { audit } from './audit.service.js';
 import type { RequestInput } from '../lib/http.js';
 import { mailer } from '../lib/mail.js';
@@ -549,6 +550,41 @@ export function createAuthService(deps: AppDeps) {
       };
     });
   }
+  /**
+   * The app couldn't reach Ahia (no response at all) and is telling us afterwards, once it can.
+   * Those requests leave no trace on the server otherwise, so this is how "it doesn't work on
+   * my phone" becomes something we can see: when, which call, the error the phone gave, and the
+   * device. Logged only; nothing personal is sent.
+   */
+  async function clientReport(input: RequestInput) {
+    const d = z
+      .object({
+        reports: z
+          .array(
+            z.object({
+              at: z.iso.datetime({ offset: true }),
+              method: z.string().max(10),
+              path: z.string().max(120),
+              error: z.string().max(200),
+              platform: z.string().max(40).optional(),
+              app_version: z.string().max(30).optional(),
+            }),
+          )
+          .min(1)
+          .max(10),
+      })
+      .parse(input.body);
+    for (const r of d.reports)
+      logger.warn('App could not reach Ahia', {
+        failedAt: r.at,
+        call: `${r.method} ${r.path.replace(/[?#].*$/, '')}`,
+        error: r.error,
+        platform: r.platform,
+        appVersion: r.app_version,
+        ua: String(input.header('User-Agent') ?? '').slice(0, 160),
+      });
+    return { ok: true as const };
+  }
   /** Rotates the refresh token; reuse of a consumed token revokes the session. */
   async function refreshSession(input: RequestInput) {
     const { refresh_token } = z
@@ -657,6 +693,7 @@ export function createAuthService(deps: AppDeps) {
     addLoginKey,
     removeLoginKey,
     biometricSignIn,
+    clientReport,
     listSignInCodes,
     issueSignInCode,
   };

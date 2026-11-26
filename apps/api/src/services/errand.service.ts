@@ -647,7 +647,7 @@ async function joinErrandTrip(q: Query, b: any) {
       'delivery',
       'Extra pickup on your trip',
       `${b.title}: one more shop for the same customer, on the same trip (+₦${Math.round(fare / 100).toLocaleString()}).`,
-      b.id,
+      { booking: b.id, link: 'drive' },
     );
   }
 }

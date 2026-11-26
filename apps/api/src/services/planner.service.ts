@@ -19,11 +19,8 @@ import {
 } from '../config/recipes.js';
 import { unitPrice } from './catalog.service.js';
 import { plannerContent, type PlannerContent } from './planner-content.service.js';
-import {
-  createPlannerWizardService,
-  scheduleItems,
-  wizardAnswers,
-} from './planner-wizard.service.js';
+import { createPlannerWizardService, scheduleItems } from './planner-wizard.service.js';
+import { wizardAnswers } from '../validators/planner.validators.js';
 import { answersFromRequest, wizardFor } from '../config/planner-wizards.js';
 import { activePromotion } from './promotions.service.js';
 import { notify } from './communications.service.js';
@@ -706,6 +703,7 @@ export function createPlannerService(deps: AppDeps) {
             'planner',
             `You’re buying ${item.name}`,
             `${user.name} asked you to cover “${item.name}” for “${plan.title}”.`,
+            { link: `planner:${plan.id}` },
           );
       }
     }
@@ -1116,6 +1114,7 @@ export function createPlannerService(deps: AppDeps) {
       'plan',
       'A plan was shared with you',
       `${user.name} shared “${plan.title}” with you${d.role === 'EDITOR' ? ' to edit together' : ''}. Open My Planner to see it.`,
+      { link: `planner:${plan.id}` },
     );
     return { ok: true, name: invitee.name as string };
   }

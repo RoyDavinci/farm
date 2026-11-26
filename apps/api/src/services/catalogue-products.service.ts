@@ -444,6 +444,7 @@ export function createCatalogueProductsService(deps: AppDeps) {
       'listing',
       'We added a photo to your product',
       `“${l.title}” had no photo, so we added a representative one. Replace it with your own photo any time.`,
+      { link: 'sell' },
     );
     await audit(q, user.id, 'listing.library_photo', l.id, { photo_id: photo.id });
   }

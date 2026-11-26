@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import {
   activateCacheAccount,
@@ -178,6 +179,57 @@ async function renew(expectedEpoch: number) {
  * accounts on one phone (fraud checks). It identifies the install, nothing about the person.
  */
 let installId: Promise<string> | null = null;
+// ---- Reporting requests that got no reply ---------------------------------------------------
+// A request that never reaches Ahia leaves no trace on the server. The app keeps a short note
+// of each one (when, which call, the error the phone gave) and sends the notes the next time it
+// does get through, so "it doesn't work on my phone" can be traced. Nothing personal is kept.
+const FAILURES_KEY = 'ahia-unreached';
+type Unreached = { at: string; method: string; path: string; error: string };
+async function noteUnreached(method: string, path: string, error: unknown) {
+  try {
+    const list: Unreached[] = JSON.parse((await AsyncStorage.getItem(FAILURES_KEY)) || '[]');
+    list.push({
+      at: new Date().toISOString(),
+      method,
+      path: path.replace(/[?#].*$/, '').slice(0, 120),
+      error:
+        `${(error as Error)?.name || 'Error'}: ${(error as Error)?.message || String(error)}`.slice(
+          0,
+          200,
+        ),
+    });
+    await AsyncStorage.setItem(FAILURES_KEY, JSON.stringify(list.slice(-10)));
+  } catch {
+    // Storage unavailable: nothing to report later.
+  }
+}
+let reporting = false;
+async function reportUnreached() {
+  if (reporting) return;
+  reporting = true;
+  try {
+    const raw = await AsyncStorage.getItem(FAILURES_KEY);
+    const reports: Unreached[] = raw ? JSON.parse(raw) : [];
+    if (!reports.length) return;
+    const res = await fetch(`${API_URL}/auth/client-report`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reports: reports.map((r) => ({
+          ...r,
+          platform: `${Platform.OS} ${Platform.Version}`.slice(0, 40),
+          app_version: String(Constants.expoConfig?.version ?? '').slice(0, 30) || undefined,
+        })),
+      }),
+    });
+    if (res.ok || res.status === 400) await AsyncStorage.removeItem(FAILURES_KEY);
+  } catch {
+    // Still unreachable: try again after the next successful request.
+  } finally {
+    reporting = false;
+  }
+}
+
 function deviceId() {
   installId ??= AsyncStorage.getItem('fm-install-id')
     .then(async (v) => {
@@ -269,15 +321,19 @@ export async function api<T = any>(
     } catch (error) {
       if (error instanceof SessionChangedError || requestEpoch !== sessionEpoch) throw error;
       setOffline(true);
+      void noteUnreached(method.toUpperCase(), path, error);
       // Offline: show the last saved copy of read-only screens instead of an error.
       if (method === 'GET' && cacheable(path)) {
         const cached = await recall<T>(path, requestScope);
         if (cached !== null) return cached;
       }
-      throw new Error('Cannot reach Ahia. Please check your connection.');
+      // The phone's own reason, shown small, so a tester can send it to us.
+      const why = (error as Error)?.message ? ` (${(error as Error).message.slice(0, 80)})` : '';
+      throw new Error(`Cannot reach Ahia. Please check your connection.${why}`);
     }
   }
   setOffline(false);
+  void reportUnreached();
   const d = await response.json();
   const code = d?.error?.code;
   if (!response.ok && actingSeller && (code === 'NOT_ON_TEAM' || code === 'TEAM_PLAN_REQUIRED')) {

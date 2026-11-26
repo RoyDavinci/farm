@@ -73,6 +73,20 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 }
 
 /** Header balance: full naira under ₦100k, then ₦125k / ₦1.2m so it fits next to the icons. */
+/** Where a push notification without a stored link leads (sent before links existed). */
+function linkForKind(kind: string) {
+  const byKind: Record<string, string> = {
+    planner: 'planner',
+    plan: 'planner',
+    message: 'messages',
+    shopping: 'riders',
+    payment: 'wallet',
+    payout: 'wallet',
+    group_buy: 'home:groups',
+    request: 'account:requests',
+  };
+  return byKind[kind] || null;
+}
 function shortMoney(kobo: number) {
   const n = kobo / 100;
   if (n >= 1_000_000)
@@ -121,6 +135,9 @@ function Main() {
     [cartCount, setCartCount] = useState(0),
     [unread, setUnread] = useState({ updates: 0, messages: 0 }),
     [inboxSection, setInboxSection] = useState<'messages' | 'updates'>('messages'),
+    // Set when a notification opens a particular plan, or the Group buys panel on Home.
+    [plannerFocus, setPlannerFocus] = useState<string | null>(null),
+    [marketTool, setMarketTool] = useState<'' | 'groups'>(''),
     // The order a notification opened; Orders shows it first, on its tab.
     [focusBooking, setFocusBooking] = useState<string | null>(null);
   const refreshUnread = useCallback(() => {
@@ -225,20 +242,55 @@ function Main() {
     setLinkedSeller(null);
     if (Platform.OS === 'web') window.history.replaceState(null, '', window.location.pathname);
   }, [me?.id, linkedSeller]);
+  /**
+   * Opens where a notification came from. Links: "booking:<id>", "planner" or "planner:<plan id>",
+   * "messages", "riders", "drive", "wallet", "sell" / "sell:requests", "account" /
+   * "account:requests", "business", "orders", "home" / "home:groups", "listing:<id>".
+   */
+  const openLink = (link: string | null | undefined) => {
+    if (!link) return;
+    const [where, id] = link.split(/:(.*)/s);
+    setSelected(null);
+    setEditing(null);
+    setHistory(null);
+    setShop(null);
+    if (where === 'booking' && id) {
+      setFocusBooking(id);
+      changeTab('Bookings');
+    } else if (where === 'planner') {
+      changeTab('Planner');
+      setPlannerFocus(id || null);
+    } else if (where === 'messages') {
+      setInboxSection('messages');
+      changeTab('Inbox');
+    } else if (where === 'listing' && id)
+      void request('get', '/listings/{id}', { params: { id } })
+        .then((l) => ctx.openListing(l as Listing))
+        .catch(() => changeTab('Market'));
+    else if (where === 'home') {
+      setMarketTool(id === 'groups' ? 'groups' : '');
+      changeTab('Market');
+    } else {
+      const tabs: Record<string, Tab> = {
+        riders: 'Riders',
+        drive: 'Drive',
+        wallet: 'Wallet',
+        sell: 'Sell',
+        account: 'Account',
+        business: 'Business',
+        orders: 'Bookings',
+      };
+      changeTab(tabs[where] || 'Inbox');
+    }
+  };
   useEffect(() => {
     if (!me) return;
     void registerForPush();
     return onNotificationTap((data) => {
-      setSelected(null);
-      setEditing(null);
-      setHistory(null);
-      if (data.kind === 'shopping') setTab('Riders');
-      else if (data.kind === 'message') setTab('Inbox');
-      else if (data.kind === 'payout') setTab('Wallet');
-      else if (data.booking_id) {
-        setFocusBooking(String(data.booking_id));
-        setTab('Bookings');
-      }
+      openLink(
+        data.link ||
+          (data.booking_id ? `booking:${data.booking_id}` : linkForKind(String(data.kind || ''))),
+      );
       void refresh();
     });
   }, [me?.id, refresh]);
@@ -270,6 +322,9 @@ function Main() {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
     if (t === 'Inbox') setConversationId(null);
     if (t !== 'Inbox') setInboxSection('messages');
+    // A notification's focus applies once; normal navigation starts fresh.
+    setPlannerFocus(null);
+    setMarketTool('');
     setFocusBooking(null);
     setTab(t);
     setSelected(null);
@@ -378,11 +433,14 @@ function Main() {
           setFocusBooking(id);
         }}
         onShopping={() => changeTab('Riders')}
+        onLink={openLink}
       />
     );
   else if (tab === 'Market')
     screen = (
       <DiscoveryPanel
+        key={marketTool || 'home'}
+        initialTool={marketTool}
         refreshVersion={marketRefresh}
         name={me.name}
         onSelect={ctx.openListing}
@@ -421,7 +479,14 @@ function Main() {
   else if (tab === 'Cart') screen = <CartScreen onChanged={refreshCart} />;
   else if (tab === 'Nearby') screen = <NearbySellersScreen />;
   else if (tab === 'Business') screen = <BusinessHubScreen />;
-  else if (tab === 'Planner') screen = <PlannerScreen onCartChanged={refreshCart} />;
+  else if (tab === 'Planner')
+    screen = (
+      <PlannerScreen
+        key={plannerFocus || 'list'}
+        onCartChanged={refreshCart}
+        initialPlanId={plannerFocus}
+      />
+    );
   else
     screen = (
       <AccountScreen

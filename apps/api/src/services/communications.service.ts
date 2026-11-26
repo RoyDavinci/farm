@@ -11,18 +11,53 @@ import { mailer } from '../lib/mail.js';
 import { notificationEmail } from '../lib/email-templates.js';
 import type { AppDeps } from '../types/deps.js';
 import { audit } from './audit.service.js';
+/** Where a notification of each kind leads when it isn't about one order. */
+const KIND_LINK: Record<string, string> = {
+  planner: 'planner',
+  plan: 'planner',
+  report: 'planner',
+  message: 'messages',
+  shopping: 'riders',
+  delivery: 'riders',
+  payment: 'wallet',
+  payout: 'wallet',
+  group_buy: 'home:groups',
+  request: 'account:requests',
+  price_alert: 'account:requests',
+  stock: 'account:requests',
+  promotion: 'sell',
+  rfq: 'sell',
+  listing: 'sell',
+  team: 'business',
+  security: 'account',
+  verification: 'account',
+  subscription: 'account',
+  dispute: 'orders',
+  local_digest: 'home',
+  marketing: 'home',
+};
+
+/**
+ * Sends a notification. `target` is the order it's about (its id), or `{ booking, link }` when
+ * it should open somewhere specific: "planner:<plan id>", "drive", "sell:requests",
+ * "listing:<id>"… Without a link it opens its order, else the usual place for its kind.
+ */
 export async function notify(
   q: Query,
   user: string,
   kind: string,
   title: string,
   body: string,
-  booking?: string,
+  target?: string | { booking?: string | null; link?: string },
 ) {
+  const booking = (typeof target === 'string' ? target : target?.booking) || null;
+  const link =
+    (typeof target === 'object' && target?.link) ||
+    (booking ? `booking:${booking}` : KIND_LINK[kind] || null);
   const nid = randomUUID();
   await q.query(
-    'INSERT INTO notifications(id,user_id,kind,title,body,booking_id) VALUES($1,$2,$3,$4,$5,$6)',
-    [nid, user, kind, title, body, booking || null],
+    'INSERT INTO notifications(id,user_id,kind,title,body,booking_id,link) VALUES($1,$2,$3,$4,$5,$6,$7)',
+    [nid, user, kind, title, body, booking, link],
   );
   await q.query('INSERT INTO notification_outbox(id,notification_id) VALUES($1,$2)', [
     randomUUID(),
